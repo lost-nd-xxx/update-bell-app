@@ -14,7 +14,13 @@ import Header from './components/Header'
 const App: React.FC = () => {
   const { settings, updateSettings } = useSettings()
   const [theme, setTheme] = useTheme()
-  const { reminders, addReminder, updateReminder, deleteReminder } = useReminders()
+  const { 
+    reminders, 
+    addReminder, 
+    updateReminder, 
+    deleteReminder,
+    bulkUpdateReminders 
+  } = useReminders()
   const { timezoneChanged, handleTimezoneChange, dismissTimezoneChange } = useTimezone(reminders, updateReminder)
   
   const [appState, setAppState] = useState<AppState>({
@@ -32,6 +38,9 @@ const App: React.FC = () => {
     isLoading: false,
     error: null
   })
+
+  // 統計情報の表示状態
+  const [statsExpanded, setStatsExpanded] = useState(false)
 
   // Service Worker初期化とデータ同期
   useEffect(() => {
@@ -91,6 +100,20 @@ const App: React.FC = () => {
       currentView: view,
       editingReminder: editingReminder || null
     }))
+    // 設定画面に移動する際は統計を閉じる
+    if (view === 'settings') {
+      setStatsExpanded(false)
+    }
+  }
+
+  const handleStatsToggle = () => {
+    setStatsExpanded(!statsExpanded)
+  }
+
+  const handleTitleClick = () => {
+    if (appState.currentView !== 'dashboard') {
+      handleViewChange('dashboard')
+    }
   }
 
   const handleReminderSave = (reminderData: Omit<Reminder, 'id' | 'createdAt' | 'timezone'>) => {
@@ -116,12 +139,75 @@ const App: React.FC = () => {
     }))
   }
 
+  // テーマインポート機能の追加
+  const handleImportTheme = (importedTheme: 'light' | 'dark' | 'system') => {
+    setTheme(importedTheme)
+  }
+  // インポート機能の追加
+  const handleImportReminders = (importedReminders: Reminder[]) => {
+    try {
+      // 既存のリマインダーとインポートされたリマインダーをマージ
+      const existingUrls = new Set(reminders.map(r => r.url))
+      const newReminders: Reminder[] = []
+      const updates: Array<{ id: string; data: Partial<Reminder> }> = []
+      
+      importedReminders.forEach(imported => {
+        const existing = reminders.find(r => r.url === imported.url)
+        
+        if (existing) {
+          // 既存のリマインダーを更新
+          updates.push({
+            id: existing.id,
+            data: {
+              ...imported,
+              id: existing.id, // IDは保持
+              createdAt: existing.createdAt // 作成日時も保持
+            }
+          })
+        } else {
+          // 新しいリマインダーとして追加
+          newReminders.push({
+            ...imported,
+            id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+            createdAt: new Date().toISOString(),
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          })
+        }
+      })
+      
+      // 一括更新
+      if (updates.length > 0) {
+        bulkUpdateReminders(updates)
+      }
+      
+      // 新規追加
+      newReminders.forEach(reminder => {
+        const { id, createdAt, timezone, ...reminderData } = reminder
+        addReminder(reminderData)
+      })
+      
+      console.log(`インポート完了: ${updates.length}件更新, ${newReminders.length}件追加`)
+      
+    } catch (error) {
+      console.error('リマインダーインポートに失敗:', error)
+      throw error
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors scroll-stable">
       {/* ヘッダー */}
       <Header 
-        onSettingsClick={() => handleViewChange('settings')}
+        onSettingsClick={() => 
+          appState.currentView === 'settings' 
+            ? handleViewChange('dashboard') 
+            : handleViewChange('settings')
+        }
+        onStatsClick={handleStatsToggle}
+        onTitleClick={handleTitleClick}
         notificationsEnabled={settings.notifications.enabled}
+        statsExpanded={statsExpanded}
+        isSettingsView={appState.currentView === 'settings'}
       />
 
       {/* タイムゾーン変更ダイアログ */}
@@ -151,6 +237,7 @@ const App: React.FC = () => {
               pausedAt: isPaused ? new Date().toISOString() : null
             })}
             onCreateNew={() => handleViewChange('create')}
+            statsExpanded={statsExpanded}
           />
         )}
 
@@ -170,6 +257,8 @@ const App: React.FC = () => {
             updateSettings={updateSettings}
             reminders={reminders}
             onBack={() => handleViewChange('dashboard')}
+            onImportReminders={handleImportReminders}
+            onImportTheme={handleImportTheme}
           />
         )}
       </main>

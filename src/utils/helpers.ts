@@ -53,11 +53,34 @@ export const calculateNextNotificationTime = (schedule: Schedule, baseDate: Date
         adjustForDateFilter(nextDate, schedule.dateFilter, schedule.interval)
       }
       break
+
+    case 'interval':
+      // 特定の日数ごと
+      nextDate.setDate(baseDate.getDate() + schedule.interval)
+      break
       
     case 'weekly':
       const daysUntilTarget = (schedule.dayOfWeek! - baseDate.getDay() + 7) % 7
       const weeklyDaysToAdd = daysUntilTarget === 0 ? 7 * schedule.interval : daysUntilTarget
       nextDate.setDate(baseDate.getDate() + weeklyDaysToAdd)
+      break
+
+    case 'specific_days':
+      // 特定の曜日（複数選択）- 次に来る曜日を見つける
+      if (schedule.selectedDays && schedule.selectedDays.length > 0) {
+        const today = baseDate.getDay()
+        let nextDay = schedule.selectedDays.find(day => day > today)
+        
+        if (nextDay === undefined) {
+          // 今週に該当する曜日がない場合は来週の最初の曜日
+          nextDay = schedule.selectedDays[0]
+          const daysToAdd = (nextDay - today + 7) % 7 || 7
+          nextDate.setDate(baseDate.getDate() + daysToAdd)
+        } else {
+          // 今週の該当する曜日
+          nextDate.setDate(baseDate.getDate() + (nextDay - today))
+        }
+      }
       break
       
     case 'monthly':
@@ -125,16 +148,29 @@ export const getWeekName = (weekOfMonth: number): string => {
 export const generateScheduleDescription = (schedule: Schedule): string => {
   switch (schedule.type) {
     case 'daily':
-      let desc = schedule.interval === 1 ? '毎日' : `${schedule.interval}日ごと`
+      let desc = '毎日'
       if (schedule.dateFilter === 'weekdays') desc += '（平日のみ）'
       if (schedule.dateFilter === 'weekends') desc += '（週末のみ）'
       desc += ` ${formatTime(schedule.hour, schedule.minute)}`
       return desc
+
+    case 'interval':
+      return `${schedule.interval}日ごと ${formatTime(schedule.hour, schedule.minute)}`
       
     case 'weekly':
       const dayName = getDayName(schedule.dayOfWeek!)
       const weekInterval = schedule.interval === 1 ? '毎週' : `${schedule.interval}週間ごと`
       return `${weekInterval}${dayName}曜日 ${formatTime(schedule.hour, schedule.minute)}`
+
+    case 'specific_days':
+      if (schedule.selectedDays && schedule.selectedDays.length > 0) {
+        const dayNames = schedule.selectedDays
+          .sort()
+          .map(day => getDayName(day))
+          .join('・')
+        return `毎週${dayNames}曜日 ${formatTime(schedule.hour, schedule.minute)}`
+      }
+      return `特定の曜日 ${formatTime(schedule.hour, schedule.minute)}`
       
     case 'monthly':
       const weekName = getWeekName(schedule.weekOfMonth!)

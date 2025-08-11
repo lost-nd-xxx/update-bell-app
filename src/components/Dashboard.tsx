@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react'
-import { Search, Bell, SortAsc, SortDesc } from 'lucide-react'
+import { Search, Bell, SortAsc, SortDesc, BarChart3 } from 'lucide-react'
 import { Reminder, AppState } from '../types'
 import ReminderCard from './ReminderCard'
 import TagFilter from './TagFilter'
-import { generateScheduleDescription } from '../utils/helpers'
 
 interface DashboardProps {
   reminders: Reminder[]
@@ -15,6 +14,7 @@ interface DashboardProps {
   onDelete: (id: string) => void
   onTogglePause: (id: string, isPaused: boolean) => void
   onCreateNew: () => void
+  statsExpanded: boolean
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -26,7 +26,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   onEdit,
   onDelete,
   onTogglePause,
-  onCreateNew
+  onCreateNew,
+  statsExpanded
 }) => {
   // フィルタリングとソート処理
   const filteredAndSortedReminders = useMemo(() => {
@@ -91,43 +92,75 @@ const Dashboard: React.FC<DashboardProps> = ({
     onSortChange({ field })
   }
 
+  const stats = {
+    total: reminders.length,
+    active: reminders.filter(r => !r.isPaused).length,
+    paused: reminders.filter(r => r.isPaused).length,
+    tags: allTags.length
+  }
+
   return (
     <div className="space-y-6">
-      {/* 統計情報 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="card p-4">
-          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {reminders.length}
+      {/* ヘッダー制御の統計情報表示 */}
+      {statsExpanded && (
+        <div className="card p-6 animate-slide-up">
+          <div className="flex items-center gap-3 mb-4">
+            <BarChart3 className="text-blue-600 dark:text-blue-400" size={24} />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              統計情報
+            </h2>
           </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            総リマインダー数
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {stats.total}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                総リマインダー数
+              </div>
+            </div>
+            <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {stats.active}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                稼働中
+              </div>
+            </div>
+            <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                {stats.paused}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                一時停止中
+              </div>
+            </div>
+            <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                {stats.tags}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                タグ数
+              </div>
+            </div>
           </div>
         </div>
-        <div className="card p-4">
-          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {reminders.filter(r => !r.isPaused).length}
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            アクティブ
-          </div>
-        </div>
-        <div className="card p-4">
-          <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-            {reminders.filter(r => r.isPaused).length}
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            一時停止中
-          </div>
-        </div>
-        <div className="card p-4">
-          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-            {allTags.length}
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            タグ数
+      )}
+
+      {/* 通知についての説明 */}
+      {reminders.length > 0 && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <Bell className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" size={16} />
+            <div className="text-sm">
+              <p className="font-medium text-blue-800 dark:text-blue-300 mb-1">通知について</p>
+              <p className="text-blue-700 dark:text-blue-200">
+                「最終通知」は実際に通知が送信された時刻に更新されます。通知許可と定期チェックが有効になっている必要があります。
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* 検索・フィルター */}
       <div className="card p-6">
@@ -220,7 +253,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             {reminders.length === 0 && (
               <button
                 onClick={onCreateNew}
-                className="btn btn-primary"
+                className="btn btn-primary text-white"
               >
                 リマインダーを作成
               </button>

@@ -31,8 +31,9 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
       minute: 0,
       interval: 1,
       weekOfMonth: 1,
-      dateFilter: 'all' as DateFilterType
-    } as Schedule,
+      dateFilter: 'all' as DateFilterType,
+      selectedDays: [1] // 月曜日（複数曜日選択用）
+    } as Schedule & { selectedDays: number[] },
     tags: [] as string[],
     isPaused: false
   })
@@ -47,7 +48,13 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
       setFormData({
         title: editingReminder.title,
         url: editingReminder.url,
-        schedule: editingReminder.schedule,
+        schedule: {
+          ...editingReminder.schedule,
+          selectedDays: editingReminder.schedule.selectedDays || 
+                       (editingReminder.schedule.dayOfWeek !== undefined 
+                        ? [editingReminder.schedule.dayOfWeek] 
+                        : [1])
+        },
         tags: [...editingReminder.tags],
         isPaused: editingReminder.isPaused
       })
@@ -96,6 +103,11 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
     if (formData.schedule.interval < 1) {
       newErrors.interval = '間隔は1以上で入力してください'
     }
+
+    if (formData.schedule.type === 'specific_days' && 
+        (!formData.schedule.selectedDays || formData.schedule.selectedDays.length === 0)) {
+      newErrors.selectedDays = '曜日を1つ以上選択してください'
+    }
     
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -104,9 +116,19 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
   const handleSubmit = () => {
     if (!validateForm()) return
     
+    // selectedDaysを除外したscheduleを作成
+    const { selectedDays, ...cleanSchedule } = formData.schedule
+    
     const reminderData = {
       ...formData,
       url: normalizeUrl(formData.url),
+      schedule: {
+        ...cleanSchedule,
+        // specific_daysの場合はselectedDaysをscheduleに含める
+        ...(formData.schedule.type === 'specific_days' && {
+          selectedDays: formData.schedule.selectedDays
+        })
+      },
       lastNotified: editingReminder?.lastNotified || null,
       pausedAt: formData.isPaused ? (editingReminder?.pausedAt || new Date().toISOString()) : null
     }
@@ -148,6 +170,24 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
         handleSubmit()
       }
     }
+  }
+
+  const handleDayToggle = (day: number) => {
+    setFormData(prev => {
+      const newSelectedDays = prev.schedule.selectedDays.includes(day)
+        ? prev.schedule.selectedDays.filter(d => d !== day)
+        : [...prev.schedule.selectedDays, day].sort()
+      
+      return {
+        ...prev,
+        schedule: {
+          ...prev.schedule,
+          selectedDays: newSelectedDays,
+          // 最初に選択された曜日をdayOfWeekに設定
+          dayOfWeek: newSelectedDays[0] || 1
+        }
+      }
+    })
   }
 
   // プレビュー情報
@@ -221,45 +261,37 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
               className="input"
             >
               <option value="daily">毎日</option>
-              <option value="weekly">毎週</option>
-              <option value="monthly">毎月</option>
+              <option value="interval">数日ごと</option>
+              <option value="weekly">毎週○曜日</option>
+              <option value="specific_days">毎週☆曜日（複数）</option>
+              <option value="monthly">毎月第△週◇曜日</option>
             </select>
           </div>
 
-          {/* 詳細設定 - 毎日 */}
+          {/* 詳細設定 - 毎日（日付フィルター削除） */}
           {formData.schedule.type === 'daily' && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  間隔（日）
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="365"
-                  value={formData.schedule.interval}
-                  onChange={(e) => updateSchedule({ interval: parseInt(e.target.value) || 1 })}
-                  className={`input ${errors.interval ? 'border-red-500' : ''}`}
-                />
-                {errors.interval && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.interval}</p>
-                )}
-              </div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              毎日指定した時刻に通知されます。
+            </div>
+          )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  日付フィルター
-                </label>
-                <select
-                  value={formData.schedule.dateFilter || 'all'}
-                  onChange={(e) => updateSchedule({ dateFilter: e.target.value as DateFilterType })}
-                  className="input"
-                >
-                  <option value="all">すべての日</option>
-                  <option value="weekdays">平日のみ</option>
-                  <option value="weekends">週末のみ</option>
-                </select>
-              </div>
+          {/* 詳細設定 - 数日ごと */}
+          {formData.schedule.type === 'interval' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                間隔（日数）
+              </label>
+              <input
+                type="number"
+                min="2"
+                max="365"
+                value={formData.schedule.interval}
+                onChange={(e) => updateSchedule({ interval: parseInt(e.target.value) || 2 })}
+                className={`input ${errors.interval ? 'border-red-500' : ''}`}
+              />
+              {errors.interval && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.interval}</p>
+              )}
             </div>
           )}
 
@@ -301,6 +333,33 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
             </div>
           )}
 
+          {/* 詳細設定 - 特定の曜日（チェックボックス式） */}
+          {formData.schedule.type === 'specific_days' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                曜日を選択 *
+              </label>
+              <div className="grid grid-cols-7 gap-2">
+                {[0, 1, 2, 3, 4, 5, 6].map(day => (
+                  <label key={day} className="flex flex-col items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.schedule.selectedDays.includes(day)}
+                      onChange={() => handleDayToggle(day)}
+                      className="mb-1 rounded border-gray-300 dark:border-gray-600"
+                    />
+                    <span className="text-xs text-center text-gray-700 dark:text-gray-300">
+                      {getDayName(day)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {errors.selectedDays && (
+                <p className="mt-2 text-sm text-red-600 dark:text-red-400">{errors.selectedDays}</p>
+              )}
+            </div>
+          )}
+
           {/* 詳細設定 - 毎月 */}
           {formData.schedule.type === 'monthly' && (
             <div className="grid grid-cols-2 gap-4">
@@ -339,47 +398,47 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
             </div>
           )}
 
-          {/* 時刻設定 */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                時間
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="23"
-                value={formData.schedule.hour}
-                onChange={(e) => updateSchedule({ hour: parseInt(e.target.value) || 0 })}
-                className={`input ${errors.hour ? 'border-red-500' : ''}`}
-              />
-              {errors.hour && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.hour}</p>
-              )}
+          {/* 時刻設定 - 改善されたレイアウト */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              通知時刻
+            </label>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="23"
+                  value={formData.schedule.hour}
+                  onChange={(e) => updateSchedule({ hour: parseInt(e.target.value) || 0 })}
+                  className={`input w-20 text-center ${errors.hour ? 'border-red-500' : ''}`}
+                />
+                <span className="text-gray-600 dark:text-gray-400 font-medium">時</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={formData.schedule.minute}
+                  onChange={(e) => updateSchedule({ minute: parseInt(e.target.value) || 0 })}
+                  className={`input w-20 text-center ${errors.minute ? 'border-red-500' : ''}`}
+                />
+                <span className="text-gray-600 dark:text-gray-400 font-medium">分</span>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                分
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="59"
-                value={formData.schedule.minute}
-                onChange={(e) => updateSchedule({ minute: parseInt(e.target.value) || 0 })}
-                className={`input ${errors.minute ? 'border-red-500' : ''}`}
-              />
-              {errors.minute && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.minute}</p>
-              )}
-            </div>
+            {(errors.hour || errors.minute) && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                {errors.hour || errors.minute}
+              </p>
+            )}
           </div>
 
-          {/* スケジュールプレビュー */}
+          {/* 設定内容の確認 */}
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
               <Clock className="text-blue-600 dark:text-blue-400" size={16} />
-              <span className="font-medium text-blue-800 dark:text-blue-300">スケジュールプレビュー</span>
+              <span className="font-medium text-blue-800 dark:text-blue-300">設定内容の確認</span>
             </div>
             <p className="text-blue-700 dark:text-blue-300 text-sm">
               {scheduleDescription}
@@ -426,7 +485,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
             <button
               type="button"
               onClick={addTag}
-              className="btn btn-secondary"
+              className="btn btn-secondary text-white"
               disabled={!tagInput.trim()}
             >
               <Plus size={16} />
@@ -475,13 +534,13 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
         <div className="flex gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={handleSubmit}
-            className="btn btn-primary flex-1"
+            className="btn btn-primary flex-1 text-white"
           >
             {editingReminder ? '更新' : '作成'}
           </button>
           <button
             onClick={onCancel}
-            className="btn btn-secondary flex-1"
+            className="btn btn-secondary flex-1 text-white"
           >
             キャンセル
           </button>

@@ -28,7 +28,8 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
 
   const handleUrlClick = (e: React.MouseEvent) => {
     e.preventDefault()
-    window.open(reminder.url, '_blank', 'noopener,noreferrer')
+    // リファラーを送信しないように rel="noopener noreferrer nofollow" を設定
+    window.open(reminder.url, '_blank', 'noopener,noreferrer,nofollow')
   }
 
   return (
@@ -45,7 +46,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
               {reminder.title}
             </h3>
             {reminder.isPaused && (
-              <span className="tag tag-yellow">
+              <span className="tag tag-yellow text-yellow-800 dark:text-yellow-200">
                 一時停止中
               </span>
             )}
@@ -64,10 +65,10 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
         <div className="flex items-center gap-1 ml-4">
           <button
             onClick={() => onTogglePause(!reminder.isPaused)}
-            className={`p-2 rounded-lg transition-colors ${
+            className={`p-2 rounded-lg transition-colors border ${
               reminder.isPaused
-                ? 'text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20'
-                : 'text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
+                ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30'
+                : 'border-yellow-200 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-900/30'
             }`}
             title={reminder.isPaused ? '再開' : '一時停止'}
           >
@@ -76,7 +77,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
           
           <button
             onClick={onEdit}
-            className="p-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900/30 rounded-lg transition-colors"
             title="編集"
           >
             <Edit size={16} />
@@ -84,7 +85,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
           
           <button
             onClick={onDelete}
-            className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+            className="p-2 border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
             title="削除"
           >
             <Trash2 size={16} />
@@ -135,7 +136,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
             <Tag size={16} className="text-gray-400 flex-shrink-0" />
             <div className="flex gap-1 flex-wrap">
               {reminder.tags.map(tag => (
-                <span key={tag} className="tag tag-gray">
+                <span key={tag} className="tag tag-gray text-gray-800 dark:text-gray-200">
                   #{tag}
                 </span>
               ))}

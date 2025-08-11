@@ -10,7 +10,9 @@ import {
   Trash2, 
   Shield,
   Clock,
-  Info
+  Info,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react'
 import { AppSettings, Reminder, ExportData } from '../types'
 import { downloadFile, readFile, getErrorMessage } from '../utils/helpers'
@@ -22,6 +24,8 @@ interface SettingsProps {
   updateSettings: (updates: Partial<AppSettings>) => void
   reminders: Reminder[]
   onBack: () => void
+  onImportReminders?: (reminders: Reminder[]) => void // リマインダーインポート用コールバック
+  onImportTheme?: (theme: 'light' | 'dark' | 'system') => void // テーマインポート用コールバック
 }
 
 const Settings: React.FC<SettingsProps> = ({
@@ -30,9 +34,12 @@ const Settings: React.FC<SettingsProps> = ({
   settings,
   updateSettings,
   reminders,
-  onBack
+  onBack,
+  onImportReminders,
+  onImportTheme
 }) => {
   const [importStatus, setImportStatus] = useState<string>('')
+  const [importType, setImportType] = useState<'success' | 'error' | ''>('')
   const [isImporting, setIsImporting] = useState(false)
 
   const exportData = () => {
@@ -41,6 +48,7 @@ const Settings: React.FC<SettingsProps> = ({
       exportDate: new Date().toISOString(),
       reminders,
       settings,
+      theme, // テーマ設定も含める
       metadata: {
         userAgent: navigator.userAgent,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -49,6 +57,14 @@ const Settings: React.FC<SettingsProps> = ({
 
     const filename = `web-manga-reminders-${new Date().toISOString().split('T')[0]}.json`
     downloadFile(JSON.stringify(data, null, 2), filename)
+    
+    // エクスポート成功のフィードバック
+    setImportStatus('✅ データをエクスポートしました')
+    setImportType('success')
+    setTimeout(() => {
+      setImportStatus('')
+      setImportType('')
+    }, 3000)
   }
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,6 +73,7 @@ const Settings: React.FC<SettingsProps> = ({
 
     setIsImporting(true)
     setImportStatus('')
+    setImportType('')
 
     try {
       const content = await readFile(file)
@@ -78,6 +95,8 @@ const Settings: React.FC<SettingsProps> = ({
         )
         if (!proceed) {
           setIsImporting(false)
+          setImportStatus('インポートがキャンセルされました')
+          setImportType('error')
           return
         }
       }
@@ -87,13 +106,34 @@ const Settings: React.FC<SettingsProps> = ({
         updateSettings(data.settings)
       }
 
+      // テーマをインポート
+      if (data.theme && onImportTheme) {
+        onImportTheme(data.theme)
+      } else if (data.theme) {
+        setTheme(data.theme)
+      }
+
+      // リマインダーをインポート（App.tsxのコールバックを使用）
+      if (onImportReminders && data.reminders.length > 0) {
+        onImportReminders(data.reminders)
+      } else {
+        // フォールバック：localStorageに直接保存
+        localStorage.setItem('manga-reminder-data', JSON.stringify(data.reminders))
+        // ページをリロードして変更を反映
+        setTimeout(() => {
+          window.location.reload()
+        }, 1000)
+      }
+
       setImportStatus(`✅ ${data.reminders.length}件のリマインダーをインポートしました`)
+      setImportType('success')
       
       // ファイル入力をリセット
       event.target.value = ''
       
     } catch (error) {
       setImportStatus(`❌ エラー: ${getErrorMessage(error)}`)
+      setImportType('error')
     } finally {
       setIsImporting(false)
     }
@@ -213,7 +253,7 @@ const Settings: React.FC<SettingsProps> = ({
               {settings.notifications.permission !== 'granted' && (
                 <button
                   onClick={requestNotificationPermission}
-                  className="btn btn-primary text-sm"
+                  className="btn btn-primary text-sm text-white"
                   disabled={settings.notifications.permission === 'denied'}
                 >
                   通知を許可
@@ -296,7 +336,7 @@ const Settings: React.FC<SettingsProps> = ({
               </div>
               <button
                 onClick={exportData}
-                className="btn btn-secondary flex items-center gap-2"
+                className="btn btn-secondary flex items-center gap-2 text-white"
               >
                 <Download size={16} />
                 エクスポート
@@ -311,7 +351,7 @@ const Settings: React.FC<SettingsProps> = ({
                   JSONファイルからリマインダーと設定を復元
                 </div>
               </div>
-              <label className="btn btn-secondary flex items-center gap-2 cursor-pointer">
+              <label className="btn btn-secondary flex items-center gap-2 cursor-pointer text-white">
                 <Upload size={16} />
                 {isImporting ? 'インポート中...' : 'インポート'}
                 <input
@@ -326,9 +366,24 @@ const Settings: React.FC<SettingsProps> = ({
 
             {/* インポート状態表示 */}
             {importStatus && (
-              <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div className="text-sm text-gray-700 dark:text-gray-300">
-                  {importStatus}
+              <div className={`mt-2 p-3 rounded-lg border ${
+                importType === 'success' 
+                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+              }`}>
+                <div className="flex items-center gap-2">
+                  {importType === 'success' ? (
+                    <CheckCircle className="text-green-600 dark:text-green-400" size={16} />
+                  ) : (
+                    <AlertCircle className="text-red-600 dark:text-red-400" size={16} />
+                  )}
+                  <div className={`text-sm ${
+                    importType === 'success' 
+                      ? 'text-green-700 dark:text-green-300' 
+                      : 'text-red-700 dark:text-red-300'
+                  }`}>
+                    {importStatus}
+                  </div>
                 </div>
               </div>
             )}
@@ -344,7 +399,7 @@ const Settings: React.FC<SettingsProps> = ({
                 </div>
                 <button
                   onClick={clearAllData}
-                  className="btn btn-danger flex items-center gap-2"
+                  className="btn btn-danger flex items-center gap-2 text-white"
                 >
                   <Trash2 size={16} />
                   削除

@@ -1,5 +1,5 @@
 // リマインダーの周期タイプ
-export type ScheduleType = 'daily' | 'weekly' | 'monthly'
+export type ScheduleType = 'daily' | 'weekly' | 'monthly' | 'interval' | 'specific_days'
 
 // 日付フィルタータイプ
 export type DateFilterType = 'all' | 'weekdays' | 'weekends'
@@ -13,6 +13,7 @@ export interface Schedule {
   hour: number // 時間 (0-23)
   minute: number // 分 (0-59)
   dateFilter?: DateFilterType // 日付フィルター（毎日の場合のみ）
+  selectedDays?: number[] // 複数曜日選択用（specific_daysタイプ用）
 }
 
 // リマインダーデータ
@@ -51,6 +52,7 @@ export interface ExportData {
   exportDate: string
   reminders: Reminder[]
   settings: AppSettings
+  theme: 'light' | 'dark' | 'system' // テーマ設定を追加
   metadata?: {
     userAgent?: string
     timezone?: string

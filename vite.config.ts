@@ -10,10 +10,14 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,tsx,ts}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'], // tsx,ts,jsonを除外
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
+        globIgnores: [
+          '**/node_modules/**/*',
+          'dev-dist/**/*' // dev-distを除外
+        ],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/cdn\.tailwindcss\.com\/.*/i,
@@ -46,36 +50,38 @@ export default defineConfig({
         start_url: '/',
         lang: 'ja',
         categories: ['productivity', 'entertainment'],
+        // PWAインストール要件を満たすための追加設定
+        display_override: ['standalone', 'minimal-ui'],
         icons: [
           {
             src: '/icon-72x72.png',
             sizes: '72x72',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
           },
           {
             src: '/icon-96x96.png',
             sizes: '96x96',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
           },
           {
             src: '/icon-128x128.png',
             sizes: '128x128',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
           },
           {
             src: '/icon-144x144.png',
             sizes: '144x144',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
           },
           {
             src: '/icon-152x152.png',
             sizes: '152x152',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
           },
           {
             src: '/icon-192x192.png',
@@ -87,7 +93,7 @@ export default defineConfig({
             src: '/icon-384x384.png',
             sizes: '384x384',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
           },
           {
             src: '/icon-512x512.png',
@@ -139,16 +145,7 @@ export default defineConfig({
           }
         ],
         related_applications: [],
-        prefer_related_applications: false,
-        edge_side_panel: {
-          preferred_width: 400
-        },
-        protocol_handlers: [
-          {
-            protocol: 'web+manga',
-            url: '/?url=%s'
-          }
-        ]
+        prefer_related_applications: false
       },
       devOptions: {
         enabled: true,
