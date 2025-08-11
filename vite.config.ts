@@ -9,28 +9,23 @@ export default defineConfig({
     }),
     VitePWA({
       registerType: 'autoUpdate',
+      devOptions: {
+        enabled: false, // 開発時はPWAを無効化して問題を回避
+      },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'], // tsx,ts,jsonを除外
+        globPatterns: [
+          '**/*.{js,css,html,ico,png,svg,json,txt}'
+        ],
+        // globIgnoresを簡略化して警告を解消
+        globIgnores: [
+          'sw.js',
+          'workbox-*.js'
+        ],
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
-        globIgnores: [
-          '**/node_modules/**/*',
-          'dev-dist/**/*' // dev-distを除外
-        ],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/cdn\.tailwindcss\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'tailwind-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 30, // 30日
-              },
-            },
-          },
-        ],
+        // ランタイムキャッシングを削除してシンプルに
+        runtimeCaching: []
       },
       includeAssets: [
         'favicon.ico', 
@@ -50,38 +45,36 @@ export default defineConfig({
         start_url: '/',
         lang: 'ja',
         categories: ['productivity', 'entertainment'],
-        // PWAインストール要件を満たすための追加設定
-        display_override: ['standalone', 'minimal-ui'],
         icons: [
           {
             src: '/icon-72x72.png',
             sizes: '72x72',
             type: 'image/png',
-            purpose: 'any'
+            purpose: 'any maskable'
           },
           {
             src: '/icon-96x96.png',
             sizes: '96x96',
             type: 'image/png',
-            purpose: 'any'
+            purpose: 'any maskable'
           },
           {
             src: '/icon-128x128.png',
             sizes: '128x128',
             type: 'image/png',
-            purpose: 'any'
+            purpose: 'any maskable'
           },
           {
             src: '/icon-144x144.png',
             sizes: '144x144',
             type: 'image/png',
-            purpose: 'any'
+            purpose: 'any maskable'
           },
           {
             src: '/icon-152x152.png',
             sizes: '152x152',
             type: 'image/png',
-            purpose: 'any'
+            purpose: 'any maskable'
           },
           {
             src: '/icon-192x192.png',
@@ -93,7 +86,7 @@ export default defineConfig({
             src: '/icon-384x384.png',
             sizes: '384x384',
             type: 'image/png',
-            purpose: 'any'
+            purpose: 'any maskable'
           },
           {
             src: '/icon-512x512.png',
@@ -145,11 +138,16 @@ export default defineConfig({
           }
         ],
         related_applications: [],
-        prefer_related_applications: false
-      },
-      devOptions: {
-        enabled: true,
-        type: 'module'
+        prefer_related_applications: false,
+        edge_side_panel: {
+          preferred_width: 400
+        },
+        protocol_handlers: [
+          {
+            protocol: 'web+manga',
+            url: '/?url=%s'
+          }
+        ]
       }
     })
   ],

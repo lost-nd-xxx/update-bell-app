@@ -3,7 +3,13 @@
   "version": "1.0.0",
   "type": "module",
   "description": "ウェブ漫画の更新をリマインドするPWAアプリ",
-  "keywords": ["manga", "reminder", "pwa", "notification", "react"],
+  "keywords": [
+    "manga",
+    "reminder",
+    "pwa",
+    "notification",
+    "react"
+  ],
   "author": "Web Manga Reminder",
   "license": "MIT",
   "scripts": {
@@ -17,22 +23,23 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "lucide-react": "^0.263.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "lucide-react": "^0.263.1"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@types/node": "^24.2.1",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "@vitejs/plugin-react": "^4.0.0",
+    "eslint": "^8.45.0",
+    "http-server": "^14.1.1",
+    "prettier": "^3.0.0",
     "typescript": "^5.0.2",
     "vite": "^4.4.0",
-    "vite-plugin-pwa": "^0.16.0",
-    "http-server": "^14.1.1",
-    "eslint": "^8.45.0",
-    "prettier": "^3.0.0"
+    "vite-plugin-pwa": "^0.16.0"
   },
   "engines": {
     "node": ">=18.0.0"

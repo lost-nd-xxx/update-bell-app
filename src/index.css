@@ -6,197 +6,136 @@
 @layer base {
   html {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    /* スクロールバーのレイアウトシフト防止 */
-    scrollbar-gutter: stable;
-    /* HTML全体の背景色を設定してgutter領域をカバー */
-    background-color: rgb(249 250 251); /* ライトモード: gray-50 */
-    transition: background-color 0.3s ease;
-  }
-
-  /* ローディング画面表示中は薄紫色の背景（クラスベース） */
-  html.loading-screen {
-    background: linear-gradient(135deg, rgb(139 92 246) 0%, rgb(124 58 237) 100%) !important;
-  }
-  
-  /* ダークモード時のHTML背景色（より具体的なセレクタ） */
-  html.dark {
-    background-color: rgb(17 24 39) !important; /* ダークモード: gray-900 */
-  }
-
-  /* ローディング画面表示中のダークモード */
-  html.dark.loading-screen {
-    background: linear-gradient(135deg, rgb(67 56 202) 0%, rgb(79 70 229) 100%) !important;
-  }
-
-  /* data-theme属性でのダークモード対応（Tailwindの別実装） */
-  html[data-theme="dark"] {
-    background-color: rgb(17 24 39) !important;
-  }
-
-  /* システム設定でダークモードの場合 */
-  @media (prefers-color-scheme: dark) {
-    html:not(.light) {
-      background-color: rgb(17 24 39);
-    }
   }
   
   body {
     @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors;
-    /* bodyのスクロールバー設定も調整 */
-    scrollbar-gutter: stable;
-    /* bodyの背景色も明示的に設定 */
-    background-color: inherit;
-  }
-
-  /* Webkit系ブラウザでのスクロールバー設定 */
-  html::-webkit-scrollbar {
-    width: 16px;
-    background-color: rgb(249 250 251); /* ライトモード: gray-50 */
-  }
-
-  html.dark::-webkit-scrollbar,
-  html[data-theme="dark"]::-webkit-scrollbar {
-    background-color: rgb(17 24 39) !important; /* ダークモード: gray-900 */
-  }
-
-  html::-webkit-scrollbar-track {
-    background-color: rgb(249 250 251); /* ライトモード: gray-50 */
-  }
-
-  html.dark::-webkit-scrollbar-track,
-  html[data-theme="dark"]::-webkit-scrollbar-track {
-    background-color: rgb(17 24 39) !important; /* ダークモード: gray-900 */
-  }
-
-  html::-webkit-scrollbar-thumb {
-    background-color: rgb(156 163 175); /* gray-400 */
-    border-radius: 8px;
-    border: 2px solid rgb(249 250 251); /* ライトモード境界線 */
-  }
-
-  html.dark::-webkit-scrollbar-thumb,
-  html[data-theme="dark"]::-webkit-scrollbar-thumb {
-    background-color: rgb(75 85 99); /* gray-600 */
-    border: 2px solid rgb(17 24 39); /* ダークモード境界線 */
-  }
-
-  html::-webkit-scrollbar-thumb:hover {
-    background-color: rgb(107 114 128); /* gray-500 */
-  }
-
-  html.dark::-webkit-scrollbar-thumb:hover,
-  html[data-theme="dark"]::-webkit-scrollbar-thumb:hover {
-    background-color: rgb(55 65 81); /* gray-700 */
-  }
-
-  /* Firefox用のスクロールバー色設定 */
-  html {
-    scrollbar-color: rgb(156 163 175) rgb(249 250 251);
-  }
-
-  html.dark,
-  html[data-theme="dark"] {
-    scrollbar-color: rgb(75 85 99) rgb(17 24 39) !important;
-  }
-
-  /* システム設定でのダークモード対応 */
-  @media (prefers-color-scheme: dark) {
-    html:not(.light) {
-      scrollbar-color: rgb(75 85 99) rgb(17 24 39);
-    }
-    
-    html:not(.light)::-webkit-scrollbar {
-      background-color: rgb(17 24 39);
-    }
-    
-    html:not(.light)::-webkit-scrollbar-track {
-      background-color: rgb(17 24 39);
-    }
-    
-    html:not(.light)::-webkit-scrollbar-thumb {
-      background-color: rgb(75 85 99);
-      border: 2px solid rgb(17 24 39);
-    }
-  }
-
-  /* すべてのボタン要素のテーマ対応 - 干渉を防ぐため調整 */
-  button:not(.btn):not(.btn-primary):not(.btn-secondary):not(.btn-danger) {
-    @apply text-gray-900 dark:text-white;
-  }
-
-  /* 選択要素のダークテーマ対応を強化 */
-  select {
-    @apply text-gray-900 dark:text-white bg-white dark:bg-gray-800;
-  }
-
-  /* 入力要素のダークテーマ対応を強化 */
-  input {
-    @apply text-gray-900 dark:text-white bg-white dark:bg-gray-800;
-  }
-
-  /* テキストエリアのダークテーマ対応 */
-  textarea {
-    @apply text-gray-900 dark:text-white bg-white dark:bg-gray-800;
   }
 }
 
 @layer components {
-  /* ボタンの基本スタイル - 文字色を確実に適用 */
+  /* ボタンの基本スタイル */
   .btn {
     @apply px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
-    color: white !important;
   }
   
   .btn-primary {
     @apply bg-blue-600 hover:bg-blue-700 focus:ring-blue-500;
+    /* ライトテーマでのテキスト色を明示的に黒に設定（!important で強制） */
+    color: black !important;
+  }
+  
+  .btn-primary:hover {
+    color: black !important;
+  }
+  
+  .btn-primary:focus {
+    color: black !important;
+  }
+  
+  /* ダークテーマでは白文字を維持 */
+  .dark .btn-primary {
+    color: white !important;
+  }
+  
+  .dark .btn-primary:hover {
+    color: white !important;
+  }
+  
+  .dark .btn-primary:focus {
     color: white !important;
   }
   
   .btn-secondary {
     @apply bg-gray-600 hover:bg-gray-700 focus:ring-gray-500;
+    /* ライトテーマでのテキスト色を明示的に黒に設定（!important で強制） */
+    color: black !important;
+  }
+  
+  .btn-secondary:hover {
+    color: black !important;
+  }
+  
+  .btn-secondary:focus {
+    color: black !important;
+  }
+  
+  /* ダークテーマでは白文字を維持 */
+  .dark .btn-secondary {
+    color: white !important;
+  }
+  
+  .dark .btn-secondary:hover {
+    color: white !important;
+  }
+  
+  .dark .btn-secondary:focus {
     color: white !important;
   }
   
   .btn-danger {
     @apply bg-red-600 hover:bg-red-700 focus:ring-red-500;
-    color: white !important;
+    /* ライトテーマでのテキスト色を明示的に黒に設定（!important で強制） */
+    color: black !important;
   }
-
-  /* より具体的なセレクタでボタン文字色を強制 */
-  button.btn,
-  button.btn-primary,
-  button.btn-secondary,
-  button.btn-danger {
-    color: white !important;
+  
+  .btn-danger:hover {
+    color: black !important;
   }
-
-  /* ライトモードで特に問題となるボタンを個別に対応 */
-  .btn:not(.dark *) {
+  
+  .btn-danger:focus {
+    color: black !important;
+  }
+  
+  /* ダークテーマでは白文字を維持 */
+  .dark .btn-danger {
     color: white !important;
   }
   
-  /* 入力フィールドの基本スタイル - ダークモード強化 */
+  .dark .btn-danger:hover {
+    color: white !important;
+  }
+  
+  .dark .btn-danger:focus {
+    color: white !important;
+  }
+  
+  /* 入力フィールドの基本スタイル */
   .input {
-    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg transition-colors;
-    @apply bg-white dark:bg-gray-800 text-gray-900 dark:text-white;
-    @apply placeholder-gray-500 dark:placeholder-gray-400;
-    @apply focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+    @apply w-full px-3 py-2 border rounded-lg transition-colors focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+    /* ライトテーマ */
+    background-color: white;
+    color: #111827; /* gray-900 */
+    border-color: #d1d5db; /* gray-300 */
   }
-
-  /* より強力な入力フィールドスタイル（Tailwindの優先順位を上書き） */
-  input.input,
-  select.input,
-  textarea.input {
-    background-color: white !important;
-    color: #111827 !important;
+  
+  .input::placeholder {
+    color: #6b7280; /* gray-500 */
   }
-
-  .dark input.input,
-  .dark select.input, 
-  .dark textarea.input {
-    background-color: #1f2937 !important;
-    color: #f9fafb !important;
-    border-color: #4b5563 !important;
+  
+  /* ダークテーマ */
+  .dark .input {
+    background-color: #374151 !important; /* gray-700 */
+    color: white !important;
+    border-color: #4b5563; /* gray-600 */
+  }
+  
+  .dark .input::placeholder {
+    color: #9ca3af; /* gray-400 */
+  }
+  
+  /* select要素も同様に設定 */
+  .dark select.input {
+    color: white !important;
+  }
+  
+  /* input要素のautofill対応 */
+  .dark .input:-webkit-autofill,
+  .dark .input:-webkit-autofill:hover,
+  .dark .input:-webkit-autofill:focus {
+    -webkit-text-fill-color: white !important;
+    -webkit-box-shadow: 0 0 0px 1000px #374151 inset !important;
+    transition: background-color 5000s ease-in-out 0s;
   }
   
   /* カードの基本スタイル */
@@ -228,35 +167,9 @@
   .tag-red {
     @apply bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300;
   }
-
-  /* 特定のボタンスタイルの強化 */
-  .btn-icon {
-    @apply p-2 rounded-lg transition-colors text-white;
-  }
-
-  .btn-icon-green {
-    @apply bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700;
-  }
-
-  .btn-icon-yellow {
-    @apply bg-yellow-600 hover:bg-yellow-700 dark:bg-yellow-600 dark:hover:bg-yellow-700;
-  }
-
-  .btn-icon-gray {
-    @apply bg-gray-600 hover:bg-gray-700 dark:bg-gray-600 dark:hover:bg-gray-700;
-  }
-
-  .btn-icon-red {
-    @apply bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700;
-  }
 }
 
 @layer utilities {
-  /* スクロール可能なコンテナのレイアウト安定化 */
-  .scroll-stable {
-    scrollbar-gutter: stable;
-  }
-
   /* アニメーション */
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out;
@@ -266,14 +179,10 @@
     animation: slideUp 0.3s ease-out;
   }
   
-  /* 細いスクロールバーのスタイリング */
+  /* スクロールバーのスタイリング */
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: rgb(156 163 175) rgb(249 250 251);
-  }
-
-  .dark .scrollbar-thin {
-    scrollbar-color: rgb(75 85 99) rgb(17 24 39);
+    scrollbar-color: rgb(156 163 175) transparent;
   }
   
   .scrollbar-thin::-webkit-scrollbar {
@@ -281,11 +190,7 @@
   }
   
   .scrollbar-thin::-webkit-scrollbar-track {
-    background: rgb(249 250 251);
-  }
-
-  .dark .scrollbar-thin::-webkit-scrollbar-track {
-    background: rgb(17 24 39);
+    background: transparent;
   }
   
   .scrollbar-thin::-webkit-scrollbar-thumb {

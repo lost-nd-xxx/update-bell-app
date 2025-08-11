@@ -2,133 +2,157 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
-// @ts-ignore
-import { registerSW } from 'virtual:pwa-register'
 
-// ローディング画面の処理を最初に実行
+// ローディング画面を即座に隠す（最優先実行）
 const hideLoadingScreen = () => {
   const loadingScreen = document.getElementById('loading-screen')
-  if (loadingScreen) {
+  if (loadingScreen && loadingScreen.style.display !== 'none') {
     loadingScreen.classList.add('opacity-0')
     setTimeout(() => {
       loadingScreen.style.display = 'none'
     }, 300)
+    return true
   }
+  return false
 }
 
-// PWA Service Worker登録（非同期で実行し、読み込みをブロックしない）
-const initPWA = async () => {
+// 即座にローディングを隠す試み
+hideLoadingScreen()
+
+// 環境判定のヘルパー（より確実な判定）
+const isDevelopment = location.hostname === 'localhost' || 
+                     location.hostname === '127.0.0.1' ||
+                     location.port === '3000'
+const isProduction = !isDevelopment
+
+console.log('Environment:', isDevelopment ? 'development' : 'production')
+
+// PWA Service Worker登録（本番環境のみ）
+if (isProduction) {
+  console.log('Attempting PWA registration...')
   try {
-    const updateSW = registerSW({
-      onNeedRefresh() {
-        if (confirm('新しいバージョンが利用可能です。更新しますか？')) {
-          updateSW(true)
-        }
-      },
-      onOfflineReady() {
-        console.log('アプリがオフラインで利用可能になりました')
-      },
-      immediate: false // 即座に登録せず、アプリ初期化後に実行
+    // @ts-ignore
+    import('virtual:pwa-register').then(({ registerSW }) => {
+      console.log('PWA module loaded successfully')
+      const updateSW = registerSW({
+        onNeedRefresh() {
+          if (confirm('新しいバージョンが利用可能です。更新しますか？')) {
+            updateSW(true)
+          }
+        },
+        onOfflineReady() {
+          console.log('アプリがオフラインで利用可能になりました')
+        },
+      })
+    }).catch((error) => {
+      console.log('PWA registration failed:', error)
     })
-    return updateSW
   } catch (error) {
-    console.error('PWA initialization failed:', error)
+    console.log('PWA import error:', error)
   }
+} else {
+  console.log('PWA registration skipped (development mode)')
 }
 
 // PWAインストールプロンプトの処理
-const initInstallPrompt = () => {
-  let deferredPrompt: BeforeInstallPromptEvent | null = null
+let deferredPrompt: BeforeInstallPromptEvent | null = null
 
-  interface BeforeInstallPromptEvent extends Event {
-    prompt(): Promise<void>
-    userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-  }
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
 
-  const hideInstallPrompt = () => {
-    const installPrompt = document.getElementById('install-prompt')
-    if (installPrompt) {
-      installPrompt.classList.add('translate-y-20', 'opacity-0')
-      setTimeout(() => {
-        installPrompt.style.display = 'none'
-      }, 300)
+// React アプリケーションのマウント（同期実行）
+console.log('Mounting React app...')
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+
+// マウント直後にローディング画面を隠す
+setTimeout(() => {
+  console.log('Hiding loading screen after React mount')
+  hideLoadingScreen()
+}, 10)
+
+// 複数のタイミングでローディング画面を隠す
+const intervals = [50, 100, 200, 500, 1000]
+intervals.forEach(delay => {
+  setTimeout(() => {
+    if (hideLoadingScreen()) {
+      console.log(`Loading screen hidden at ${delay}ms`)
     }
-  }
+  }, delay)
+})
+
+// DOM読み込み完了後の処理
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM ready - hiding loading screen')
+    hideLoadingScreen()
+    setupPWAEvents()
+  })
+} else {
+  // DOM は既に読み込み済み
+  console.log('DOM already ready - hiding loading screen')
+  hideLoadingScreen()
+  setupPWAEvents()
+}
+
+// PWA関連のイベント設定
+function setupPWAEvents() {
+  if (!isProduction) return
 
   window.addEventListener('beforeinstallprompt', (e: Event) => {
     e.preventDefault()
     deferredPrompt = e as BeforeInstallPromptEvent
+    
+    const installPrompt = document.getElementById('install-prompt')
+    const installButton = document.getElementById('install-button')
+    const installDismiss = document.getElementById('install-dismiss')
     
     // 既にインストール済みかチェック
     if (window.matchMedia('(display-mode: standalone)').matches) {
       return
     }
     
-    const installPrompt = document.getElementById('install-prompt')
-    const installButton = document.getElementById('install-button')
-    const installDismiss = document.getElementById('install-dismiss')
-    
-    // プロンプト表示（アプリ読み込み完了後に表示）
+    // プロンプト表示
     setTimeout(() => {
-      if (installPrompt) {
-        installPrompt.style.display = 'block'
-        installPrompt.classList.remove('translate-y-20', 'opacity-0')
-        installPrompt.classList.add('translate-y-0', 'opacity-100')
-      }
-    }, 5000) // 5秒後に表示
+      installPrompt?.classList.remove('translate-y-20', 'opacity-0')
+      installPrompt?.classList.add('translate-y-0', 'opacity-100')
+    }, 3000)
     
     installButton?.addEventListener('click', async () => {
       if (deferredPrompt) {
         deferredPrompt.prompt()
         const { outcome } = await deferredPrompt.userChoice
         deferredPrompt = null
-        hideInstallPrompt()
+        installPrompt?.classList.add('translate-y-20', 'opacity-0')
       }
     })
     
     installDismiss?.addEventListener('click', () => {
-      hideInstallPrompt()
+      installPrompt?.classList.add('translate-y-20', 'opacity-0')
     })
   })
 
   // アプリインストール後の処理
   window.addEventListener('appinstalled', () => {
     console.log('PWA was installed')
-    hideInstallPrompt()
+    const installPrompt = document.getElementById('install-prompt')
+    installPrompt?.classList.add('translate-y-20', 'opacity-0')
   })
 }
 
-// React アプリケーションの初期化
-const initApp = () => {
-  const root = ReactDOM.createRoot(document.getElementById('root')!)
-  root.render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  )
-}
+// ページ読み込み完了時のフォールバック
+window.addEventListener('load', () => {
+  console.log('Window loaded - final loading screen check')
+  setTimeout(hideLoadingScreen, 50)
+})
 
-// メイン初期化処理
-const init = async () => {
-  // React アプリを最初に開始
-  initApp()
-  
-  // DOM読み込み完了後にその他の処理を実行
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      setTimeout(hideLoadingScreen, 800) // 少し短縮
-      initInstallPrompt()
-    })
-  } else {
-    setTimeout(hideLoadingScreen, 800)
-    initInstallPrompt()
-  }
-  
-  // PWA初期化は最後に実行（ページ読み込みをブロックしない）
-  setTimeout(() => {
-    initPWA()
-  }, 1500)
-}
-
-// 初期化実行
-init()
+// 最終フォールバック（3秒経過したら強制的にローディングを隠す）
+setTimeout(() => {
+  console.log('Final timeout - forcing loading screen hide')
+  hideLoadingScreen()
+}, 3000)
