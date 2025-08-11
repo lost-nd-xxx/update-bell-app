@@ -1,9 +1,9 @@
-<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" transform="rotate(180)">
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" transform="rotate(180),scale(0.5)"  transform-origin="center">
 <!-- 背景 -->
 <rect width="512" height="512" fill="none"></rect>
 
 <!-- 時計 -->
-<g>
+<g transform="scale(1.125)"  transform-origin="center">
 
 <!-- 時計の外周 -->
 <circle cx="256" cy="256" r="215" fill="none" stroke="#000000" stroke-width="16"></circle>
@@ -37,7 +37,7 @@
 </g>
 
 <!-- 中央の開いた本 -->
-<g width="512" height="512" viewBox="0 0 512 512" transform-origin="center" transform="scale(1.5)">
+<g width="512" height="512" viewBox="0 0 512 512" transform-origin="center" transform="scale(1.9)">
 
 <!-- 本の外形（開いた状態・上向き） -->
 <path d="M 180 200 L 250 190 L 250 310 L 180 320 Q 170 320 170 310 L 170 210 Q 170 200 180 200 Z" fill="#000000" stroke="#000000" stroke-width="6"></path>
