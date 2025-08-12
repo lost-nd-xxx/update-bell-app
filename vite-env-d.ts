@@ -1,11 +1,33 @@
 /// <reference types="vite/client" />
-/// <reference types="vite-plugin-pwa/client" />
 
-interface ImportMetaEnv {
-  readonly VITE_APP_TITLE: string
-  // 他の環境変数をここに追加
+// Service Worker関連の型定義をグローバルスコープで宣言
+declare global {
+  interface Window {
+    swDebugger?: {
+      get: () => import('./src/utils/serviceWorkerDebug').ServiceWorkerDebugger;
+      logs: () => Promise<Array<{
+        timestamp: string;
+        level: string;
+        message: string;
+        data?: string | null;
+      }>>;
+      info: () => Promise<{
+        isSupported: boolean;
+        registration: ServiceWorkerRegistration | null;
+        controller: ServiceWorker | null;
+        state: string | undefined;
+        scope: string | undefined;
+        updateFound: boolean;
+      }>;
+      report: () => Promise<unknown>;
+      export: () => Promise<void>;
+      check: () => Promise<void>;
+      start: (interval?: number) => Promise<void>;
+      stop: () => Promise<void>;
+    };
+    swDebug?: typeof Window.prototype.swDebugger;
+  }
 }
 
-interface ImportMeta {
-  readonly env: ImportMetaEnv
-}
+// モジュール宣言を追加してグローバルスコープ拡張を可能にする
+export {};

@@ -618,9 +618,15 @@ const Settings: React.FC<SettingsProps> = ({
             )}
           </div>
         </div>
+
+        {/* デバッグセクション - 一時的にコメントアウト */}
+        {/* {import.meta.env.DEV && <DebugSection />} */}
       </div>
     </div>
   );
 };
 
 export default Settings;
+
+// Settings.tsx の末尾に追加
+// import { DebugSection } from './DebugSection'; // または適切な場所にコンポーネントを作成
