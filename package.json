@@ -19,7 +19,6 @@
     "build": "tsc && vite build",
     "build:debug": "cross-env NODE_ENV=development tsc && vite build",
     "preview": "vite preview",
-    "preview:https": "cross-env HTTPS_DEBUG=true vite preview",
     "serve": "http-server dist -p 4173 -c-1",
     "debug:sw": "npm run build && http-server dist -S -p 8443",
     "lint": "eslint src",
@@ -27,7 +26,10 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md}\"",
     "type-check": "tsc --noEmit",
     "check:all": "npm run type-check && npm run lint && npm run format",
-    "check:fix": "npm run type-check && npm run lint:fix && npm run format"
+    "check:fix": "npm run type-check && npm run lint:fix && npm run format",
+    "dev:https": "vite --https",
+    "debug:https": "npm run build && http-server dist -S -C cert.pem -K key.pem -p 8443 -a localhost",
+    "preview:https": "vite preview --https --port 8443"
   },
   "dependencies": {
     "lucide-react": "^0.263.1",
