@@ -1,183 +1,50 @@
+// vite.config.ts - PWA手動設定版（型エラー完全回避）
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
     react({
       include: "**/*.{jsx,tsx}",
-    }),
-    VitePWA({
-      registerType: 'autoUpdate',
-      devOptions: {
-        enabled: false, // 開発時はPWAを無効化して問題を回避
-      },
-      workbox: {
-        globPatterns: [
-          '**/*.{js,css,html,ico,png,svg,json,txt}'
-        ],
-        // globIgnoresを簡略化して警告を解消
-        globIgnores: [
-          'sw.js',
-          'workbox-*.js'
-        ],
-        cleanupOutdatedCaches: true,
-        skipWaiting: true,
-        clientsClaim: true,
-        // ランタイムキャッシングを削除してシンプルに
-        runtimeCaching: []
-      },
-      includeAssets: [
-        'favicon.ico', 
-        'icon-*.png',
-        'icon-mask.svg',
-        'screenshot-*.png'
-      ],
-      manifest: {
-        name: 'おしらせベル',
-        short_name: 'おしらせベル',
-        description: 'URLを添えてリマインド通知するPWAアプリ',
-        theme_color: '#2563eb',
-        background_color: '#ffffff',
-        display: 'standalone',
-        orientation: 'portrait-primary',
-        scope: '/',
-        start_url: '/',
-        lang: 'ja',
-        categories: ['productivity', 'entertainment'],
-        icons: [
-          {
-            src: '/icon-72x72.png',
-            sizes: '72x72',
-            type: 'image/png',
-            purpose: 'any maskable'
-          },
-          {
-            src: '/icon-96x96.png',
-            sizes: '96x96',
-            type: 'image/png',
-            purpose: 'any maskable'
-          },
-          {
-            src: '/icon-128x128.png',
-            sizes: '128x128',
-            type: 'image/png',
-            purpose: 'any maskable'
-          },
-          {
-            src: '/icon-144x144.png',
-            sizes: '144x144',
-            type: 'image/png',
-            purpose: 'any maskable'
-          },
-          {
-            src: '/icon-152x152.png',
-            sizes: '152x152',
-            type: 'image/png',
-            purpose: 'any maskable'
-          },
-          {
-            src: '/icon-192x192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any maskable'
-          },
-          {
-            src: '/icon-384x384.png',
-            sizes: '384x384',
-            type: 'image/png',
-            purpose: 'any maskable'
-          },
-          {
-            src: '/icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
-          }
-        ],
-        shortcuts: [
-          {
-            name: '新しいリマインダー',
-            short_name: '新規作成',
-            description: '新しいリマインダーを作成',
-            url: '/#create',
-            icons: [
-              {
-                src: '/icon-96x96.png',
-                sizes: '96x96'
-              }
-            ]
-          },
-          {
-            name: '設定',
-            short_name: '設定',
-            description: 'アプリの設定を変更',
-            url: '/#settings',
-            icons: [
-              {
-                src: '/icon-96x96.png',
-                sizes: '96x96'
-              }
-            ]
-          }
-        ],
-        screenshots: [
-          {
-            src: '/screenshot-mobile.png',
-            sizes: '640x1136',
-            type: 'image/png',
-            form_factor: 'narrow',
-            label: 'モバイル版ダッシュボード'
-          },
-          {
-            src: '/screenshot-desktop.png',
-            sizes: '1280x720',
-            type: 'image/png',
-            form_factor: 'wide',
-            label: 'デスクトップ版ダッシュボード'
-          }
-        ],
-        related_applications: [],
-        prefer_related_applications: false,
-        edge_side_panel: {
-          preferred_width: 400
-        },
-        protocol_handlers: [
-          {
-            protocol: 'web+manga',
-            url: '/?url=%s'
-          }
-        ]
-      }
     })
+    // vite-plugin-pwaを完全に削除して型エラーを回避
   ],
-  base: './',
+  
+  // ビルド設定
   build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
-    sourcemap: false,
-    minify: 'terser',
     target: 'esnext',
+    minify: 'terser',
+    sourcemap: false,
+    
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom'],
-          utils: ['./src/utils/helpers.ts']
+          'vendor': ['react', 'react-dom'],
+          'utils': ['./src/utils/helpers.ts'],
         }
       }
     }
   },
+  
+  // サーバー設定
   server: {
     port: 3000,
     open: true,
-    host: true
+    cors: true
   },
+  
+  // プレビュー設定
   preview: {
     port: 4173,
-    open: true,
-    host: true
+    open: true
   },
-  define: {
-    __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '1.0.0')
+  
+  // ベースURL設定（GitHub Pages用）
+  base: './',
+  
+  // 依存関係の最適化
+  optimizeDeps: {
+    include: ['react', 'react-dom'],
+    exclude: ['lucide-react']
   }
 })

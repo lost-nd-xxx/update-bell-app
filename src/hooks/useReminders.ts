@@ -49,16 +49,24 @@ export const useReminders = () => {
     setReminders((prev) => prev.filter((reminder) => reminder.id !== id));
   };
 
-  const duplicateReminder = (id: string) => {
+  const duplicateReminder = (id: string): void => {
     const original = reminders.find((r) => r.id === id);
-    if (original) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id: _id, createdAt: _createdAt, ...reminderData } = original;
-      return addReminder({
-        ...reminderData,
-        title: `${original.title} (コピー)`,
-      });
+    if (!original) {
+      console.error("複製するリマインダーが見つかりません:", id);
+      return;
     }
+
+    const duplicated = {
+      ...original,
+      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+      title: `${original.title} (コピー)`,
+      createdAt: new Date().toISOString(),
+      lastNotified: null,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+
+    addReminder(duplicated);
+    return;
   };
 
   const bulkUpdateReminders = (

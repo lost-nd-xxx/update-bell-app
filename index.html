@@ -8,22 +8,21 @@
 
   <!-- PWA設定 -->
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#2563eb">
+  <meta name="theme-color" content="#8b5cf6">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="漫画リマインダー">
+  <meta name="apple-mobile-web-app-title" content="おしらせベル">
 
   <!-- アイコン設定 -->
   <link rel="icon" type="image/png" sizes="32x32" href="/icon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/icon-16x16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/icon-180x180.png">
-  <link rel="mask-icon" href="/icon-mask.svg" color="#2563eb">
+  <link rel="mask-icon" href="/icon-mask.svg" color="#8b5cf6">
 
   <!-- メタ情報 -->
-  <meta name="apple-mobile-web-app-title" content="おしらせベル">
   <meta name="description" content="URLを添えてリマインド通知するPWAアプリ">
-  <meta name="keywords" content="リマインダー,通知,PWA,おしらせ,ベル">
-  <meta name="author" content="Update Bell">
+  <meta name="keywords" content="リマインダー,通知,PWA,お知らせ,ベル">
+  <meta name="author" content="おしらせベル">
 
   <!-- Open Graph -->
   <meta property="og:title" content="おしらせベル">
@@ -40,10 +39,16 @@
         extend: {
           colors: {
             primary: {
-              50: '#eff6ff',
-              500: '#3b82f6',
-              600: '#2563eb',
-              700: '#1d4ed8'
+              50: '#faf5ff',
+              100: '#f3e8ff',
+              200: '#e9d5ff',
+              300: '#d8b4fe',
+              400: '#c084fc',
+              500: '#a855f7',
+              600: '#8b5cf6',
+              700: '#7c3aed',
+              800: '#6d28d9',
+              900: '#5b21b6'
             }
           }
         }
@@ -57,37 +62,34 @@
   <div id="loading-screen"
     class="fixed inset-0 bg-gradient-to-br from-blue-600 to-purple-700 flex flex-col justify-center items-center z-50 transition-opacity duration-300">
     <div class="w-12 h-12 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
-    <p class="text-white mt-4 text-lg font-medium">ウェブ漫画リマインダー</p>
+    <p class="text-white mt-4 text-lg font-medium">おしらせベル</p>
     <p class="text-white/80 text-sm">読み込み中...</p>
   </div>
 
   <!-- PWAインストールプロンプト -->
   <div id="install-prompt"
-    class="fixed bottom-5 left-5 right-5 bg-white dark:bg-gray-800 rounded-xl p-4 shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-40">
+    class="fixed bottom-4 left-4 right-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 transform translate-y-20 opacity-0 transition-all duration-300 z-40">
     <div class="flex items-center justify-between">
       <div class="flex-1">
-        <h3 class="font-semibold text-gray-900 dark:text-white">アプリをインストール</h3>
-        <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">
-          ホーム画面に追加して、より便利に使えます
-        </p>
+        <h3 class="text-sm font-medium text-gray-900 dark:text-white">おしらせベルをインストール</h3>
+        <p class="text-xs text-gray-600 dark:text-gray-300 mt-1">ホーム画面に追加して、より便利にご利用いただけます</p>
       </div>
       <div class="flex gap-2 ml-4">
-        <button id="install-button"
-          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-          インストール
-        </button>
         <button id="install-dismiss"
-          class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-2 py-2">
-          ✕
+          class="px-3 py-2 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+          後で
+        </button>
+        <button id="install-button"
+          class="px-3 py-2 bg-primary-600 text-white text-xs rounded-md hover:bg-primary-700 transition-colors">
+          インストール
         </button>
       </div>
     </div>
   </div>
 
-  <!-- メインアプリ -->
+  <!-- React アプリケーションのマウントポイント -->
   <div id="root"></div>
 
-  <!-- Vite entry point -->
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

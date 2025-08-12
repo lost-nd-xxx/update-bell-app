@@ -35,6 +35,7 @@ export const useTheme = (): [Theme, (theme: Theme) => void] => {
     } else {
       // 明示的なテーマを適用
       applyTheme(theme);
+      return undefined;
     }
   }, [theme]);
 

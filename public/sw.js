@@ -1,644 +1,579 @@
-// public/sw.js - Service Worker with Debug Features
-// デバッグ機能付きService Worker
+// public/sw.js - 改善版Service Worker（競合修正・デバッグ強化）
+// vite-plugin-pwaとの競合を回避し、デバッグ機能を強化したバージョン
 
-const CACHE_NAME = "web-manga-reminder-v1.0.0";
+const CACHE_NAME = 'web-manga-reminder-v1.0.1';
+const DEBUG_MODE = true; // デバッグモードの切り替え
+
+// デバッグログ関数
+const debugLog = (message, data) => {
+  if (DEBUG_MODE) {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(`[SW ${timestamp}] ${message}`, data || '');
+  }
+};
+
+// 静的リソースのキャッシュリスト
 const STATIC_CACHE = [
-  "/",
-  "/index.html",
-  "/manifest.json",
-  "/icon-192x192.png",
-  "/icon-512x512.png",
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/icon-192x192.png',
+  '/icon-512x512.png'
 ];
 
-// ===== デバッグ機能 =====
-class DebugLogger {
-  constructor() {
-    this.logs = [];
-    this.maxLogs = 200;
-    this.isDebugMode = true; // 本番では false に変更
-  }
+// Service Worker の状態管理
+let isInitialized = false;
+let cachedReminders = [];
+let cachedSettings = { notificationInterval: 15 };
+let checkInterval = null;
+let messageQueue = [];
 
-  log(level, message, data = null) {
-    const timestamp = new Date().toISOString();
-    const logEntry = {
-      timestamp,
-      level,
-      message,
-      data: data
-        ? typeof data === "object"
-          ? JSON.stringify(data)
-          : data
-        : null,
-    };
-
-    if (this.isDebugMode) {
-      console.log(`[SW ${level}] ${timestamp}: ${message}`, data);
-    }
-
-    this.logs.push(logEntry);
-    if (this.logs.length > this.maxLogs) {
-      this.logs.shift();
-    }
-
-    // 重要なログはIndexedDBに保存
-    if (level === "ERROR" || level === "WARN") {
-      this.saveToDB(logEntry);
-    }
-  }
-
-  async saveToDB(logEntry) {
-    try {
-      const request = indexedDB.open("sw-debug-logs", 1);
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
-        if (!db.objectStoreNames.contains("logs")) {
-          const store = db.createObjectStore("logs", { keyPath: "timestamp" });
-          store.createIndex("level", "level", { unique: false });
-        }
-      };
-
-      request.onsuccess = (event) => {
-        const db = event.target.result;
-        const transaction = db.transaction(["logs"], "readwrite");
-        const store = transaction.objectStore("logs");
-        store.add(logEntry);
-      };
-    } catch (error) {
-      console.error("Failed to save log to IndexedDB:", error);
-    }
-  }
-
-  getAllLogs() {
-    return [...this.logs];
-  }
-
-  getLogsByLevel(level) {
-    return this.logs.filter((log) => log.level === level);
-  }
-}
-
-// グローバルデバッガーインスタンス
-const debugLogger = new DebugLogger();
-
-// ===== 拡張通知チェッカー =====
-class NotificationChecker {
-  constructor() {
-    this.checkInterval = null;
-    this.lastCheckTime = null;
-    this.cachedReminders = [];
-    this.cachedSettings = { notificationInterval: 15 };
-    this.stats = {
-      checksPerformed: 0,
-      notificationsSent: 0,
-      errors: 0,
-    };
-  }
-
-  async startPeriodicCheck(intervalMinutes = 15) {
-    debugLogger.log("INFO", `Starting periodic notification check`, {
-      intervalMinutes,
-      previousInterval: this.checkInterval ? "active" : "none",
+// 初期化処理
+const initialize = () => {
+  if (isInitialized) return;
+  
+  debugLog('Service Worker初期化開始');
+  isInitialized = true;
+  
+  // メッセージキューの処理
+  if (messageQueue.length > 0) {
+    debugLog(`メッセージキューから${messageQueue.length}件処理`);
+    messageQueue.forEach(queuedMessage => {
+      handleMessage(queuedMessage);
     });
-
-    // 既存のインターバルをクリア
-    if (this.checkInterval) {
-      clearInterval(this.checkInterval);
-    }
-
-    // 新しいインターバルを設定
-    this.checkInterval = setInterval(
-      () => {
-        this.checkAndSendNotifications();
-      },
-      intervalMinutes * 60 * 1000,
-    );
-
-    // 初回チェック（5秒後）
-    setTimeout(() => {
-      this.checkAndSendNotifications();
-    }, 5000);
-
-    debugLogger.log("INFO", "Periodic check started successfully");
+    messageQueue = [];
   }
-
-  stopPeriodicCheck() {
-    if (this.checkInterval) {
-      clearInterval(this.checkInterval);
-      this.checkInterval = null;
-      debugLogger.log("INFO", "Periodic check stopped");
-    }
-  }
-
-  async checkAndSendNotifications() {
-    try {
-      this.stats.checksPerformed++;
-      this.lastCheckTime = new Date().toISOString();
-
-      debugLogger.log(
-        "INFO",
-        `Notification check #${this.stats.checksPerformed}`,
-        {
-          timestamp: this.lastCheckTime,
-          cachedReminders: this.cachedReminders.length,
-        },
-      );
-
-      if (this.cachedReminders.length === 0) {
-        debugLogger.log(
-          "WARN",
-          "No cached reminders found - requesting from client",
-        );
-        await this.requestRemindersFromClient();
-        return;
-      }
-
-      const now = new Date();
-      const notificationsSent = [];
-
-      for (const reminder of this.cachedReminders) {
-        try {
-          if (reminder.isPaused) {
-            debugLogger.log("DEBUG", `Skipping paused reminder`, {
-              id: reminder.id,
-              title: reminder.title,
-            });
-            continue;
-          }
-
-          const shouldNotify = this.shouldSendNotification(reminder, now);
-          if (shouldNotify.should) {
-            debugLogger.log("INFO", `Attempting to send notification`, {
-              id: reminder.id,
-              title: reminder.title,
-              reason: shouldNotify.reason,
-            });
-
-            const success = await this.sendNotification(reminder);
-            if (success) {
-              notificationsSent.push({
-                id: reminder.id,
-                title: reminder.title,
-                timestamp: now.toISOString(),
-              });
-              this.stats.notificationsSent++;
-
-              // クライアントに更新を通知
-              await this.updateLastNotificationTime(
-                reminder.id,
-                now.toISOString(),
-              );
-            }
-          } else {
-            debugLogger.log("DEBUG", `Not sending notification`, {
-              id: reminder.id,
-              title: reminder.title,
-              reason: shouldNotify.reason,
-            });
-          }
-        } catch (error) {
-          debugLogger.log("ERROR", `Error processing reminder`, {
-            id: reminder.id,
-            error: error.message,
-            stack: error.stack,
-          });
-          this.stats.errors++;
-        }
-      }
-
-      debugLogger.log("INFO", `Notification check completed`, {
-        notificationsSent: notificationsSent.length,
-        totalChecks: this.stats.checksPerformed,
-        totalNotifications: this.stats.notificationsSent,
-        totalErrors: this.stats.errors,
-        notifications: notificationsSent,
-      });
-    } catch (error) {
-      debugLogger.log("ERROR", "Critical error during notification check", {
-        error: error.message,
-        stack: error.stack,
-      });
-      this.stats.errors++;
-    }
-  }
-
-  shouldSendNotification(reminder, now) {
-    // 時刻チェック
-    const targetTime = reminder.schedule?.time;
-    if (!targetTime) {
-      return { should: false, reason: "No target time set" };
-    }
-
-    const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
-    if (targetTime !== currentTime) {
-      return {
-        should: false,
-        reason: `Time mismatch: ${currentTime} !== ${targetTime}`,
-      };
-    }
-
-    // 重複通知防止（1時間以内）
-    if (reminder.lastNotified) {
-      const lastNotified = new Date(reminder.lastNotified);
-      const timeDiff = now.getTime() - lastNotified.getTime();
-      const hoursDiff = timeDiff / (1000 * 60 * 60);
-
-      if (hoursDiff < 1) {
-        return {
-          should: false,
-          reason: `Too soon since last notification (${hoursDiff.toFixed(2)}h ago)`,
-        };
-      }
-    }
-
-    // スケジュールチェック
-    const scheduleMatch = this.checkScheduleMatch(reminder.schedule, now);
-    if (!scheduleMatch.matches) {
-      return { should: false, reason: scheduleMatch.reason };
-    }
-
-    return { should: true, reason: "All conditions met" };
-  }
-
-  checkScheduleMatch(schedule, now) {
-    switch (schedule.periodicType) {
-      case "daily":
-        return { matches: true, reason: "Daily schedule" };
-
-      case "interval":
-        if (!schedule.lastNotified) {
-          return {
-            matches: true,
-            reason: "First notification for interval schedule",
-          };
-        }
-        const lastNotified = new Date(schedule.lastNotified);
-        const daysDiff = Math.floor(
-          (now.getTime() - lastNotified.getTime()) / (1000 * 60 * 60 * 24),
-        );
-        const intervalMatches = daysDiff >= schedule.intervalDays; // 変数名を変更
-        return {
-          matches: intervalMatches,
-          reason: `Interval check: ${daysDiff}/${schedule.intervalDays} days`,
-        };
-
-      case "weekly":
-        const currentDay = now.getDay();
-        const weeklyMatches =
-          schedule.weekdays && schedule.weekdays.includes(currentDay); // 変数名を変更
-        return {
-          matches: weeklyMatches,
-          reason: `Weekly check: day ${currentDay}, allowed: ${schedule.weekdays}`,
-        };
-
-      case "monthly":
-        const currentWeek = Math.ceil(now.getDate() / 7);
-        const currentDayOfWeek = now.getDay();
-        const weekMatches = currentWeek === schedule.weekOfMonth;
-        const dayMatches = currentDayOfWeek === schedule.dayOfWeek;
-        const monthlyMatches = weekMatches && dayMatches; // 変数名を変更
-        return {
-          matches: monthlyMatches,
-          reason: `Monthly check: week ${currentWeek}/${schedule.weekOfMonth}, day ${currentDayOfWeek}/${schedule.dayOfWeek}`,
-        };
-
-      default:
-        return {
-          matches: false,
-          reason: `Unknown schedule type: ${schedule.periodicType}`,
-        };
-    }
-  }
-
-  async sendNotification(reminder) {
-    try {
-      const notificationOptions = {
-        body: `${reminder.title}\n${reminder.url}`,
-        icon: "/icon-192x192.png",
-        badge: "/icon-72x72.png",
-        tag: `reminder-${reminder.id}`,
-        data: {
-          reminderId: reminder.id,
-          url: reminder.url,
-          title: reminder.title,
-          action: "open",
-        },
-        actions: [
-          {
-            action: "open",
-            title: "開く",
-            icon: "/icon-72x72.png",
-          },
-          {
-            action: "dismiss",
-            title: "閉じる",
-          },
-        ],
-        requireInteraction: true,
-        renotify: true,
-        silent: false,
-      };
-
-      await self.registration.showNotification(
-        reminder.title,
-        notificationOptions,
-      );
-      debugLogger.log("INFO", `Notification sent successfully`, {
-        reminderId: reminder.id,
-        title: reminder.title,
-        url: reminder.url,
-      });
-      return true;
-    } catch (error) {
-      debugLogger.log("ERROR", `Failed to send notification`, {
-        reminderId: reminder.id,
-        title: reminder.title,
-        error: error.message,
-        stack: error.stack,
-      });
-      return false;
-    }
-  }
-
-  async requestRemindersFromClient() {
-    const clients = await self.clients.matchAll();
-    if (clients.length > 0) {
-      debugLogger.log("INFO", "Requesting reminders data from client");
-      clients[0].postMessage({
-        type: "REQUEST_REMINDERS_DATA",
-        timestamp: new Date().toISOString(),
-      });
-    } else {
-      debugLogger.log("WARN", "No clients available to request reminders data");
-    }
-  }
-
-  async updateLastNotificationTime(reminderId, timestamp) {
-    const clients = await self.clients.matchAll();
-    if (clients.length > 0) {
-      clients[0].postMessage({
-        type: "UPDATE_LAST_NOTIFICATION",
-        reminderId,
-        timestamp,
-      });
-      debugLogger.log("INFO", "Sent update request to client", {
-        reminderId,
-        timestamp,
-      });
-    }
-  }
-
-  getStats() {
-    return {
-      ...this.stats,
-      lastCheckTime: this.lastCheckTime,
-      intervalActive: !!this.checkInterval,
-      cachedRemindersCount: this.cachedReminders.length,
-    };
-  }
-}
-
-// ===== メインのService Worker処理 =====
-
-// インスタンス作成
-const notificationChecker = new NotificationChecker();
+  
+  debugLog('Service Worker初期化完了');
+};
 
 // インストール時のキャッシュ設定
-self.addEventListener("install", (event) => {
-  debugLogger.log("INFO", "Service Worker install event");
+self.addEventListener('install', (event) => {
+  debugLog('Service Worker: Install event');
+  
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => {
-        debugLogger.log("INFO", "Caching static files", {
-          files: STATIC_CACHE,
-        });
-        return cache.addAll(STATIC_CACHE);
-      })
-      .then(() => {
-        debugLogger.log("INFO", "Static files cached successfully");
-        return self.skipWaiting();
-      })
-      .catch((error) => {
-        debugLogger.log("ERROR", "Cache failed during install", {
-          error: error.message,
-        });
+    (async () => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        debugLog('キャッシュオープン成功');
+        
+        // 静的リソースをキャッシュ
+        await cache.addAll(STATIC_CACHE);
+        debugLog(`${STATIC_CACHE.length}個のリソースをキャッシュ`);
+        
+        // 即座にアクティブ化
+        await self.skipWaiting();
+        debugLog('Service Worker即座にアクティブ化');
+        
+      } catch (error) {
+        debugLog('インストール中エラー', error);
         throw error;
-      }),
+      }
+    })()
   );
 });
 
-// アクティベート時の古いキャッシュ削除
-self.addEventListener("activate", (event) => {
-  debugLogger.log("INFO", "Service Worker activate event");
+// アクティベート時の処理
+self.addEventListener('activate', (event) => {
+  debugLog('Service Worker: Activate event');
+  
   event.waitUntil(
-    caches
-      .keys()
-      .then((cacheNames) => {
+    (async () => {
+      try {
+        // 古いキャッシュの削除
+        const cacheNames = await caches.keys();
         const deletePromises = cacheNames
-          .filter((cacheName) => cacheName !== CACHE_NAME)
-          .map((cacheName) => {
-            debugLogger.log("INFO", "Deleting old cache", { cacheName });
-            return caches.delete(cacheName);
+          .filter(cacheName => cacheName !== CACHE_NAME)
+          .map(async (cacheName) => {
+            debugLog(`古いキャッシュ削除: ${cacheName}`);
+            return await caches.delete(cacheName);
           });
-        return Promise.all(deletePromises);
-      })
-      .then(() => {
-        debugLogger.log("INFO", "Old caches cleaned up");
-        return self.clients.claim();
-      })
-      .catch((error) => {
-        debugLogger.log("ERROR", "Error during activation", {
-          error: error.message,
-        });
-      }),
+        
+        await Promise.all(deletePromises);
+        debugLog(`${deletePromises.length}個の古いキャッシュを削除`);
+        
+        // 全てのクライアントを制御下に置く
+        await self.clients.claim();
+        debugLog('全クライアントを制御下に配置');
+        
+        // 初期化実行
+        initialize();
+        
+      } catch (error) {
+        debugLog('アクティベート中エラー', error);
+      }
+    })()
   );
 });
 
-// ネットワーク要求の処理
-self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
+// ネットワーク要求の処理（改善版）
+self.addEventListener('fetch', (event) => {
+  // GET リクエストのみ処理
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // chrome-extension等の特殊スキームを除外
+  if (!event.request.url.startsWith('http')) {
+    return;
+  }
 
   event.respondWith(
-    caches
-      .match(event.request)
-      .then((response) => {
-        if (response) {
-          debugLogger.log("DEBUG", "Cache hit", { url: event.request.url });
-          return response;
+    (async () => {
+      try {
+        // キャッシュから確認
+        const cachedResponse = await caches.match(event.request);
+        if (cachedResponse) {
+          debugLog(`キャッシュヒット: ${event.request.url}`);
+          return cachedResponse;
         }
-
-        debugLogger.log("DEBUG", "Cache miss - fetching", {
-          url: event.request.url,
-        });
-        return fetch(event.request).then((response) => {
-          if (
-            !response ||
-            response.status !== 200 ||
-            response.type !== "basic"
-          ) {
-            return response;
-          }
-
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-
-          return response;
-        });
-      })
-      .catch((error) => {
-        debugLogger.log("ERROR", "Fetch failed", {
-          url: event.request.url,
-          error: error.message,
-        });
-        if (event.request.destination === "document") {
-          return caches.match("/index.html");
+        
+        // ネットワークから取得
+        const networkResponse = await fetch(event.request);
+        
+        // レスポンスが有効な場合のみキャッシュ
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const cache = await caches.open(CACHE_NAME);
+          cache.put(event.request, networkResponse.clone());
+          debugLog(`新規キャッシュ: ${event.request.url}`);
         }
+        
+        return networkResponse;
+        
+      } catch (error) {
+        debugLog(`Fetchエラー: ${event.request.url}`, error);
+        
+        // オフライン時のフォールバック
+        if (event.request.destination === 'document') {
+          const cachedIndex = await caches.match('/index.html');
+          return cachedIndex || new Response('オフライン中です', { status: 503 });
+        }
+        
         throw error;
-      }),
+      }
+    })()
   );
 });
 
-// メッセージハンドラー
-self.addEventListener("message", async (event) => {
-  const { type, data } = event.data || {};
-  debugLogger.log("INFO", "Received message", { type, hasData: !!data });
+// 通知許可チェック（改善版）
+const checkNotificationPermission = () => {
+  if (!('Notification' in self)) {
+    debugLog('Notification API非対応');
+    return false;
+  }
+  
+  const hasPermission = Notification.permission === 'granted';
+  debugLog(`通知許可状態: ${Notification.permission}`);
+  return hasPermission;
+};
+
+// 次の通知時刻計算（改善版）
+const calculateNextNotificationTime = (reminder) => {
+  try {
+    const now = new Date();
+    let nextDate = new Date();
+
+    switch (reminder.schedule.type) {
+      case 'daily':
+        const interval = reminder.schedule.interval || 1;
+        nextDate.setDate(now.getDate() + interval);
+        break;
+      
+      case 'weekly':
+        const targetDay = reminder.schedule.dayOfWeek || 0;
+        const currentDay = now.getDay();
+        const daysUntilTarget = (targetDay - currentDay + 7) % 7;
+        nextDate.setDate(now.getDate() + (daysUntilTarget || 7));
+        break;
+      
+      case 'weekly-multiple':
+        const targetDays = reminder.schedule.daysOfWeek || [0];
+        const today = now.getDay();
+        const nextDay = targetDays.find(day => day > today) || targetDays[0];
+        const daysToAdd = nextDay > today ? nextDay - today : nextDay + 7 - today;
+        nextDate.setDate(now.getDate() + daysToAdd);
+        break;
+      
+      case 'monthly':
+        // 月の第N週の指定曜日
+        const weekNum = reminder.schedule.weekOfMonth || 1;
+        const dayOfWeek = reminder.schedule.dayOfWeek || 0;
+        
+        // 来月の第N週の指定曜日を計算
+        nextDate.setMonth(now.getMonth() + 1, 1);
+        nextDate.setDate(1);
+        
+        // その月の最初の指定曜日を見つける
+        while (nextDate.getDay() !== dayOfWeek) {
+          nextDate.setDate(nextDate.getDate() + 1);
+        }
+        
+        // N週目に調整
+        nextDate.setDate(nextDate.getDate() + (weekNum - 1) * 7);
+        break;
+      
+      default:
+        debugLog(`未対応のスケジュールタイプ: ${reminder.schedule.type}`);
+        nextDate.setDate(now.getDate() + 1);
+    }
+
+    // 時刻設定
+    const hour = reminder.schedule.hour || 10;
+    const minute = reminder.schedule.minute || 0;
+    nextDate.setHours(hour, minute, 0, 0);
+
+    debugLog(`次回通知計算: ${reminder.title}`, {
+      type: reminder.schedule.type,
+      current: now.toLocaleString(),
+      next: nextDate.toLocaleString()
+    });
+
+    return nextDate;
+  } catch (error) {
+    debugLog('次回通知計算エラー', error);
+    const fallback = new Date();
+    fallback.setDate(fallback.getDate() + 1);
+    return fallback;
+  }
+};
+
+// 通知表示（改善版）
+const showNotification = async (reminder) => {
+  if (!checkNotificationPermission()) {
+    debugLog('通知許可なし');
+    return false;
+  }
+
+  const options = {
+    body: `${reminder.title}の更新をチェックしましょう！`,
+    icon: '/icon-192x192.png',
+    badge: '/icon-72x72.png',
+    tag: `reminder-${reminder.id}`,
+    requireInteraction: false,
+    silent: false,
+    
+    actions: [
+      {
+        action: 'open',
+        title: '開く',
+        icon: '/icon-72x72.png'
+      },
+      {
+        action: 'dismiss',
+        title: '後で'
+      }
+    ],
+    
+    data: {
+      reminderId: reminder.id,
+      url: reminder.url,
+      title: reminder.title,
+      timestamp: Date.now()
+    },
+    
+    timestamp: Date.now()
+  };
+
+  try {
+    await self.registration.showNotification(
+      'ウェブ漫画リマインダー',
+      options
+    );
+    
+    debugLog(`通知表示成功: ${reminder.title}`);
+    return true;
+    
+  } catch (error) {
+    debugLog('通知表示エラー', { reminder: reminder.title, error });
+    return false;
+  }
+};
+
+// リマインダーチェック（改善版）
+const checkReminders = async () => {
+  if (!checkNotificationPermission()) {
+    debugLog('リマインダーチェック中止: 通知許可なし');
+    return;
+  }
+
+  if (!cachedReminders || cachedReminders.length === 0) {
+    debugLog('リマインダーチェック中止: データなし');
+    return;
+  }
+
+  try {
+    const now = new Date();
+    const checkInterval = (cachedSettings.notificationInterval || 15) * 60 * 1000;
+    let notificationsSent = 0;
+    
+    debugLog(`リマインダーチェック開始`, {
+      時刻: now.toLocaleString(),
+      チェック間隔: `${cachedSettings.notificationInterval}分`,
+      リマインダー数: cachedReminders.length
+    });
+
+    for (const reminder of cachedReminders) {
+      try {
+        // 一時停止中はスキップ
+        if (reminder.isPaused) {
+          debugLog(`スキップ（一時停止中）: ${reminder.title}`);
+          continue;
+        }
+
+        const nextNotification = calculateNextNotificationTime(reminder);
+        const timeDiff = Math.abs(now.getTime() - nextNotification.getTime());
+        
+        debugLog(`チェック中: ${reminder.title}`, {
+          次回通知: nextNotification.toLocaleString(),
+          時差: `${Math.round(timeDiff / 1000 / 60)}分`,
+          最終通知: reminder.lastNotified || 'なし'
+        });
+        
+        // 通知タイミングの判定
+        const isTimeToNotify = timeDiff <= checkInterval;
+        const lastNotified = reminder.lastNotified ? new Date(reminder.lastNotified) : null;
+        const hasRecentNotification = lastNotified && (now.getTime() - lastNotified.getTime()) < 60 * 60 * 1000; // 1時間以内
+        
+        if (isTimeToNotify && !hasRecentNotification) {
+          debugLog(`通知送信: ${reminder.title}`);
+          
+          const success = await showNotification(reminder);
+          if (success) {
+            notificationsSent++;
+            
+            // クライアントに通知送信を報告
+            const clients = await self.clients.matchAll();
+            clients.forEach(client => {
+              client.postMessage({
+                type: 'NOTIFICATION_SENT',
+                reminderId: reminder.id,
+                timestamp: now.toISOString()
+              });
+            });
+          }
+        }
+      } catch (reminderError) {
+        debugLog(`個別リマインダーエラー: ${reminder.title}`, reminderError);
+      }
+    }
+    
+    debugLog(`リマインダーチェック完了: ${notificationsSent}件送信`);
+    
+  } catch (error) {
+    debugLog('リマインダーチェック総合エラー', error);
+  }
+};
+
+// 定期チェック管理（改善版）
+const startPeriodicCheck = (intervalMinutes = 15) => {
+  debugLog(`定期チェック開始: ${intervalMinutes}分間隔`);
+  
+  // 既存のインターバルをクリア
+  if (checkInterval) {
+    clearInterval(checkInterval);
+    debugLog('既存の定期チェックを停止');
+  }
+  
+  // 新しいインターバルを設定
+  checkInterval = setInterval(() => {
+    debugLog('定期チェック実行');
+    checkReminders();
+  }, intervalMinutes * 60 * 1000);
+  
+  // 初回チェック（5秒後）
+  setTimeout(() => {
+    debugLog('初回リマインダーチェック');
+    checkReminders();
+  }, 5000);
+};
+
+// メッセージ処理（改善版）
+const handleMessage = (messageData) => {
+  const { type, data } = messageData || {};
+  debugLog(`メッセージ受信: ${type}`, data);
 
   switch (type) {
-    case "START_PERIODIC_CHECK":
-      await notificationChecker.startPeriodicCheck(data?.interval || 15);
-      break;
-
-    case "STOP_PERIODIC_CHECK":
-      notificationChecker.stopPeriodicCheck();
-      break;
-
-    case "CHECK_REMINDERS_NOW":
-      await notificationChecker.checkAndSendNotifications();
-      break;
-
-    case "REMINDERS_DATA":
-      notificationChecker.cachedReminders = data || [];
-      debugLogger.log("INFO", "Updated reminders cache", {
-        count: notificationChecker.cachedReminders.length,
-      });
-      break;
-
-    case "SETTINGS_DATA":
-      notificationChecker.cachedSettings = data || { notificationInterval: 15 };
-      debugLogger.log("INFO", "Updated settings cache", { settings: data });
+    case 'PING':
+      return { type: 'PONG', timestamp: Date.now() };
+    
+    case 'START_PERIODIC_CHECK':
+      startPeriodicCheck(data?.interval || 15);
+      return { type: 'PERIODIC_CHECK_STARTED', interval: data?.interval || 15 };
+    
+    case 'CHECK_REMINDERS_NOW':
+      checkReminders();
+      return { type: 'REMINDERS_CHECK_TRIGGERED' };
+    
+    case 'REMINDERS_DATA':
+      cachedReminders = data || [];
+      debugLog(`リマインダーキャッシュ更新: ${cachedReminders.length}件`);
+      return { type: 'REMINDERS_CACHED', count: cachedReminders.length };
+      
+    case 'SETTINGS_DATA':
+      const oldInterval = cachedSettings.notificationInterval;
+      cachedSettings = { ...cachedSettings, ...(data || {}) };
+      debugLog('設定キャッシュ更新', cachedSettings);
+      
       // 間隔が変更された場合は再起動
-      if (notificationChecker.checkInterval && data?.notificationInterval) {
-        notificationChecker.startPeriodicCheck(data.notificationInterval);
+      if (oldInterval !== cachedSettings.notificationInterval && checkInterval) {
+        startPeriodicCheck(cachedSettings.notificationInterval);
       }
-      break;
-
-    case "GET_DEBUG_LOGS":
-      const logs = debugLogger.getAllLogs();
-      event.ports[0]?.postMessage({ type: "DEBUG_LOGS_RESPONSE", logs });
-      debugLogger.log("INFO", "Sent debug logs to client", {
-        logCount: logs.length,
-      });
-      break;
-
-    case "GET_STATS":
-      const stats = notificationChecker.getStats();
-      event.ports[0]?.postMessage({ type: "STATS_RESPONSE", stats });
-      debugLogger.log("INFO", "Sent stats to client", stats);
-      break;
-
-    case "GET_DEBUG_INFO":
-      const debugInfo = {
-        logs: debugLogger.getAllLogs().slice(-50), // 最新50件
-        stats: notificationChecker.getStats(),
-        cacheStatus: await caches.has(CACHE_NAME),
-        timestamp: new Date().toISOString(),
+      return { type: 'SETTINGS_CACHED' };
+    
+    case 'UPDATE_CHECK_INTERVAL':
+      if (data?.interval) {
+        startPeriodicCheck(data.interval);
+        return { type: 'CHECK_INTERVAL_UPDATED', interval: data.interval };
+      }
+      return { type: 'ERROR', message: 'Invalid interval' };
+      
+    case 'GET_STATUS':
+      return {
+        type: 'STATUS_RESPONSE',
+        data: {
+          initialized: isInitialized,
+          remindersCount: cachedReminders.length,
+          settings: cachedSettings,
+          hasInterval: !!checkInterval,
+          notificationPermission: Notification.permission,
+          caches: CACHE_NAME
+        }
       };
-      event.ports[0]?.postMessage({ type: "DEBUG_INFO_RESPONSE", debugInfo });
-      break;
+    
+    case 'GET_DEBUG_INFO':
+      return {
+        type: 'DEBUG_INFO_RESPONSE',
+        data: {
+          version: CACHE_NAME,
+          debugMode: DEBUG_MODE,
+          reminders: cachedReminders.map(r => ({
+            id: r.id,
+            title: r.title,
+            isPaused: r.isPaused,
+            lastNotified: r.lastNotified
+          })),
+          settings: cachedSettings,
+          performance: {
+            uptime: Date.now() - (self.swStartTime || Date.now()),
+            checkInterval: !!checkInterval
+          }
+        }
+      };
+      
+    default:
+      debugLog(`未対応メッセージタイプ: ${type}`);
+      return { type: 'ERROR', message: 'Unknown message type' };
+  }
+};
+
+// メッセージリスナー（改善版）
+self.addEventListener('message', (event) => {
+  if (!isInitialized) {
+    debugLog('初期化前のメッセージをキューに追加', event.data);
+    messageQueue.push(event.data);
+    return;
+  }
+
+  try {
+    const response = handleMessage(event.data);
+    
+    // メッセージチャンネル経由で応答
+    if (event.ports && event.ports[0]) {
+      event.ports[0].postMessage(response);
+    }
+    
+  } catch (error) {
+    debugLog('メッセージ処理エラー', error);
+    if (event.ports && event.ports[0]) {
+      event.ports[0].postMessage({ 
+        type: 'ERROR', 
+        message: error.message 
+      });
+    }
   }
 });
 
-// 通知クリックハンドラー
-self.addEventListener("notificationclick", (event) => {
-  const { reminderId, url, title } = event.notification.data || {};
-
-  debugLogger.log("INFO", "Notification clicked", {
-    action: event.action,
-    reminderId,
-    url,
-    title,
-  });
-
+// 通知クリック処理（改善版）
+self.addEventListener('notificationclick', (event) => {
+  debugLog('通知クリック', { action: event.action, tag: event.notification.tag });
   event.notification.close();
 
-  if (event.action === "open" || !event.action) {
-    event.waitUntil(
-      clients.openWindow(url || "/").catch((error) => {
-        debugLogger.log("ERROR", "Failed to open URL", {
-          url,
-          error: error.message,
-        });
-      }),
-    );
-  } else if (event.action === "dismiss") {
-    debugLogger.log("INFO", "Notification dismissed by user");
-  }
+  const { reminderId, url, title } = event.notification.data || {};
 
-  // クライアントに通知クリックを報告
-  event.waitUntil(
-    self.clients.matchAll().then((clients) => {
-      clients.forEach((client) => {
-        client.postMessage({
-          type: "NOTIFICATION_CLICKED",
-          reminderId: reminderId,
-          action: event.action || "default",
-          timestamp: new Date().toISOString(),
-        });
+  const handleAction = async () => {
+    if (event.action === 'open' || !event.action) {
+      // URLを開く
+      const targetUrl = url || '/';
+      await clients.openWindow(targetUrl);
+      debugLog(`URLを開く: ${targetUrl}`);
+      
+    } else if (event.action === 'dismiss') {
+      debugLog('通知を閉じる（何もしない）');
+    }
+
+    // クライアントに通知クリックを報告
+    const allClients = await self.clients.matchAll();
+    allClients.forEach(client => {
+      client.postMessage({
+        type: 'NOTIFICATION_CLICKED',
+        reminderId: reminderId,
+        action: event.action || 'default',
+        timestamp: Date.now()
       });
-    }),
-  );
+    });
+  };
+
+  event.waitUntil(handleAction());
 });
 
-// エラーハンドリング
-self.addEventListener("error", (event) => {
-  debugLogger.log("ERROR", "Service Worker error", {
+// バックグラウンド同期（改善版）
+self.addEventListener('sync', (event) => {
+  debugLog('バックグラウンド同期', { tag: event.tag });
+  
+  if (event.tag === 'reminder-check') {
+    event.waitUntil(checkReminders());
+  }
+});
+
+// プッシュ通知（将来的な拡張用）
+self.addEventListener('push', (event) => {
+  debugLog('プッシュ通知受信', event.data);
+  
+  if (event.data) {
+    try {
+      const data = event.data.json();
+      event.waitUntil(showNotification(data));
+    } catch (error) {
+      debugLog('プッシュデータ解析エラー', error);
+    }
+  }
+});
+
+// エラーハンドリング（改善版）
+self.addEventListener('error', (event) => {
+  debugLog('Service Workerエラー', {
+    message: event.message,
     filename: event.filename,
     lineno: event.lineno,
-    colno: event.colno,
-    error: event.error?.message,
-    stack: event.error?.stack,
+    error: event.error
   });
 });
 
-self.addEventListener("unhandledrejection", (event) => {
-  debugLogger.log("ERROR", "Unhandled promise rejection", {
+self.addEventListener('unhandledrejection', (event) => {
+  debugLog('未処理のPromise拒否', {
     reason: event.reason,
-    stack: event.reason?.stack,
+    stack: event.reason?.stack
   });
 });
 
-// 初期化ログ
-debugLogger.log(
-  "INFO",
-  "Web Manga Reminder Service Worker initialized with debug features",
-  {
-    cacheVersion: CACHE_NAME,
-    timestamp: new Date().toISOString(),
-    staticCacheFiles: STATIC_CACHE.length,
-  },
-);
+// Service Worker 開始時刻を記録
+self.swStartTime = Date.now();
 
-// デバッグ用グローバル関数
-self.getDebugInfo = () => ({
-  logs: debugLogger.getAllLogs(),
-  stats: notificationChecker.getStats(),
-  cacheInfo: {
-    name: CACHE_NAME,
-    staticFiles: STATIC_CACHE,
-  },
+// 起動完了ログ
+debugLog('Service Worker起動完了', {
+  version: CACHE_NAME,
+  debugMode: DEBUG_MODE,
+  startTime: new Date().toLocaleString()
 });
 
-self.debugLogger = debugLogger;
-self.notificationChecker = notificationChecker;
+console.log(`🚀 ウェブ漫画リマインダー Service Worker v${CACHE_NAME.split('-').pop()} 起動完了`);
