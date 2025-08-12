@@ -12,6 +12,8 @@ import {
   Info,
   CheckCircle,
   AlertCircle,
+  ExternalLink,
+  Book,
 } from "lucide-react";
 import { AppSettings, Reminder, ExportData } from "../types";
 import { downloadFile, readFile, getErrorMessage } from "../utils/helpers";
@@ -23,14 +25,54 @@ interface SettingsProps {
   updateSettings: (updates: Partial<AppSettings>) => void;
   reminders: Reminder[];
   onBack: () => void;
-  onImportReminders?: (reminders: Reminder[]) => void; // リマインダーインポート用コールバック
-  onImportTheme?: (theme: "light" | "dark" | "system") => void; // テーマインポート用コールバック
+  onImportReminders?: (reminders: Reminder[]) => void;
+  onImportTheme?: (theme: "light" | "dark" | "system") => void;
 }
 
 // Navigator型拡張（PWA検出用）
 interface ExtendedNavigator extends Navigator {
   standalone?: boolean;
 }
+
+// サードパーティライセンス情報
+const thirdPartyLicenses = [
+  {
+    name: "React",
+    license: "MIT",
+    copyright: "Meta Platforms, Inc. and affiliates",
+    url: "https://github.com/facebook/react",
+  },
+  {
+    name: "Tailwind CSS",
+    license: "MIT",
+    copyright: "Tailwind Labs, Inc.",
+    url: "https://github.com/tailwindlabs/tailwindcss",
+  },
+  {
+    name: "Lucide React",
+    license: "ISC",
+    copyright: "Lucide Contributors",
+    url: "https://github.com/lucide-icons/lucide",
+  },
+  {
+    name: "Vite",
+    license: "MIT",
+    copyright: "Evan You & Vite Contributors",
+    url: "https://github.com/vitejs/vite",
+  },
+  {
+    name: "TypeScript",
+    license: "Apache 2.0",
+    copyright: "Microsoft Corporation",
+    url: "https://github.com/Microsoft/TypeScript",
+  },
+  {
+    name: "vite-plugin-pwa",
+    license: "MIT",
+    copyright: "Anthony Fu",
+    url: "https://github.com/vite-pwa/vite-plugin-pwa",
+  },
+];
 
 const Settings: React.FC<SettingsProps> = ({
   theme,
@@ -45,6 +87,7 @@ const Settings: React.FC<SettingsProps> = ({
   const [importStatus, setImportStatus] = useState<string>("");
   const [importType, setImportType] = useState<"success" | "error" | "">("");
   const [isImporting, setIsImporting] = useState(false);
+  const [showLicenses, setShowLicenses] = useState(false);
 
   const exportData = () => {
     const data: ExportData = {
@@ -52,7 +95,7 @@ const Settings: React.FC<SettingsProps> = ({
       exportDate: new Date().toISOString(),
       reminders,
       settings,
-      theme, // テーマ設定も含める
+      theme,
       metadata: {
         userAgent: navigator.userAgent,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -62,7 +105,6 @@ const Settings: React.FC<SettingsProps> = ({
     const filename = `web-manga-reminders-${new Date().toISOString().split("T")[0]}.json`;
     downloadFile(JSON.stringify(data, null, 2), filename);
 
-    // エクスポート成功のフィードバック
     setImportStatus("✅ データをエクスポートしました");
     setImportType("success");
     setTimeout(() => {
@@ -83,12 +125,10 @@ const Settings: React.FC<SettingsProps> = ({
       const content = await readFile(file);
       const data: ExportData = JSON.parse(content);
 
-      // 基本的な検証
       if (!data.version || !data.reminders || !Array.isArray(data.reminders)) {
         throw new Error("無効なファイル形式です");
       }
 
-      // 重複チェック（簡易版）
       const existingUrls = new Set(reminders.map((r) => r.url));
       const duplicates = data.reminders.filter((r) => existingUrls.has(r.url));
 
@@ -105,28 +145,23 @@ const Settings: React.FC<SettingsProps> = ({
         }
       }
 
-      // 設定をインポート
       if (data.settings) {
         updateSettings(data.settings);
       }
 
-      // テーマをインポート
       if (data.theme && onImportTheme) {
         onImportTheme(data.theme);
       } else if (data.theme) {
         setTheme(data.theme);
       }
 
-      // リマインダーをインポート（App.tsxのコールバックを使用）
       if (onImportReminders && data.reminders.length > 0) {
         onImportReminders(data.reminders);
       } else {
-        // フォールバック：localStorageに直接保存
         localStorage.setItem(
           "manga-reminder-data",
           JSON.stringify(data.reminders),
         );
-        // ページをリロードして変更を反映
         setTimeout(() => {
           window.location.reload();
         }, 1000);
@@ -137,7 +172,6 @@ const Settings: React.FC<SettingsProps> = ({
       );
       setImportType("success");
 
-      // ファイル入力をリセット
       event.target.value = "";
     } catch (error) {
       setImportStatus(`❌ エラー: ${getErrorMessage(error)}`);
@@ -192,7 +226,6 @@ const Settings: React.FC<SettingsProps> = ({
     }
   };
 
-  // ブラウザ情報取得関数の型安全化
   const getBrowserInfo = () => {
     const isStandalone = window.matchMedia(
       "(display-mode: standalone)",
@@ -513,6 +546,75 @@ const Settings: React.FC<SettingsProps> = ({
               •
               このアプリはオフラインで動作しますが、通知送信にはインターネット接続が必要な場合があります
             </p>
+          </div>
+        </div>
+
+        {/* Third Party Licenses */}
+        <div className="card p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <Book size={20} />
+            Third Party Licenses
+          </h3>
+
+          <div className="space-y-4">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              このアプリは以下のオープンソースライブラリを使用しています。
+            </div>
+
+            <button
+              onClick={() => setShowLicenses(!showLicenses)}
+              className="btn btn-secondary text-white w-full"
+            >
+              {showLicenses ? "ライセンス一覧を非表示" : "ライセンス一覧を表示"}
+            </button>
+
+            {showLicenses && (
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 max-h-96 overflow-y-auto scrollbar-thin">
+                <div className="space-y-3">
+                  {thirdPartyLicenses.map((lib) => (
+                    <div
+                      key={lib.name}
+                      className="border-b border-gray-200 dark:border-gray-600 pb-3 last:border-b-0"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <h4 className="font-medium text-gray-900 dark:text-white">
+                          {lib.name}
+                        </h4>
+                        <a
+                          href={lib.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 text-sm"
+                        >
+                          Repository
+                          <ExternalLink size={12} />
+                        </a>
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        <div>License: {lib.license}</div>
+                        <div>Copyright: {lib.copyright}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    完全なライセンステキストは、各ライブラリのリポジトリまたは
+                    <a
+                      href="https://github.com/lost-nd-xxx/web-manga-reminder/blob/main/THIRD-PARTY-LICENSES.md"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 dark:text-blue-400 hover:underline ml-1"
+                    >
+                      プロジェクトのライセンスファイル
+                      <ExternalLink size={10} className="inline ml-1" />
+                    </a>
+                    をご確認ください。
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
