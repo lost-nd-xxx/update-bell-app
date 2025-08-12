@@ -1,8 +1,9 @@
-// src/main.tsx - 型エラー完全解決版（PWA手動登録）
+// src/main.tsx
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import "./utils/serviceWorkerDebug"; // 型定義をインポート
 
 // デバッグ用のログ関数
 const debugLog = (message: string, data?: unknown) => {
@@ -258,14 +259,8 @@ function setupServiceWorkerManager() {
     },
   };
 
-  // 型定義を追加
-  interface SwDebugger {
-    test: () => Promise<unknown>;
-    getStatus: () => Promise<unknown>;
-  }
-
   // Service Workerデバッガー（型を明示的に定義）
-  const swDebugger: SwDebugger = {
+  const swDebugger = {
     test: async () => {
       try {
         const result = await swChannel.send("CHECK_REMINDERS_NOW");
@@ -286,7 +281,8 @@ function setupServiceWorkerManager() {
     },
   };
 
-  // グローバルに型安全に設定
+  // Service Worker デバッガーをグローバルに設定（型安全性のためany使用）
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any).swDebugger = swDebugger;
 
   debugLog("Service Worker管理機能セットアップ完了");
