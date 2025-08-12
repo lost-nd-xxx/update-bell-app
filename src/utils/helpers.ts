@@ -114,7 +114,7 @@ export const calculateNextNotificationTime = (schedule: Schedule, baseDate: Date
 }
 
 // 日付フィルターを適用（平日・週末）
-const adjustForDateFilter = (date: Date, filter: DateFilterType, interval: number): void => {
+const adjustForDateFilter = (date: Date, filter: DateFilterType, _interval: number): void => {
   if (filter === 'all') return
 
   let attempts = 0
@@ -152,22 +152,26 @@ export const getWeekName = (weekOfMonth: number): string => {
 // スケジュールの説明文を生成
 export const generateScheduleDescription = (schedule: Schedule): string => {
   switch (schedule.type) {
-    case 'daily':
+    case 'daily': {
       let desc = '毎日'
       if (schedule.dateFilter === 'weekdays') desc += '（平日のみ）'
       if (schedule.dateFilter === 'weekends') desc += '（週末のみ）'
       desc += ` ${formatTime(schedule.hour, schedule.minute)}`
       return desc
+    }
 
-    case 'interval':
+    case 'interval': {
       return `${schedule.interval}日ごと ${formatTime(schedule.hour, schedule.minute)}`
+    }
 
-    case 'weekly':
+    case 'weekly': {
       const dayName = getDayName(schedule.dayOfWeek!)
       const weekInterval = schedule.interval === 1 ? '毎週' : `${schedule.interval}週間ごと`
       return `${weekInterval}${dayName}曜日 ${formatTime(schedule.hour, schedule.minute)}`
+    }
 
-    case 'specific_days':
+
+    case 'specific_days': {
       if (schedule.selectedDays && schedule.selectedDays.length > 0) {
         const dayNames = schedule.selectedDays
           .sort()
@@ -176,14 +180,17 @@ export const generateScheduleDescription = (schedule: Schedule): string => {
         return `毎週${dayNames}曜日 ${formatTime(schedule.hour, schedule.minute)}`
       }
       return `特定の曜日 ${formatTime(schedule.hour, schedule.minute)}`
+    }
 
-    case 'monthly':
+    case 'monthly': {
       const weekName = getWeekName(schedule.weekOfMonth!)
       const monthlyDayName = getDayName(schedule.dayOfWeek!)
       return `毎月${weekName}${monthlyDayName}曜日 ${formatTime(schedule.hour, schedule.minute)}`
+    }
 
-    default:
+    default: {
       return '未設定'
+    }
   }
 }
 

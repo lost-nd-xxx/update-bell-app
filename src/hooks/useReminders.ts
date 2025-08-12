@@ -53,7 +53,8 @@ export const useReminders = () => {
   const duplicateReminder = (id: string) => {
     const original = reminders.find(r => r.id === id)
     if (original) {
-      const { id: _, createdAt: __, ...reminderData } = original
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id: _id, createdAt: _createdAt, ...reminderData } = original
       return addReminder({
         ...reminderData,
         title: `${original.title} (コピー)`

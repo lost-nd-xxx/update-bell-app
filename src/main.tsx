@@ -31,7 +31,7 @@ console.log('Environment:', isDevelopment ? 'development' : 'production')
 if (isProduction) {
   console.log('Attempting PWA registration...')
   try {
-    // @ts-expect-error
+    // @ts-expect-error PWA register module import for production build
     import('virtual:pwa-register').then(({ registerSW }) => {
       console.log('PWA module loaded successfully')
       const updateSW = registerSW({
@@ -126,6 +126,7 @@ function setupPWAEvents() {
     installButton?.addEventListener('click', async () => {
       if (deferredPrompt) {
         deferredPrompt.prompt()
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { outcome } = await deferredPrompt.userChoice
         deferredPrompt = null
         installPrompt?.classList.add('translate-y-20', 'opacity-0')

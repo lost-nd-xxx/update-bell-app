@@ -117,6 +117,7 @@ const handleSubmit = () => {
   if (!validateForm()) return
   
   // selectedDaysを除外したscheduleを作成
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { selectedDays, ...cleanSchedule } = formData.schedule
   
   const reminderData = {

@@ -147,7 +147,6 @@ const App: React.FC = () => {
   const handleImportReminders = (importedReminders: Reminder[]) => {
     try {
       // 既存のリマインダーとインポートされたリマインダーをマージ
-      const existingUrls = new Set(reminders.map(r => r.url))
       const newReminders: Reminder[] = []
       const updates: Array<{ id: string; data: Partial<Reminder> }> = []
       
@@ -182,7 +181,8 @@ const App: React.FC = () => {
       
       // 新規追加
       newReminders.forEach(reminder => {
-        const { id, createdAt, timezone, ...reminderData } = reminder
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id: _id, createdAt: _createdAt, timezone: _timezone, ...reminderData } = reminder
         addReminder(reminderData)
       })
       

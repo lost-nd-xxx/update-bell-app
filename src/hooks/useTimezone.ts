@@ -139,7 +139,7 @@ export const useTimezone = (
       const timeZoneName = parts.find(part => part.type === 'timeZoneName')?.value
       
       return timeZoneName || timezone
-    } catch (error) {
+    } catch {
       return timezone
     }
   }
