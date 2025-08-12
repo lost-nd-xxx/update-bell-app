@@ -31,7 +31,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   // フィルタリングとソート処理
   const filteredAndSortedReminders = useMemo(() => {
-    let filtered = reminders.filter(reminder => {
+    const filtered = reminders.filter(reminder => {
       // 検索フィルター
       const matchesSearch = filter.searchTerm === '' || 
         reminder.title.toLowerCase().includes(filter.searchTerm.toLowerCase()) ||
