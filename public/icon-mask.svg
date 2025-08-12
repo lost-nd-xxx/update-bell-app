@@ -1,1 +1,37 @@
-<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" transform="rotate(180),scale(0.5)" transform-origin="center"><rect width="512" height="512" fill="none"></rect><g transform="scale(1.125)" transform-origin="center"><circle cx="256" cy="256" r="215" fill="none" stroke="#000000" stroke-width="16"></circle><line x1="256" y1="46" x2="256" y2="76" stroke="#000000" stroke-width="8"></line><line x1="366" y1="76" x2="351" y2="101" stroke="#000000" stroke-width="6"></line><line x1="446" y1="146" x2="421" y2="161" stroke="#000000" stroke-width="6"></line><line x1="466" y1="256" x2="436" y2="256" stroke="#000000" stroke-width="8"></line><line x1="446" y1="366" x2="421" y2="351" stroke="#000000" stroke-width="6"></line><line x1="366" y1="436" x2="351" y2="411" stroke="#000000" stroke-width="6"></line><line x1="256" y1="466" x2="256" y2="436" stroke="#000000" stroke-width="8"></line><line x1="146" y1="436" x2="161" y2="411" stroke="#000000" stroke-width="6"></line><line x1="66" y1="366" x2="91" y2="351" stroke="#000000" stroke-width="6"></line><line x1="46" y1="256" x2="76" y2="256" stroke="#000000" stroke-width="8"></line><line x1="66" y1="146" x2="91" y2="161" stroke="#000000" stroke-width="6"></line><line x1="146" y1="76" x2="161" y2="101" stroke="#000000" stroke-width="6"></line></g><g width="512" height="512" viewBox="0 0 512 512" transform-origin="center" transform="scale(1.9)"><path d="M 180 200 L 250 190 L 250 310 L 180 320 Q 170 320 170 310 L 170 210 Q 170 200 180 200 Z" fill="#000000" stroke="#000000" stroke-width="6"></path><path d="M 262 190 L 332 200 Q 342 200 342 210 L 342 310 Q 342 320 332 320 L 262 310 Z" fill="#000000" stroke="#000000" stroke-width="6"></path><line x1="256" y1="187" x2="256" y2="313" stroke="none" stroke-width="6"></line></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" fill="none" />
+  <!-- 波紋（2本） -->
+  <g fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" transform="translate(30,65)">
+    <path d="M64 0 A40 40 0 0 0 24 40" />
+    <path d="M64 20 A20 20 0 0 0 44 40" />
+  </g>
+  <!-- ベル本体＋装飾突起（白） -->
+  <g transform="translate(75,60) scale(0.55)">
+    <path d="
+      M128 28
+      C92 28, 64 56, 64 92
+      L64 140
+      C64 160, 56 176, 44 184
+      C36 189, 36 200, 44 206
+      C48 209, 56 210, 64 210
+      L192 210
+      C200 210, 208 209, 212 206
+      C220 200, 220 189, 212 184
+      C200 176, 192 160, 192 140
+      L192 92
+      C192 56, 164 28, 128 28
+      Z
+      M104 210
+      C104 222, 116 232, 128 232
+      C140 232, 152 222, 152 210
+      Z
+    " fill="#000"/>
+    <path d="
+      M128 16
+      A12 12 0 0 1 140 28
+      A12 12 0 0 1 116 28
+      A12 12 0 0 1 128 16
+      Z
+    " fill="#000"/>
+  </g>
+</svg>
