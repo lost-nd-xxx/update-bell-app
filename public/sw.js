@@ -276,7 +276,7 @@ const showNotification = async (reminder) => {
 
   try {
     await self.registration.showNotification(
-      'ウェブ漫画リマインダー',
+      'おしらせベル',
       options
     );
     
@@ -576,4 +576,4 @@ debugLog('Service Worker起動完了', {
   startTime: new Date().toLocaleString()
 });
 
-console.log(`🚀 ウェブ漫画リマインダー Service Worker v${CACHE_NAME.split('-').pop()} 起動完了`);
+console.log(`🚀 おしらせベル Service Worker v${CACHE_NAME.split('-').pop()} 起動完了`);
