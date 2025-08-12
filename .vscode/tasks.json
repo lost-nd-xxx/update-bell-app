@@ -1,0 +1,119 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "🔍 全チェック実行",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "check:all"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false
+      },
+      "problemMatcher": ["$tsc", "$eslint-stylish"],
+      "detail": "型チェック + ESLint + Prettier を一括実行"
+    },
+    {
+      "label": "🛠️ 修正付き全チェック",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "check:fix"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false
+      },
+      "problemMatcher": ["$tsc", "$eslint-stylish"],
+      "detail": "型チェック + ESLint自動修正 + Prettier を一括実行"
+    },
+    {
+      "label": "📝 型チェック",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "type-check"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false
+      },
+      "problemMatcher": "$tsc",
+      "detail": "TypeScript型チェックを実行"
+    },
+    {
+      "label": "🔧 ESLint修正",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "lint:fix"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false
+      },
+      "problemMatcher": "$eslint-stylish",
+      "detail": "ESLint自動修正を実行"
+    },
+    {
+      "label": "✨ Prettier実行",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "format"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false
+      },
+      "detail": "Prettierでコード整形を実行"
+    },
+    {
+      "label": "🚀 開発サーバー起動",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated"
+      },
+      "detail": "Vite開発サーバーを起動"
+    },
+    {
+      "label": "📦 本番ビルド",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "build"],
+      "group": {
+        "kind": "build"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false
+      },
+      "problemMatcher": ["$tsc", "$eslint-stylish"],
+      "detail": "本番用ビルドを実行"
+    }
+  ]
+}
