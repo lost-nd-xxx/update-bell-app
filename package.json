@@ -1,16 +1,17 @@
 {
-  "name": "web-manga-reminder",
+  "name": "update-bell-app",
   "version": "1.0.0",
   "type": "module",
-  "description": "ウェブ漫画の更新をリマインドするPWAアプリ",
+  "description": "URLを添えてリマインド通知するPWAアプリ",
   "keywords": [
-    "manga",
     "reminder",
-    "pwa",
     "notification",
+    "pwa",
+    "bell",
+    "update",
     "react"
   ],
-  "author": "Web Manga Reminder",
+  "author": "Update Bell",
   "license": "MIT",
   "scripts": {
     "dev": "vite",

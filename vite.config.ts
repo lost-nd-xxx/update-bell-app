@@ -34,9 +34,9 @@ export default defineConfig({
         'screenshot-*.png'
       ],
       manifest: {
-        name: 'ウェブ漫画リマインダー',
-        short_name: '漫画リマインダー',
-        description: 'ウェブ漫画の更新をリマインドするPWAアプリ',
+        name: 'おしらせベル',
+        short_name: 'おしらせベル',
+        description: 'URLを添えてリマインド通知するPWAアプリ',
         theme_color: '#2563eb',
         background_color: '#ffffff',
         display: 'standalone',
