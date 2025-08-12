@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
-import { Reminder, AppState } from './types'
+import { Reminder, AppState, ServiceWorkerMessage } from './types'
 import { useReminders } from './hooks/useReminders'
 import { useSettings } from './hooks/useSettings'
 import { useTheme } from './hooks/useTheme'
@@ -10,6 +10,17 @@ import CreateReminder from './components/CreateReminder'
 import Settings from './components/Settings'
 import TimezoneChangeDialog from './components/TimezoneChangeDialog'
 import Header from './components/Header'
+
+// Service Worker関連の型定義
+declare global {
+  interface Window {
+    mangaReminder?: {
+      updateRemindersCache: (reminders: Reminder[]) => void
+      updateSettingsCache: (settings: unknown) => void
+      startPeriodicCheck: (interval: number) => void
+    }
+  }
+}
 
 const App: React.FC = () => {
   const { settings, updateSettings } = useSettings()
@@ -46,13 +57,15 @@ const App: React.FC = () => {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', (event) => {
-        const message = event.data as any
+        const message = event.data as ServiceWorkerMessage
         
         switch (message.type) {
           case 'NOTIFICATION_SENT':
-            updateReminder(message.reminderId, { 
-              lastNotified: message.timestamp 
-            })
+            if (message.reminderId && message.timestamp) {
+              updateReminder(message.reminderId, { 
+                lastNotified: message.timestamp 
+              })
+            }
             break
           case 'NOTIFICATION_CLICKED':
             // 通知クリック時の処理（必要に応じて）
@@ -60,14 +73,14 @@ const App: React.FC = () => {
             break
           case 'REQUEST_REMINDERS_DATA':
             // Service WorkerからのデータRequest
-            if ((window as any).mangaReminder?.updateRemindersCache) {
-              (window as any).mangaReminder.updateRemindersCache(reminders)
+            if (window.mangaReminder?.updateRemindersCache) {
+              window.mangaReminder.updateRemindersCache(reminders)
             }
             break
           case 'REQUEST_SETTINGS_DATA':
             // Service WorkerからのSettingsRequest
-            if ((window as any).mangaReminder?.updateSettingsCache) {
-              (window as any).mangaReminder.updateSettingsCache(settings)
+            if (window.mangaReminder?.updateSettingsCache) {
+              window.mangaReminder.updateSettingsCache(settings)
             }
             break
         }
@@ -77,20 +90,20 @@ const App: React.FC = () => {
 
   // リマインダーデータが変更された時にService Workerに同期
   useEffect(() => {
-    if (reminders.length > 0 && (window as any).mangaReminder?.updateRemindersCache) {
-      (window as any).mangaReminder.updateRemindersCache(reminders)
+    if (reminders.length > 0 && window.mangaReminder?.updateRemindersCache) {
+      window.mangaReminder.updateRemindersCache(reminders)
     }
   }, [reminders])
 
   // 設定が変更された時にService Workerに同期
   useEffect(() => {
-    if ((window as any).mangaReminder?.updateSettingsCache) {
-      (window as any).mangaReminder.updateSettingsCache(settings)
+    if (window.mangaReminder?.updateSettingsCache) {
+      window.mangaReminder.updateSettingsCache(settings)
     }
     
     // 通知間隔が変更された場合は定期チェックを再開
-    if (settings.notificationInterval && (window as any).mangaReminder?.startPeriodicCheck) {
-      (window as any).mangaReminder.startPeriodicCheck(settings.notificationInterval)
+    if (settings.notificationInterval && window.mangaReminder?.startPeriodicCheck) {
+      window.mangaReminder.startPeriodicCheck(settings.notificationInterval)
     }
   }, [settings])
 

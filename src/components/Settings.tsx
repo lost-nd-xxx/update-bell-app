@@ -27,6 +27,11 @@ interface SettingsProps {
   onImportTheme?: (theme: 'light' | 'dark' | 'system') => void // テーマインポート用コールバック
 }
 
+// Navigator型拡張（PWA検出用）
+interface ExtendedNavigator extends Navigator {
+  standalone?: boolean
+}
+
 const Settings: React.FC<SettingsProps> = ({
   theme,
   setTheme,
@@ -183,9 +188,11 @@ const Settings: React.FC<SettingsProps> = ({
     }
   }
 
+  // ブラウザ情報取得関数の型安全化
   const getBrowserInfo = () => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-    const isPWA = isStandalone || (window.navigator as any).standalone
+    const extendedNavigator = window.navigator as ExtendedNavigator
+    const isPWA = isStandalone || extendedNavigator.standalone
     
     return {
       isPWA,

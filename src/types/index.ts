@@ -95,14 +95,29 @@ export interface NotificationData {
   timestamp: string
 }
 
-// Service Workerメッセージの型
+// Service Workerメッセージの型定義
+export type ServiceWorkerMessageType = 
+  | 'GET_REMINDERS' 
+  | 'REMINDERS_DATA' 
+  | 'GET_SETTINGS' 
+  | 'SETTINGS_DATA' 
+  | 'NOTIFICATION_SENT' 
+  | 'NOTIFICATION_CLICKED'
+  | 'CONFIRM_REMINDER' 
+  | 'CHECK_REMINDERS_NOW' 
+  | 'START_PERIODIC_CHECK' 
+  | 'UPDATE_CHECK_INTERVAL' 
+  | 'TIMEZONE_CHANGED'
+  | 'REQUEST_REMINDERS_DATA'
+  | 'REQUEST_SETTINGS_DATA'
+
+// Service Workerメッセージの詳細型
 export interface ServiceWorkerMessage {
-  type: 'GET_REMINDERS' | 'REMINDERS_DATA' | 'GET_SETTINGS' | 'SETTINGS_DATA' | 
-        'NOTIFICATION_SENT' | 'CONFIRM_REMINDER' | 'CHECK_REMINDERS_NOW' | 
-        'START_PERIODIC_CHECK' | 'UPDATE_CHECK_INTERVAL' | 'TIMEZONE_CHANGED'
+  type: ServiceWorkerMessageType
   reminderId?: string
   timestamp?: string
-  data?: any
+  action?: string
+  data?: unknown // より具体的な型定義が可能な場合は変更
 }
 
 // 通知履歴（将来の拡張用）
@@ -144,10 +159,17 @@ export interface AppState {
   error: string | null
 }
 
-// API関連の型（将来の拡張用）
-export interface ApiResponse<T = any> {
-  success: boolean
-  data?: T
-  error?: string
+// API関連の型（将来の拡張用）- 具体的な型定義
+export interface ApiResponseSuccess<T = Record<string, unknown>> {
+  success: true
+  data: T
   timestamp: string
 }
+
+export interface ApiResponseError {
+  success: false
+  error: string
+  timestamp: string
+}
+
+export type ApiResponse<T = Record<string, unknown>> = ApiResponseSuccess<T> | ApiResponseError

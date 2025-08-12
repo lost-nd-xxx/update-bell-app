@@ -298,8 +298,8 @@ export const deepClone = <T>(obj: T): T => {
   return JSON.parse(JSON.stringify(obj))
 }
 
-// デバウンス関数
-export const debounce = <T extends (...args: any[]) => any>(
+// デバウンス関数 - any型を具体的な関数型に修正
+export const debounce = <T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void => {
