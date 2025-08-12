@@ -1,4 +1,4 @@
-import { Reminder, Schedule, DateFilterType } from '../types'
+import { Schedule, DateFilterType } from '../types'
 
 // ユニークIDを生成
 export const generateId = (): string => {

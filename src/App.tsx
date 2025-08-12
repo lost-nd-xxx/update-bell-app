@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
-import { Reminder, AppSettings, AppState } from './types'
+import { Reminder, AppState } from './types'
 import { useReminders } from './hooks/useReminders'
 import { useSettings } from './hooks/useSettings'
 import { useTheme } from './hooks/useTheme'
