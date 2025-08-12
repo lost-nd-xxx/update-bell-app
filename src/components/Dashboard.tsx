@@ -1,20 +1,20 @@
-import React, { useMemo } from 'react'
-import { Search, Bell, SortAsc, SortDesc, BarChart3 } from 'lucide-react'
-import { Reminder, AppState } from '../types'
-import ReminderCard from './ReminderCard'
-import TagFilter from './TagFilter'
+import React, { useMemo } from "react";
+import { Search, Bell, SortAsc, SortDesc, BarChart3 } from "lucide-react";
+import { Reminder, AppState } from "../types";
+import ReminderCard from "./ReminderCard";
+import TagFilter from "./TagFilter";
 
 interface DashboardProps {
-  reminders: Reminder[]
-  filter: AppState['filter']
-  sort: AppState['sort']
-  onFilterChange: (filter: Partial<AppState['filter']>) => void
-  onSortChange: (sort: Partial<AppState['sort']>) => void
-  onEdit: (reminder: Reminder) => void
-  onDelete: (id: string) => void
-  onTogglePause: (id: string, isPaused: boolean) => void
-  onCreateNew: () => void
-  statsExpanded: boolean
+  reminders: Reminder[];
+  filter: AppState["filter"];
+  sort: AppState["sort"];
+  onFilterChange: (filter: Partial<AppState["filter"]>) => void;
+  onSortChange: (sort: Partial<AppState["sort"]>) => void;
+  onEdit: (reminder: Reminder) => void;
+  onDelete: (id: string) => void;
+  onTogglePause: (id: string, isPaused: boolean) => void;
+  onCreateNew: () => void;
+  statsExpanded: boolean;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -27,81 +27,86 @@ const Dashboard: React.FC<DashboardProps> = ({
   onDelete,
   onTogglePause,
   onCreateNew,
-  statsExpanded
+  statsExpanded,
 }) => {
   // フィルタリングとソート処理
   const filteredAndSortedReminders = useMemo(() => {
-    const filtered = reminders.filter(reminder => {
+    const filtered = reminders.filter((reminder) => {
       // 検索フィルター
-      const matchesSearch = filter.searchTerm === '' ||
-        reminder.title.toLowerCase().includes(filter.searchTerm.toLowerCase()) ||
-        reminder.url.toLowerCase().includes(filter.searchTerm.toLowerCase())
+      const matchesSearch =
+        filter.searchTerm === "" ||
+        reminder.title
+          .toLowerCase()
+          .includes(filter.searchTerm.toLowerCase()) ||
+        reminder.url.toLowerCase().includes(filter.searchTerm.toLowerCase());
 
       // タグフィルター
-      const matchesTags = filter.selectedTags.length === 0 ||
-        filter.selectedTags.every(tag => reminder.tags.includes(tag))
+      const matchesTags =
+        filter.selectedTags.length === 0 ||
+        filter.selectedTags.every((tag) => reminder.tags.includes(tag));
 
       // 一時停止フィルター
-      const matchesPause = filter.showPaused || !reminder.isPaused
+      const matchesPause = filter.showPaused || !reminder.isPaused;
 
-      return matchesSearch && matchesTags && matchesPause
-    })
+      return matchesSearch && matchesTags && matchesPause;
+    });
 
     // ソート処理
     filtered.sort((a, b) => {
-      let comparison = 0
+      let comparison = 0;
 
       switch (sort.field) {
-        case 'lastNotified': {
-          const aTime = a.lastNotified || a.createdAt
-          const bTime = b.lastNotified || b.createdAt
-          comparison = new Date(bTime).getTime() - new Date(aTime).getTime()
-          break
+        case "lastNotified": {
+          const aTime = a.lastNotified || a.createdAt;
+          const bTime = b.lastNotified || b.createdAt;
+          comparison = new Date(bTime).getTime() - new Date(aTime).getTime();
+          break;
         }
-        case 'nextNotification': {
+        case "nextNotification": {
           // 次回通知時刻でソート（実装は複雑になるため簡略化）
-          comparison = a.schedule.hour - b.schedule.hour
-          break
+          comparison = a.schedule.hour - b.schedule.hour;
+          break;
         }
-        case 'createdAt': {
-          comparison = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          break
+        case "createdAt": {
+          comparison =
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          break;
         }
-        case 'title': {
-          comparison = a.title.localeCompare(b.title, 'ja')
-          break
+        case "title": {
+          comparison = a.title.localeCompare(b.title, "ja");
+          break;
         }
       }
 
-      return sort.order === 'desc' ? comparison : -comparison
-    })
+      return sort.order === "desc" ? comparison : -comparison;
+    });
 
-    return filtered
-  }, [reminders, filter, sort])
+    return filtered;
+  }, [reminders, filter, sort]);
 
   // 全てのタグを取得
   const allTags = useMemo(() => {
-    const tags = new Set<string>()
-    reminders.forEach(reminder => {
-      reminder.tags.forEach(tag => tags.add(tag))
-    })
-    return Array.from(tags).sort()
-  }, [reminders])
+    const tags = new Set<string>();
+    reminders.forEach((reminder) => {
+      reminder.tags.forEach((tag) => tags.add(tag));
+    });
+    return Array.from(tags).sort();
+  }, [reminders]);
 
   const toggleSortOrder = () => {
-    onSortChange({ order: sort.order === 'asc' ? 'desc' : 'asc' })
-  }
+    onSortChange({ order: sort.order === "asc" ? "desc" : "asc" });
+  };
 
-  const handleSortFieldChange = (field: AppState['sort']['field']) => {
-    onSortChange({ field })
-  }
+  const handleSortFieldChange = (field: AppState["sort"]["field"]) => {
+    onSortChange({ field });
+  };
 
   const stats = {
     total: reminders.length,
-    active: reminders.filter(r => !r.isPaused).length,
-    paused: reminders.filter(r => r.isPaused).length,
-    tags: allTags.length
-  }
+    active: reminders.filter((r) => !r.isPaused).length,
+    paused: reminders.filter((r) => r.isPaused).length,
+    tags: allTags.length,
+  };
 
   return (
     <div className="space-y-6">
@@ -155,9 +160,14 @@ const Dashboard: React.FC<DashboardProps> = ({
       {reminders.length > 0 && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <Bell className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" size={16} />
+            <Bell
+              className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5"
+              size={16}
+            />
             <div className="text-sm">
-              <p className="font-medium text-blue-800 dark:text-blue-300 mb-1">通知について</p>
+              <p className="font-medium text-blue-800 dark:text-blue-300 mb-1">
+                通知について
+              </p>
               <p className="text-blue-700 dark:text-blue-200">
                 「最終通知」は実際に通知が送信された時刻に更新されます。通知許可と定期チェックが有効になっている必要があります。
               </p>
@@ -171,7 +181,10 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="space-y-4">
           {/* 検索バー */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <Search
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+              size={20}
+            />
             <input
               type="text"
               placeholder="タイトルやURLで検索..."
@@ -190,7 +203,11 @@ const Dashboard: React.FC<DashboardProps> = ({
               </label>
               <select
                 value={sort.field}
-                onChange={(e) => handleSortFieldChange(e.target.value as AppState['sort']['field'])}
+                onChange={(e) =>
+                  handleSortFieldChange(
+                    e.target.value as AppState["sort"]["field"],
+                  )
+                }
                 className="input text-sm"
               >
                 <option value="lastNotified">最終通知日時</option>
@@ -201,9 +218,13 @@ const Dashboard: React.FC<DashboardProps> = ({
               <button
                 onClick={toggleSortOrder}
                 className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-                title={sort.order === 'asc' ? '昇順' : '降順'}
+                title={sort.order === "asc" ? "昇順" : "降順"}
               >
-                {sort.order === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />}
+                {sort.order === "asc" ? (
+                  <SortAsc size={16} />
+                ) : (
+                  <SortDesc size={16} />
+                )}
               </button>
             </div>
 
@@ -212,7 +233,9 @@ const Dashboard: React.FC<DashboardProps> = ({
               <input
                 type="checkbox"
                 checked={filter.showPaused}
-                onChange={(e) => onFilterChange({ showPaused: e.target.checked })}
+                onChange={(e) =>
+                  onFilterChange({ showPaused: e.target.checked })
+                }
                 className="rounded border-gray-300 dark:border-gray-600"
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -228,9 +251,9 @@ const Dashboard: React.FC<DashboardProps> = ({
               selectedTags={filter.selectedTags}
               onTagToggle={(tag) => {
                 const newSelectedTags = filter.selectedTags.includes(tag)
-                  ? filter.selectedTags.filter(t => t !== tag)
-                  : [...filter.selectedTags, tag]
-                onFilterChange({ selectedTags: newSelectedTags })
+                  ? filter.selectedTags.filter((t) => t !== tag)
+                  : [...filter.selectedTags, tag];
+                onFilterChange({ selectedTags: newSelectedTags });
               }}
             />
           )}
@@ -244,15 +267,13 @@ const Dashboard: React.FC<DashboardProps> = ({
             <Bell className="mx-auto mb-4 text-gray-400" size={48} />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
               {reminders.length === 0
-                ? 'リマインダーがありません'
-                : 'フィルター条件に一致するリマインダーがありません'
-              }
+                ? "リマインダーがありません"
+                : "フィルター条件に一致するリマインダーがありません"}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               {reminders.length === 0
-                ? '最初のリマインダーを作成してください'
-                : '検索条件やフィルターを変更してください'
-              }
+                ? "最初のリマインダーを作成してください"
+                : "検索条件やフィルターを変更してください"}
             </p>
             {reminders.length === 0 && (
               <button
@@ -264,7 +285,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             )}
           </div>
         ) : (
-          filteredAndSortedReminders.map(reminder => (
+          filteredAndSortedReminders.map((reminder) => (
             <ReminderCard
               key={reminder.id}
               reminder={reminder}
@@ -277,13 +298,15 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* 検索結果の情報 */}
-      {filter.searchTerm || filter.selectedTags.length > 0 || !filter.showPaused ? (
+      {filter.searchTerm ||
+      filter.selectedTags.length > 0 ||
+      !filter.showPaused ? (
         <div className="text-center text-sm text-gray-600 dark:text-gray-400">
           {filteredAndSortedReminders.length}件中{reminders.length}件を表示
         </div>
       ) : null}
     </div>
-  )
-}
+  );
+};
 
-export default Dashboard
+export default Dashboard;

@@ -1,43 +1,54 @@
-import React from 'react'
-import { Calendar, Tag, Edit, Trash2, Play, Pause, ExternalLink, Clock } from 'lucide-react'
-import { Reminder } from '../types'
-import { 
-  formatDate, 
-  formatRelativeTime, 
-  calculateNextNotificationTime, 
+import React from "react";
+import {
+  Calendar,
+  Tag,
+  Edit,
+  Trash2,
+  Play,
+  Pause,
+  ExternalLink,
+  Clock,
+} from "lucide-react";
+import { Reminder } from "../types";
+import {
+  formatDate,
+  formatRelativeTime,
+  calculateNextNotificationTime,
   generateScheduleDescription,
-  extractDomain 
-} from '../utils/helpers'
+  extractDomain,
+} from "../utils/helpers";
 
 interface ReminderCardProps {
-  reminder: Reminder
-  onEdit: () => void
-  onDelete: () => void
-  onTogglePause: (isPaused: boolean) => void
+  reminder: Reminder;
+  onEdit: () => void;
+  onDelete: () => void;
+  onTogglePause: (isPaused: boolean) => void;
 }
 
 const ReminderCard: React.FC<ReminderCardProps> = ({
   reminder,
   onEdit,
   onDelete,
-  onTogglePause
+  onTogglePause,
 }) => {
-  const nextNotificationTime = calculateNextNotificationTime(reminder.schedule)
-  const scheduleDescription = generateScheduleDescription(reminder.schedule)
-  const domain = extractDomain(reminder.url)
+  const nextNotificationTime = calculateNextNotificationTime(reminder.schedule);
+  const scheduleDescription = generateScheduleDescription(reminder.schedule);
+  const domain = extractDomain(reminder.url);
 
   const handleUrlClick = (e: React.MouseEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     // リファラーを送信しないように rel="noopener noreferrer nofollow" を設定
-    window.open(reminder.url, '_blank', 'noopener,noreferrer,nofollow')
-  }
+    window.open(reminder.url, "_blank", "noopener,noreferrer,nofollow");
+  };
 
   return (
-    <div className={`card p-6 border-l-4 transition-all hover:shadow-md ${
-      reminder.isPaused 
-        ? 'border-yellow-500 bg-yellow-50/50 dark:bg-yellow-900/10' 
-        : 'border-blue-500 bg-white dark:bg-gray-800'
-    }`}>
+    <div
+      className={`card p-6 border-l-4 transition-all hover:shadow-md ${
+        reminder.isPaused
+          ? "border-yellow-500 bg-yellow-50/50 dark:bg-yellow-900/10"
+          : "border-blue-500 bg-white dark:bg-gray-800"
+      }`}
+    >
       {/* ヘッダー */}
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1 min-w-0">
@@ -51,30 +62,33 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
               </span>
             )}
           </div>
-          
+
           <button
             onClick={handleUrlClick}
             className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline text-sm group"
           >
             <span className="truncate">{domain}</span>
-            <ExternalLink size={14} className="flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" />
+            <ExternalLink
+              size={14}
+              className="flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity"
+            />
           </button>
         </div>
-        
+
         {/* アクションボタン */}
         <div className="flex items-center gap-1 ml-4">
           <button
             onClick={() => onTogglePause(!reminder.isPaused)}
             className={`p-2 rounded-lg transition-colors border ${
               reminder.isPaused
-                ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30'
-                : 'border-yellow-200 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-900/30'
+                ? "border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30"
+                : "border-yellow-200 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
             }`}
-            title={reminder.isPaused ? '再開' : '一時停止'}
+            title={reminder.isPaused ? "再開" : "一時停止"}
           >
             {reminder.isPaused ? <Play size={16} /> : <Pause size={16} />}
           </button>
-          
+
           <button
             onClick={onEdit}
             className="p-2 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900/30 rounded-lg transition-colors"
@@ -82,7 +96,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
           >
             <Edit size={16} />
           </button>
-          
+
           <button
             onClick={onDelete}
             className="p-2 border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
@@ -107,10 +121,10 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
           <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
             <Clock size={16} className="flex-shrink-0" />
             <span>
-              最終通知: {reminder.lastNotified 
+              最終通知:{" "}
+              {reminder.lastNotified
                 ? formatRelativeTime(reminder.lastNotified)
-                : '未通知'
-              }
+                : "未通知"}
             </span>
           </div>
 
@@ -119,11 +133,12 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
             <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
               <Calendar size={16} className="flex-shrink-0" />
               <span>
-                次回: {formatDate(nextNotificationTime, { 
-                  month: 'short', 
-                  day: 'numeric', 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
+                次回:{" "}
+                {formatDate(nextNotificationTime, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
                 })}
               </span>
             </div>
@@ -135,8 +150,11 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
           <div className="flex items-center gap-2 flex-wrap">
             <Tag size={16} className="text-gray-400 flex-shrink-0" />
             <div className="flex gap-1 flex-wrap">
-              {reminder.tags.map(tag => (
-                <span key={tag} className="tag tag-gray text-gray-800 dark:text-gray-200">
+              {reminder.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="tag tag-gray text-gray-800 dark:text-gray-200"
+                >
                   #{tag}
                 </span>
               ))}
@@ -154,7 +172,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default ReminderCard
+export default ReminderCard;

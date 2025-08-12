@@ -1,20 +1,20 @@
-import React from 'react'
-import { X } from 'lucide-react'
+import React from "react";
+import { X } from "lucide-react";
 
 interface TagFilterProps {
-  allTags: string[]
-  selectedTags: string[]
-  onTagToggle: (tag: string) => void
+  allTags: string[];
+  selectedTags: string[];
+  onTagToggle: (tag: string) => void;
 }
 
 const TagFilter: React.FC<TagFilterProps> = ({
   allTags,
   selectedTags,
-  onTagToggle
+  onTagToggle,
 }) => {
   const clearAllTags = () => {
-    selectedTags.forEach(tag => onTagToggle(tag))
-  }
+    selectedTags.forEach((tag) => onTagToggle(tag));
+  };
 
   return (
     <div className="space-y-2">
@@ -31,26 +31,29 @@ const TagFilter: React.FC<TagFilterProps> = ({
           </button>
         )}
       </div>
-      
+
       <div className="flex flex-wrap gap-2">
-        {allTags.map(tag => {
-          const isSelected = selectedTags.includes(tag)
+        {allTags.map((tag) => {
+          const isSelected = selectedTags.includes(tag);
           return (
             <button
               key={tag}
               onClick={() => onTagToggle(tag)}
               className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-all ${
                 isSelected
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
               }`}
             >
               #{tag}
               {isSelected && (
-                <X size={14} className="ml-1 hover:bg-blue-500 rounded-full p-0.5" />
+                <X
+                  size={14}
+                  className="ml-1 hover:bg-blue-500 rounded-full p-0.5"
+                />
               )}
             </button>
-          )
+          );
         })}
       </div>
 
@@ -61,7 +64,7 @@ const TagFilter: React.FC<TagFilterProps> = ({
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default TagFilter
+export default TagFilter;

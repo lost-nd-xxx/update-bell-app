@@ -5,9 +5,15 @@
 /* カスタムスタイル */
 @layer base {
   html {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family:
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      sans-serif;
   }
-  
+
   body {
     @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors;
   }
@@ -18,88 +24,88 @@
   .btn {
     @apply px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
   }
-  
+
   .btn-primary {
     @apply bg-blue-600 hover:bg-blue-700 focus:ring-blue-500;
     /* ライトテーマでのテキスト色を明示的に黒に設定（!important で強制） */
     color: black !important;
   }
-  
+
   .btn-primary:hover {
     color: black !important;
   }
-  
+
   .btn-primary:focus {
     color: black !important;
   }
-  
+
   /* ダークテーマでは白文字を維持 */
   .dark .btn-primary {
     color: white !important;
   }
-  
+
   .dark .btn-primary:hover {
     color: white !important;
   }
-  
+
   .dark .btn-primary:focus {
     color: white !important;
   }
-  
+
   .btn-secondary {
     @apply bg-gray-600 hover:bg-gray-700 focus:ring-gray-500;
     /* ライトテーマでのテキスト色を明示的に黒に設定（!important で強制） */
     color: black !important;
   }
-  
+
   .btn-secondary:hover {
     color: black !important;
   }
-  
+
   .btn-secondary:focus {
     color: black !important;
   }
-  
+
   /* ダークテーマでは白文字を維持 */
   .dark .btn-secondary {
     color: white !important;
   }
-  
+
   .dark .btn-secondary:hover {
     color: white !important;
   }
-  
+
   .dark .btn-secondary:focus {
     color: white !important;
   }
-  
+
   .btn-danger {
     @apply bg-red-600 hover:bg-red-700 focus:ring-red-500;
     /* ライトテーマでのテキスト色を明示的に黒に設定（!important で強制） */
     color: black !important;
   }
-  
+
   .btn-danger:hover {
     color: black !important;
   }
-  
+
   .btn-danger:focus {
     color: black !important;
   }
-  
+
   /* ダークテーマでは白文字を維持 */
   .dark .btn-danger {
     color: white !important;
   }
-  
+
   .dark .btn-danger:hover {
     color: white !important;
   }
-  
+
   .dark .btn-danger:focus {
     color: white !important;
   }
-  
+
   /* 入力フィールドの基本スタイル */
   .input {
     @apply w-full px-3 py-2 border rounded-lg transition-colors focus:ring-2 focus:ring-blue-500 focus:border-transparent;
@@ -108,27 +114,27 @@
     color: #111827; /* gray-900 */
     border-color: #d1d5db; /* gray-300 */
   }
-  
+
   .input::placeholder {
     color: #6b7280; /* gray-500 */
   }
-  
+
   /* ダークテーマ */
   .dark .input {
     background-color: #374151 !important; /* gray-700 */
     color: white !important;
     border-color: #4b5563; /* gray-600 */
   }
-  
+
   .dark .input::placeholder {
     color: #9ca3af; /* gray-400 */
   }
-  
+
   /* select要素も同様に設定 */
   .dark select.input {
     color: white !important;
   }
-  
+
   /* input要素のautofill対応 */
   .dark .input:-webkit-autofill,
   .dark .input:-webkit-autofill:hover,
@@ -137,33 +143,33 @@
     -webkit-box-shadow: 0 0 0px 1000px #374151 inset !important;
     transition: background-color 5000s ease-in-out 0s;
   }
-  
+
   /* カードの基本スタイル */
   .card {
     @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700;
   }
-  
+
   /* タグスタイル */
   .tag {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
-  
+
   .tag-blue {
     @apply bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300;
   }
-  
+
   .tag-gray {
     @apply bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300;
   }
-  
+
   .tag-yellow {
     @apply bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300;
   }
-  
+
   .tag-green {
     @apply bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300;
   }
-  
+
   .tag-red {
     @apply bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300;
   }
@@ -174,30 +180,30 @@
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out;
   }
-  
+
   .animate-slide-up {
     animation: slideUp 0.3s ease-out;
   }
-  
+
   /* スクロールバーのスタイリング */
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: rgb(156 163 175) transparent;
   }
-  
+
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
   }
-  
+
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background-color: rgb(156 163 175);
     border-radius: 3px;
   }
-  
+
   .dark .scrollbar-thin::-webkit-scrollbar-thumb {
     background-color: rgb(75 85 99);
   }
