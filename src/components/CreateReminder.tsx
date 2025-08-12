@@ -237,7 +237,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
                 setFormData((prev) => ({ ...prev, title: e.target.value }))
               }
               className={`input ${errors.title ? "border-red-500" : ""}`}
-              placeholder="例: 鉄腕アトム"
+              placeholder="例: 新商品情報、ブログ更新など"
               onKeyPress={handleKeyPress}
             />
             {errors.title && (
@@ -258,7 +258,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
                 setFormData((prev) => ({ ...prev, url: e.target.value }))
               }
               className={`input ${errors.url ? "border-red-500" : ""}`}
-              placeholder="https://manga-site.example.com/atom"
+              placeholder="https://example.com/news"
               onKeyPress={handleKeyPress}
             />
             {errors.url && (

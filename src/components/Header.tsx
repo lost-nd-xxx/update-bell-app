@@ -72,7 +72,7 @@ const Header: React.FC<HeaderProps> = ({
               onClick={onTitleClick}
               className="text-xl font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
             >
-              ウェブ漫画リマインダー
+              おしらせベル
             </button>
             {/* 通知ステータス表示（クリック可能） */}
             <div className="relative">
