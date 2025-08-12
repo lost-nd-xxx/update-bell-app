@@ -1,0 +1,110 @@
+# Third Party Licenses
+
+このプロジェクトは以下のオープンソースライブラリを使用しています。
+
+## React
+- **License**: MIT License
+- **Copyright**: Copyright (c) Meta Platforms, Inc. and affiliates.
+- **Repository**: https://github.com/facebook/react
+- **npm**: https://www.npmjs.com/package/react
+
+## React DOM
+- **License**: MIT License
+- **Copyright**: Copyright (c) Meta Platforms, Inc. and affiliates.
+- **Repository**: https://github.com/facebook/react
+- **npm**: https://www.npmjs.com/package/react-dom
+
+## Vite
+- **License**: MIT License
+- **Copyright**: Copyright (c) 2019-present, Yuxi (Evan) You and Vite contributors
+- **Repository**: https://github.com/vitejs/vite
+- **npm**: https://www.npmjs.com/package/vite
+
+## TypeScript
+- **License**: Apache License 2.0
+- **Copyright**: Microsoft Corporation
+- **Repository**: https://github.com/Microsoft/TypeScript
+- **npm**: https://www.npmjs.com/package/typescript
+
+## Tailwind CSS
+- **License**: MIT License
+- **Copyright**: Copyright (c) Tailwind Labs, Inc.
+- **Repository**: https://github.com/tailwindlabs/tailwindcss
+- **npm**: https://www.npmjs.com/package/tailwindcss
+
+## Lucide React
+- **License**: ISC License
+- **Copyright**: Copyright (c) 2020, Lucide Contributors
+- **Repository**: https://github.com/lucide-icons/lucide
+- **npm**: https://www.npmjs.com/package/lucide-react
+
+## vite-plugin-pwa
+- **License**: MIT License
+- **Copyright**: Copyright (c) 2020-present, Anthony Fu
+- **Repository**: https://github.com/vite-pwa/vite-plugin-pwa
+- **npm**: https://www.npmjs.com/package/vite-plugin-pwa
+
+## @vitejs/plugin-react
+- **License**: MIT License
+- **Copyright**: Copyright (c) 2019-present, Yuxi (Evan) You and Vite contributors
+- **Repository**: https://github.com/vitejs/vite-plugin-react
+- **npm**: https://www.npmjs.com/package/@vitejs/plugin-react
+
+---
+
+## License Texts
+
+### MIT License
+```
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### ISC License
+```
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
+
+### Apache License 2.0
+```
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
+
+---
+
+*最終更新: 2025-08-12*
