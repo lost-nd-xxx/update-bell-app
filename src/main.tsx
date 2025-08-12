@@ -26,16 +26,12 @@ const isDevelopment =
   location.port === "3000";
 const isProduction = !isDevelopment;
 
-console.log("Environment:", isDevelopment ? "development" : "production");
-
 // PWA Service Worker登録（本番環境のみ）
 if (isProduction) {
-  console.log("Attempting PWA registration...");
   try {
     // @ts-expect-error PWA register module import for production build
     import("virtual:pwa-register")
       .then(({ registerSW }) => {
-        console.log("PWA module loaded successfully");
         const updateSW = registerSW({
           onNeedRefresh() {
             if (confirm("新しいバージョンが利用可能です。更新しますか？")) {
@@ -43,18 +39,16 @@ if (isProduction) {
             }
           },
           onOfflineReady() {
-            console.log("アプリがオフラインで利用可能になりました");
+            // アプリがオフライン対応済み
           },
         });
       })
-      .catch((error) => {
-        console.log("PWA registration failed:", error);
+      .catch(() => {
+        // PWA登録に失敗（silent fail）
       });
-  } catch (error) {
-    console.log("PWA import error:", error);
+  } catch {
+    // PWAインポートエラー（silent fail）
   }
-} else {
-  console.log("PWA registration skipped (development mode)");
 }
 
 // PWAインストールプロンプトの処理
@@ -66,7 +60,6 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 // React アプリケーションのマウント（同期実行）
-console.log("Mounting React app...");
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />
@@ -75,7 +68,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 
 // マウント直後にローディング画面を隠す
 setTimeout(() => {
-  console.log("Hiding loading screen after React mount");
   hideLoadingScreen();
 }, 10);
 
@@ -83,22 +75,18 @@ setTimeout(() => {
 const intervals = [50, 100, 200, 500, 1000];
 intervals.forEach((delay) => {
   setTimeout(() => {
-    if (hideLoadingScreen()) {
-      console.log(`Loading screen hidden at ${delay}ms`);
-    }
+    hideLoadingScreen();
   }, delay);
 });
 
 // DOM読み込み完了後の処理
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
-    console.log("DOM ready - hiding loading screen");
     hideLoadingScreen();
     setupPWAEvents();
   });
 } else {
   // DOM は既に読み込み済み
-  console.log("DOM already ready - hiding loading screen");
   hideLoadingScreen();
   setupPWAEvents();
 }
@@ -143,7 +131,6 @@ function setupPWAEvents() {
 
   // アプリインストール後の処理
   window.addEventListener("appinstalled", () => {
-    console.log("PWA was installed");
     const installPrompt = document.getElementById("install-prompt");
     installPrompt?.classList.add("translate-y-20", "opacity-0");
   });
@@ -151,12 +138,10 @@ function setupPWAEvents() {
 
 // ページ読み込み完了時のフォールバック
 window.addEventListener("load", () => {
-  console.log("Window loaded - final loading screen check");
   setTimeout(hideLoadingScreen, 50);
 });
 
 // 最終フォールバック（3秒経過したら強制的にローディングを隠す）
 setTimeout(() => {
-  console.log("Final timeout - forcing loading screen hide");
   hideLoadingScreen();
 }, 3000);

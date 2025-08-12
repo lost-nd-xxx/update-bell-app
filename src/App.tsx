@@ -69,12 +69,7 @@ const App: React.FC = () => {
             }
             break;
           case "NOTIFICATION_CLICKED":
-            // 通知クリック時の処理（必要に応じて）
-            console.log(
-              "Notification clicked:",
-              message.reminderId,
-              message.action,
-            );
+            // 通知クリック時の処理（必要に応じて実装）
             break;
           case "REQUEST_REMINDERS_DATA":
             // Service WorkerからのデータRequest
@@ -210,10 +205,6 @@ const App: React.FC = () => {
         const { ...reminderData } = reminder;
         addReminder(reminderData);
       });
-
-      console.log(
-        `インポート完了: ${updates.length}件更新, ${newReminders.length}件追加`,
-      );
     } catch (error) {
       console.error("リマインダーインポートに失敗:", error);
       throw error;
