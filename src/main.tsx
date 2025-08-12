@@ -31,7 +31,7 @@ console.log('Environment:', isDevelopment ? 'development' : 'production')
 if (isProduction) {
   console.log('Attempting PWA registration...')
   try {
-    // @ts-ignore
+    // @ts-expect-error
     import('virtual:pwa-register').then(({ registerSW }) => {
       console.log('PWA module loaded successfully')
       const updateSW = registerSW({

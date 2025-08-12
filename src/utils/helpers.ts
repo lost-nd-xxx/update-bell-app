@@ -15,7 +15,7 @@ export const formatDate = (date: Date | string, options?: Intl.DateTimeFormatOpt
     hour: '2-digit',
     minute: '2-digit'
   }
-  
+
   return dateObj.toLocaleString('ja-JP', { ...defaultOptions, ...options })
 }
 
@@ -43,34 +43,37 @@ export const formatRelativeTime = (date: Date | string): string => {
 // 次の通知日時を計算
 export const calculateNextNotificationTime = (schedule: Schedule, baseDate: Date = new Date()): Date => {
   const nextDate = new Date(baseDate)
-  
+
   switch (schedule.type) {
-    case 'daily':
+    case 'daily': {
       nextDate.setDate(baseDate.getDate() + schedule.interval)
-      
+
       // 平日・週末フィルターを適用
       if (schedule.dateFilter) {
         adjustForDateFilter(nextDate, schedule.dateFilter, schedule.interval)
       }
       break
+    }
 
-    case 'interval':
+    case 'interval': {
       // 特定の日数ごと
       nextDate.setDate(baseDate.getDate() + schedule.interval)
       break
-      
-    case 'weekly':
+    }
+
+    case 'weekly': {
       const daysUntilTarget = (schedule.dayOfWeek! - baseDate.getDay() + 7) % 7
       const weeklyDaysToAdd = daysUntilTarget === 0 ? 7 * schedule.interval : daysUntilTarget
       nextDate.setDate(baseDate.getDate() + weeklyDaysToAdd)
       break
+    }
 
-    case 'specific_days':
+    case 'specific_days': {
       // 特定の曜日（複数選択）- 次に来る曜日を見つける
       if (schedule.selectedDays && schedule.selectedDays.length > 0) {
         const today = baseDate.getDay()
         let nextDay = schedule.selectedDays.find(day => day > today)
-        
+
         if (nextDay === undefined) {
           // 今週に該当する曜日がない場合は来週の最初の曜日
           nextDay = schedule.selectedDays[0]
@@ -82,17 +85,18 @@ export const calculateNextNotificationTime = (schedule: Schedule, baseDate: Date
         }
       }
       break
-      
-    case 'monthly':
+    }
+
+    case 'monthly': {
       const targetWeek = schedule.weekOfMonth!
       const targetDay = schedule.dayOfWeek!
-      
+
       // 来月の第n週のx曜日を計算
       nextDate.setMonth(baseDate.getMonth() + 1, 1)
       const firstDayOfMonth = nextDate.getDay()
       const monthlyDaysToAdd = (targetDay - firstDayOfMonth + 7) % 7 + (targetWeek - 1) * 7
       nextDate.setDate(1 + monthlyDaysToAdd)
-      
+
       // 該当する日が存在しない場合（第5週など）
       if (nextDate.getMonth() !== (baseDate.getMonth() + 1) % 12) {
         // 次の月を試す
@@ -102,8 +106,9 @@ export const calculateNextNotificationTime = (schedule: Schedule, baseDate: Date
         nextDate.setDate(1 + nextMonthDaysToAdd)
       }
       break
+    }
   }
-  
+
   nextDate.setHours(schedule.hour, schedule.minute, 0, 0)
   return nextDate
 }
@@ -111,22 +116,22 @@ export const calculateNextNotificationTime = (schedule: Schedule, baseDate: Date
 // 日付フィルターを適用（平日・週末）
 const adjustForDateFilter = (date: Date, filter: DateFilterType, interval: number): void => {
   if (filter === 'all') return
-  
+
   let attempts = 0
   const maxAttempts = 14 // 無限ループを防ぐ
-  
+
   while (attempts < maxAttempts) {
     const dayOfWeek = date.getDay()
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
     const isWeekday = !isWeekend
-    
+
     if (
       (filter === 'weekdays' && isWeekday) ||
       (filter === 'weekends' && isWeekend)
     ) {
       break
     }
-    
+
     date.setDate(date.getDate() + 1)
     attempts++
   }
@@ -156,7 +161,7 @@ export const generateScheduleDescription = (schedule: Schedule): string => {
 
     case 'interval':
       return `${schedule.interval}日ごと ${formatTime(schedule.hour, schedule.minute)}`
-      
+
     case 'weekly':
       const dayName = getDayName(schedule.dayOfWeek!)
       const weekInterval = schedule.interval === 1 ? '毎週' : `${schedule.interval}週間ごと`
@@ -171,12 +176,12 @@ export const generateScheduleDescription = (schedule: Schedule): string => {
         return `毎週${dayNames}曜日 ${formatTime(schedule.hour, schedule.minute)}`
       }
       return `特定の曜日 ${formatTime(schedule.hour, schedule.minute)}`
-      
+
     case 'monthly':
       const weekName = getWeekName(schedule.weekOfMonth!)
       const monthlyDayName = getDayName(schedule.dayOfWeek!)
       return `毎月${weekName}${monthlyDayName}曜日 ${formatTime(schedule.hour, schedule.minute)}`
-      
+
     default:
       return '未設定'
   }
@@ -195,12 +200,12 @@ export const isValidUrl = (url: string): boolean => {
 // URLを正規化（プロトコルを追加など）
 export const normalizeUrl = (url: string): string => {
   if (!url) return ''
-  
+
   // プロトコルがない場合はhttpsを追加
   if (!/^https?:\/\//i.test(url)) {
     return `https://${url}`
   }
-  
+
   return url
 }
 
@@ -241,16 +246,16 @@ export const copyToClipboard = async (text: string): Promise<boolean> => {
 export const downloadFile = (content: string, filename: string, mimeType: string = 'application/json'): void => {
   const blob = new Blob([content], { type: mimeType })
   const url = URL.createObjectURL(blob)
-  
+
   const link = document.createElement('a')
   link.href = url
   link.download = filename
   link.style.display = 'none'
-  
+
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-  
+
   URL.revokeObjectURL(url)
 }
 
@@ -292,12 +297,12 @@ export const debounce = <T extends (...args: any[]) => any>(
   wait: number
 ): (...args: Parameters<T>) => void => {
   let timeoutId: ReturnType<typeof setTimeout> | null = null
-  
+
   return (...args: Parameters<T>) => {
     if (timeoutId) {
       clearTimeout(timeoutId)
     }
-    
+
     timeoutId = setTimeout(() => {
       func(...args)
     }, wait)

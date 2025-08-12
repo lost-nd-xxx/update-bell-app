@@ -33,42 +33,46 @@ const Dashboard: React.FC<DashboardProps> = ({
   const filteredAndSortedReminders = useMemo(() => {
     const filtered = reminders.filter(reminder => {
       // 検索フィルター
-      const matchesSearch = filter.searchTerm === '' || 
+      const matchesSearch = filter.searchTerm === '' ||
         reminder.title.toLowerCase().includes(filter.searchTerm.toLowerCase()) ||
         reminder.url.toLowerCase().includes(filter.searchTerm.toLowerCase())
-      
+
       // タグフィルター
       const matchesTags = filter.selectedTags.length === 0 ||
         filter.selectedTags.every(tag => reminder.tags.includes(tag))
-      
+
       // 一時停止フィルター
       const matchesPause = filter.showPaused || !reminder.isPaused
-      
+
       return matchesSearch && matchesTags && matchesPause
     })
 
     // ソート処理
     filtered.sort((a, b) => {
       let comparison = 0
-      
+
       switch (sort.field) {
-        case 'lastNotified':
+        case 'lastNotified': {
           const aTime = a.lastNotified || a.createdAt
           const bTime = b.lastNotified || b.createdAt
           comparison = new Date(bTime).getTime() - new Date(aTime).getTime()
           break
-        case 'nextNotification':
+        }
+        case 'nextNotification': {
           // 次回通知時刻でソート（実装は複雑になるため簡略化）
           comparison = a.schedule.hour - b.schedule.hour
           break
-        case 'createdAt':
+        }
+        case 'createdAt': {
           comparison = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           break
-        case 'title':
+        }
+        case 'title': {
           comparison = a.title.localeCompare(b.title, 'ja')
           break
+        }
       }
-      
+
       return sort.order === 'desc' ? comparison : -comparison
     })
 
@@ -239,7 +243,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="card p-12 text-center">
             <Bell className="mx-auto mb-4 text-gray-400" size={48} />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              {reminders.length === 0 
+              {reminders.length === 0
                 ? 'リマインダーがありません'
                 : 'フィルター条件に一致するリマインダーがありません'
               }
