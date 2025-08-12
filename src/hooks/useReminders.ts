@@ -23,12 +23,13 @@ export const useReminders = () => {
   }, [reminders])
 
   const addReminder = (reminderData: Omit<Reminder, 'id' | 'createdAt' | 'timezone'>) => {
+    
     const newReminder: Reminder = {
       ...reminderData,
       id: generateId(),
       createdAt: new Date().toISOString(),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      isPaused: false
+      isPaused: reminderData.isPaused || false // ← 明示的に設定
     }
     
     setReminders(prev => [...prev, newReminder])

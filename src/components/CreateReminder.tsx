@@ -113,28 +113,30 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = () => {
-    if (!validateForm()) return
-    
-    // selectedDaysを除外したscheduleを作成
-    const { selectedDays, ...cleanSchedule } = formData.schedule
-    
-    const reminderData = {
-      ...formData,
-      url: normalizeUrl(formData.url),
-      schedule: {
-        ...cleanSchedule,
-        // specific_daysの場合はselectedDaysをscheduleに含める
-        ...(formData.schedule.type === 'specific_days' && {
-          selectedDays: formData.schedule.selectedDays
-        })
-      },
-      lastNotified: editingReminder?.lastNotified || null,
-      pausedAt: formData.isPaused ? (editingReminder?.pausedAt || new Date().toISOString()) : null
-    }
-    
-    onSave(reminderData)
+const handleSubmit = () => {
+  if (!validateForm()) return
+  
+  // selectedDaysを除外したscheduleを作成
+  const { selectedDays, ...cleanSchedule } = formData.schedule
+  
+  const reminderData = {
+    title: formData.title,
+    url: normalizeUrl(formData.url),
+    tags: formData.tags,
+    isPaused: formData.isPaused, // ← 明示的に設定
+    schedule: {
+      ...cleanSchedule,
+      // specific_daysの場合はselectedDaysをscheduleに含める
+      ...(formData.schedule.type === 'specific_days' && {
+        selectedDays: formData.schedule.selectedDays
+      })
+    },
+    lastNotified: editingReminder?.lastNotified || null,
+    pausedAt: formData.isPaused ? (editingReminder?.pausedAt || new Date().toISOString()) : null
   }
+
+  onSave(reminderData)
+}
 
   const updateSchedule = (updates: Partial<Schedule>) => {
     setFormData(prev => ({
