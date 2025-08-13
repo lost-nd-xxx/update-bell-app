@@ -105,32 +105,43 @@ export class ServiceWorkerDebugger {
     timestamp: string,
   ) {
     try {
-      const storage = JSON.parse(
-        localStorage.getItem("update-bell-data") || "{}",
+      // 配列形式のデータを取得（修正）
+      const reminders = JSON.parse(
+        localStorage.getItem("update-bell-data") || "[]",
       );
 
-      if (storage.reminders) {
-        const reminder = storage.reminders.find(
-          (r: ReminderData) => r.id === reminderId,
-        );
-        if (reminder) {
-          reminder.lastNotified = timestamp;
-          localStorage.setItem("update-bell-data", JSON.stringify(storage));
-          console.log(
-            `Updated lastNotified for reminder ${reminderId}:`,
-            timestamp,
-          );
+      console.log("SW更新処理:", { reminderId, timestamp, reminderCount: reminders.length });
 
-          // アプリの状態も更新（カスタムイベント発火）
-          window.dispatchEvent(
-            new CustomEvent("reminderUpdated", {
-              detail: { reminderId, timestamp },
-            }),
-          );
-        }
+      // 配列から該当リマインダーを検索（修正）
+      const reminderIndex = reminders.findIndex(
+        (r: ReminderData) => r.id === reminderId,
+      );
+
+      if (reminderIndex !== -1) {
+        // 最終通知時刻を更新
+        reminders[reminderIndex].lastNotified = timestamp;
+        
+        // LocalStorageに保存（配列として）
+        localStorage.setItem("update-bell-data", JSON.stringify(reminders));
+        
+        console.log(
+          `✅ Updated lastNotified for reminder ${reminderId}:`,
+          timestamp,
+        );
+
+        // アプリの状態も更新（カスタムイベント発火）
+        window.dispatchEvent(
+          new CustomEvent("reminderUpdated", {
+            detail: { reminderId, timestamp },
+          }),
+        );
+        
+        console.log("📡 reminderUpdated イベント発火完了");
+      } else {
+        console.warn(`⚠️ Reminder not found: ${reminderId}`);
       }
     } catch (error) {
-      console.error("Failed to update reminder notification time:", error);
+      console.error("❌ Failed to update reminder notification time:", error);
     }
   }
 
