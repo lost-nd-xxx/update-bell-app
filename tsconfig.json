@@ -42,8 +42,8 @@
   },
   "include": [
     "src",
-    "vite-env.d.ts",
-    "public/sw.js"
+    "vite-env.d.ts"
+    // "public/sw.js" を一時的に除外（PWAプラグイン復活後に再追加）
   ],
   "exclude": [
     "node_modules",

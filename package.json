@@ -28,8 +28,11 @@
     "check:all": "npm run type-check && npm run lint && npm run format",
     "check:fix": "npm run type-check && npm run lint:fix && npm run format",
     "dev:https": "vite --https",
-    "debug:https": "npm run build && http-server dist -S -C cert.pem -K key.pem -p 8443 -a localhost",
+    "dev:mkcert": "vite --https --host localhost",
+    "debug:https": "npm run build && http-server dist -S -C localhost+2.pem -K localhost+2-key.pem -p 8443 -a localhost",
+    "debug:mkcert": "npm run build && http-server dist -S -C localhost+2.pem -K localhost+2-key.pem -p 8443 -a localhost",
     "preview:https": "vite preview --https --port 8443",
+    "preview:mkcert": "vite preview --https --host localhost --port 8443",
     "icons": "node scripts/convert-icons.js",
     "icons:clean": "rm -f public/icon-*.png public/icon-mask.svg public/favicon.ico && npm run icons"
   },
