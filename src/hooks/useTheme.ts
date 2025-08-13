@@ -1,47 +1,28 @@
 import { useState, useEffect } from "react";
 
-type Theme = "light" | "dark" | "system";
+export type Theme = "light" | "dark" | "system";
 
 export const useTheme = (): [Theme, (theme: Theme) => void] => {
   const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem("manga-reminder-theme");
-    return (saved as Theme) || "system";
+    const saved = localStorage.getItem("update-bell-theme");
+    if (saved && ["light", "dark", "system"].includes(saved)) {
+      return saved as Theme;
+    }
+    return "system";
   });
 
-  // テーマを適用
+  // テーマ適用・保存
   useEffect(() => {
     const root = document.documentElement;
-    const applyTheme = (newTheme: "light" | "dark") => {
-      root.classList.remove("light", "dark");
-      root.classList.add(newTheme);
-    };
-
+    
     if (theme === "system") {
-      // システム設定に従う
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const handleChange = (e: MediaQueryListEvent) => {
-        applyTheme(e.matches ? "dark" : "light");
-      };
-
-      // 初期設定
-      applyTheme(mediaQuery.matches ? "dark" : "light");
-
-      // 変更を監視
-      mediaQuery.addEventListener("change", handleChange);
-
-      return () => {
-        mediaQuery.removeEventListener("change", handleChange);
-      };
+      const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      root.classList.toggle("dark", systemDark);
     } else {
-      // 明示的なテーマを適用
-      applyTheme(theme);
-      return undefined;
+      root.classList.toggle("dark", theme === "dark");
     }
-  }, [theme]);
-
-  // テーマをlocalStorageに保存
-  useEffect(() => {
-    localStorage.setItem("manga-reminder-theme", theme);
+    
+    localStorage.setItem("update-bell-theme", theme);
   }, [theme]);
 
   return [theme, setTheme];

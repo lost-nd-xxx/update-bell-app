@@ -513,7 +513,7 @@
             log(`ローディング画面: ${loadingVisible ? '表示中（問題あり）' : '非表示'}`);
             
             // デバッグAPI確認
-            const hasDebugAPI = typeof window.mangaReminder !== 'undefined' || typeof window.swDebugger !== 'undefined';
+            const hasDebugAPI = typeof window.bellReminder !== 'undefined' || typeof window.swDebugger !== 'undefined';
             document.getElementById('debug-api').innerHTML = hasDebugAPI ?
                 '<span class="status success">利用可能</span>' :
                 '<span class="status warning">未実装</span>';

@@ -1,10 +1,17 @@
-import { useState, useEffect } from "react";
+// src/hooks/useReminders.ts - シンプル版
+// Service Worker通信エラー対応・統一キー使用・移行処理なし
+
+import { useState, useEffect, useCallback } from "react";
 import { Reminder } from "../types";
 import { generateId } from "../utils/helpers";
 
+const debugLog = (message: string, data?: unknown) => {
+  console.log(`[useReminders] ${message}`, data || "");
+};
+
 export const useReminders = () => {
   const [reminders, setReminders] = useState<Reminder[]>(() => {
-    const saved = localStorage.getItem("manga-reminder-data");
+    const saved = localStorage.getItem("update-bell-data");
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -17,10 +24,81 @@ export const useReminders = () => {
     return [];
   });
 
+  // Service Worker通信エラー状態
+  const [swSyncError, setSWyncError] = useState<string | null>(null);
+
   // リマインダーをlocalStorageに保存
   useEffect(() => {
-    localStorage.setItem("manga-reminder-data", JSON.stringify(reminders));
+    try {
+      localStorage.setItem("update-bell-data", JSON.stringify(reminders));
+      debugLog(`LocalStorage保存完了: ${reminders.length}件`);
+    } catch (error) {
+      console.error("LocalStorage保存エラー:", error);
+    }
   }, [reminders]);
+
+  // Service Workerとの同期（エラー処理強化版）
+  const syncWithServiceWorker = useCallback(async (data: Reminder[]) => {
+    try {
+      if ((window as any).updateBell?.updateRemindersCache) {
+        const result = await (window as any).updateBell.updateRemindersCache(data);
+        
+        if (result.error) {
+          setSWyncError(result.error);
+          debugLog("Service Worker同期エラー", result.error);
+        } else {
+          setSWyncError(null);
+          debugLog("Service Worker同期成功");
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      setSWyncError(errorMessage);
+      debugLog("Service Worker同期エラー", errorMessage);
+    }
+  }, []);
+
+  // リマインダー変更時のService Worker同期
+  useEffect(() => {
+    if (reminders.length > 0) {
+      const timeoutId = setTimeout(() => {
+        syncWithServiceWorker(reminders);
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [reminders, syncWithServiceWorker]);
+
+  // Service Workerからのメッセージ受信
+  useEffect(() => {
+    const handleServiceWorkerMessage = (event: CustomEvent) => {
+      const message = event.detail;
+      debugLog("Service Workerメッセージ受信", message);
+
+      switch (message.type) {
+        case "NOTIFICATION_SENT":
+          if (message.reminderId && message.timestamp) {
+            debugLog(`通知送信記録: ${message.reminderId}`);
+            updateReminder(message.reminderId, {
+              lastNotified: message.timestamp,
+            });
+          }
+          break;
+        case "NOTIFICATION_CLICKED":
+          debugLog(`通知クリック: ${message.reminderId}`);
+          break;
+        case "REQUEST_REMINDERS_DATA":
+          debugLog("Service Workerからデータ要求");
+          syncWithServiceWorker(reminders);
+          break;
+      }
+    };
+
+    window.addEventListener("serviceWorkerMessage", handleServiceWorkerMessage as EventListener);
+    
+    return () => {
+      window.removeEventListener("serviceWorkerMessage", handleServiceWorkerMessage as EventListener);
+    };
+  }, [reminders, syncWithServiceWorker]);
 
   const addReminder = (
     reminderData: Omit<Reminder, "id" | "createdAt" | "timezone">,
@@ -30,10 +108,11 @@ export const useReminders = () => {
       id: generateId(),
       createdAt: new Date().toISOString(),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      isPaused: reminderData.isPaused || false, // ← 明示的に設定
+      isPaused: reminderData.isPaused || false,
     };
 
     setReminders((prev) => [...prev, newReminder]);
+    debugLog("リマインダー追加", { id: newReminder.id, title: newReminder.title });
     return newReminder;
   };
 
@@ -43,20 +122,22 @@ export const useReminders = () => {
         reminder.id === id ? { ...reminder, ...updates } : reminder,
       ),
     );
+    debugLog("リマインダー更新", { id, updates });
   };
 
   const deleteReminder = (id: string) => {
     setReminders((prev) => prev.filter((reminder) => reminder.id !== id));
+    debugLog("リマインダー削除", { id });
   };
 
-  const duplicateReminder = (id: string): void => {
+  const duplicateReminder = (id: string): Reminder | null => {
     const original = reminders.find((r) => r.id === id);
     if (!original) {
       console.error("複製するリマインダーが見つかりません:", id);
-      return;
+      return null;
     }
 
-    const duplicated = {
+    const duplicated: Reminder = {
       ...original,
       id: Date.now().toString(36) + Math.random().toString(36).substr(2),
       title: `${original.title} (コピー)`,
@@ -65,8 +146,9 @@ export const useReminders = () => {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
 
-    addReminder(duplicated);
-    return;
+    setReminders((prev) => [...prev, duplicated]);
+    debugLog("リマインダー複製", { originalId: id, newId: duplicated.id });
+    return duplicated;
   };
 
   const bulkUpdateReminders = (
@@ -78,6 +160,7 @@ export const useReminders = () => {
         return update ? { ...reminder, ...update.data } : reminder;
       }),
     );
+    debugLog("リマインダー一括更新", { count: updates.length });
   };
 
   const getReminder = (id: string): Reminder | undefined => {
@@ -130,6 +213,23 @@ export const useReminders = () => {
     };
   };
 
+  // 手動通知チェック
+  const triggerManualNotificationCheck = useCallback(async () => {
+    try {
+      if ((window as any).updateBell?.manualCheck) {
+        const result = await (window as any).updateBell.manualCheck();
+        debugLog("手動通知チェック完了", result);
+        return { success: true, result, error: null };
+      } else {
+        throw new Error("Service Worker通信が利用できません");
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      debugLog("手動通知チェック失敗", errorMessage);
+      return { success: false, result: null, error: errorMessage };
+    }
+  }, []);
+
   return {
     reminders,
     addReminder,
@@ -144,5 +244,7 @@ export const useReminders = () => {
     getRemindersByTag,
     searchReminders,
     getStats,
+    swSyncError,
+    triggerManualNotificationCheck,
   };
 };

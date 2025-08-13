@@ -43,52 +43,103 @@ export const formatRelativeTime = (date: Date | string): string => {
   return `${Math.floor(diffDays / 365)}年前`;
 };
 
-// 次の通知日時を計算
+// 次の通知日時を計算（当日判定ロジック追加）
 export const calculateNextNotificationTime = (
   schedule: Schedule,
   baseDate: Date = new Date(),
 ): Date => {
-  const nextDate = new Date(baseDate);
+  const now = new Date(baseDate);
+  let nextDate = new Date(baseDate);
+  
+  // 基本的な時刻設定
+  const hour = schedule.hour;
+  const minute = schedule.minute;
 
   switch (schedule.type) {
     case "daily": {
-      nextDate.setDate(baseDate.getDate() + schedule.interval);
+      // 当日の指定時刻を計算
+      const todayTarget = new Date(now);
+      todayTarget.setHours(hour, minute, 0, 0);
+      
+      // 指定時刻が未来の場合は当日、過去の場合は翌日以降
+      if (todayTarget.getTime() > now.getTime()) {
+        nextDate = todayTarget;
+      } else {
+        nextDate.setDate(now.getDate() + (schedule.interval || 1));
+      }
 
       // 平日・週末フィルターを適用
-      if (schedule.dateFilter) {
-        adjustForDateFilter(nextDate, schedule.dateFilter, schedule.interval);
+      if (schedule.dateFilter && nextDate.toDateString() !== todayTarget.toDateString()) {
+        adjustForDateFilter(nextDate, schedule.dateFilter, schedule.interval || 1);
       }
       break;
     }
 
     case "interval": {
-      // 特定の日数ごと
-      nextDate.setDate(baseDate.getDate() + schedule.interval);
+      // 当日の指定時刻を計算
+      const todayTarget = new Date(now);
+      todayTarget.setHours(hour, minute, 0, 0);
+      
+      // 新規作成時は当日判定、それ以外は間隔通り
+      if (todayTarget.getTime() > now.getTime()) {
+        nextDate = todayTarget;
+      } else {
+        nextDate.setDate(now.getDate() + schedule.interval);
+      }
       break;
     }
 
     case "weekly": {
-      const daysUntilTarget = (schedule.dayOfWeek! - baseDate.getDay() + 7) % 7;
-      const weeklyDaysToAdd =
-        daysUntilTarget === 0 ? 7 * schedule.interval : daysUntilTarget;
-      nextDate.setDate(baseDate.getDate() + weeklyDaysToAdd);
+      const targetDay = schedule.dayOfWeek!;
+      const currentDay = now.getDay();
+      
+      // 当日が対象曜日かチェック
+      if (currentDay === targetDay) {
+        const todayTarget = new Date(now);
+        todayTarget.setHours(hour, minute, 0, 0);
+        
+        // 当日の指定時刻が未来の場合は当日
+        if (todayTarget.getTime() > now.getTime()) {
+          nextDate = todayTarget;
+          break;
+        }
+      }
+      
+      // 次の対象曜日を計算
+      const daysUntilTarget = (targetDay - currentDay + 7) % 7;
+      const weeklyDaysToAdd = daysUntilTarget === 0 ? 7 * (schedule.interval || 1) : daysUntilTarget;
+      nextDate.setDate(now.getDate() + weeklyDaysToAdd);
       break;
     }
 
     case "specific_days": {
-      // 特定の曜日（複数選択）- 次に来る曜日を見つける
+      // 特定の曜日（複数選択）
       if (schedule.selectedDays && schedule.selectedDays.length > 0) {
-        const today = baseDate.getDay();
+        const today = now.getDay();
+        
+        // 当日が対象曜日に含まれるかチェック
+        if (schedule.selectedDays.includes(today)) {
+          const todayTarget = new Date(now);
+          todayTarget.setHours(hour, minute, 0, 0);
+          
+          // 当日の指定時刻が未来の場合は当日
+          if (todayTarget.getTime() > now.getTime()) {
+            nextDate = todayTarget;
+            break;
+          }
+        }
+        
+        // 次の対象曜日を見つける
         let nextDay = schedule.selectedDays.find((day) => day > today);
 
         if (nextDay === undefined) {
           // 今週に該当する曜日がない場合は来週の最初の曜日
           nextDay = schedule.selectedDays[0];
           const daysToAdd = (nextDay - today + 7) % 7 || 7;
-          nextDate.setDate(baseDate.getDate() + daysToAdd);
+          nextDate.setDate(now.getDate() + daysToAdd);
         } else {
           // 今週の該当する曜日
-          nextDate.setDate(baseDate.getDate() + (nextDay - today));
+          nextDate.setDate(now.getDate() + (nextDay - today));
         }
       }
       break;
@@ -97,28 +148,49 @@ export const calculateNextNotificationTime = (
     case "monthly": {
       const targetWeek = schedule.weekOfMonth!;
       const targetDay = schedule.dayOfWeek!;
+      
+      // 今月の対象日を計算
+      const thisMonthTarget = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      // その月の最初の指定曜日を見つける
+      while (thisMonthTarget.getDay() !== targetDay) {
+        thisMonthTarget.setDate(thisMonthTarget.getDate() + 1);
+      }
+      
+      // N週目に調整
+      thisMonthTarget.setDate(thisMonthTarget.getDate() + (targetWeek - 1) * 7);
+      thisMonthTarget.setHours(hour, minute, 0, 0);
+      
+      // 今月の対象日が未来の場合は今月、過去の場合は来月
+      if (thisMonthTarget.getTime() > now.getTime()) {
+        nextDate = thisMonthTarget;
+      } else {
+        // 来月の第n週のx曜日を計算
+        nextDate.setMonth(now.getMonth() + 1, 1);
+        const firstDayOfMonth = nextDate.getDay();
+        const monthlyDaysToAdd =
+          ((targetDay - firstDayOfMonth + 7) % 7) + (targetWeek - 1) * 7;
+        nextDate.setDate(1 + monthlyDaysToAdd);
 
-      // 来月の第n週のx曜日を計算
-      nextDate.setMonth(baseDate.getMonth() + 1, 1);
-      const firstDayOfMonth = nextDate.getDay();
-      const monthlyDaysToAdd =
-        ((targetDay - firstDayOfMonth + 7) % 7) + (targetWeek - 1) * 7;
-      nextDate.setDate(1 + monthlyDaysToAdd);
-
-      // 該当する日が存在しない場合（第5週など）
-      if (nextDate.getMonth() !== (baseDate.getMonth() + 1) % 12) {
-        // 次の月を試す
-        nextDate.setMonth(baseDate.getMonth() + 2, 1);
-        const nextFirstDay = nextDate.getDay();
-        const nextMonthDaysToAdd =
-          ((targetDay - nextFirstDay + 7) % 7) + (targetWeek - 1) * 7;
-        nextDate.setDate(1 + nextMonthDaysToAdd);
+        // 該当する日が存在しない場合（第5週など）
+        if (nextDate.getMonth() !== (now.getMonth() + 1) % 12) {
+          // 次の月を試す
+          nextDate.setMonth(now.getMonth() + 2, 1);
+          const nextFirstDay = nextDate.getDay();
+          const nextMonthDaysToAdd =
+            ((targetDay - nextFirstDay + 7) % 7) + (targetWeek - 1) * 7;
+          nextDate.setDate(1 + nextMonthDaysToAdd);
+        }
       }
       break;
     }
   }
 
-  nextDate.setHours(schedule.hour, schedule.minute, 0, 0);
+  // 時刻設定（monthly以外）
+  if (schedule.type !== "monthly") {
+    nextDate.setHours(hour, minute, 0, 0);
+  }
+
   return nextDate;
 };
 

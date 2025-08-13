@@ -1,180 +1,16 @@
-// src/main.tsx
+// src/main.tsx - シンプル版
+// タイムアウト問題解決・統一命名・移行処理なし
+
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
+import App from "./App.tsx";
 import "./index.css";
-import "./utils/serviceWorkerDebug"; // 型定義をインポート
 
-// デバッグ用のログ関数
 const debugLog = (message: string, data?: unknown) => {
-  const timestamp = new Date().toLocaleTimeString();
-  console.log(`[${timestamp}] [MAIN] ${message}`, data || "");
+  console.log(`[MAIN] ${message}`, data || "");
 };
 
-// ローディング画面管理クラス
-class LoadingManager {
-  private static instance: LoadingManager;
-  private loadingElement: HTMLElement | null = null;
-  private hideAttempts = 0;
-  private isHidden = false;
-
-  static getInstance(): LoadingManager {
-    if (!LoadingManager.instance) {
-      LoadingManager.instance = new LoadingManager();
-    }
-    return LoadingManager.instance;
-  }
-
-  constructor() {
-    this.loadingElement = document.getElementById("loading-screen");
-    debugLog("LoadingManager初期化", {
-      element: !!this.loadingElement,
-      display: this.loadingElement?.style.display,
-      opacity: this.loadingElement?.style.opacity,
-    });
-  }
-
-  hide(): boolean {
-    this.hideAttempts++;
-    debugLog(`ローディング非表示試行 #${this.hideAttempts}`);
-
-    if (!this.loadingElement) {
-      debugLog("ローディング要素が見つかりません");
-      return false;
-    }
-
-    if (this.isHidden) {
-      debugLog("既に非表示済み");
-      return true;
-    }
-
-    try {
-      // 複数の方法で確実に非表示にする
-      this.loadingElement.style.display = "none";
-      this.loadingElement.style.opacity = "0";
-      this.loadingElement.style.visibility = "hidden";
-      this.loadingElement.style.zIndex = "-1000";
-      this.loadingElement.setAttribute("hidden", "true");
-      this.loadingElement.classList.add("opacity-0");
-
-      // アニメーション付きで非表示
-      this.loadingElement.classList.add("transition-opacity", "duration-300");
-
-      setTimeout(() => {
-        if (this.loadingElement) {
-          this.loadingElement.style.display = "none";
-        }
-      }, 350);
-
-      this.isHidden = true;
-      debugLog("ローディング画面を非表示にしました");
-      return true;
-    } catch (error) {
-      debugLog("ローディング非表示エラー", error);
-      return false;
-    }
-  }
-
-  forceHide(): void {
-    debugLog("ローディング強制非表示実行");
-
-    // 全ての可能な方法でローディング画面を非表示
-    const possibleSelectors = [
-      "#loading-screen",
-      ".loading-screen",
-      "[data-loading]",
-      ".loader",
-      ".spinner",
-    ];
-
-    possibleSelectors.forEach((selector) => {
-      const elements = document.querySelectorAll(selector);
-      elements.forEach((element) => {
-        const htmlElement = element as HTMLElement;
-        htmlElement.style.display = "none";
-        htmlElement.style.opacity = "0";
-        htmlElement.style.visibility = "hidden";
-        htmlElement.setAttribute("hidden", "true");
-      });
-    });
-
-    this.isHidden = true;
-    debugLog("強制非表示完了");
-  }
-
-  getStatus(): { isHidden: boolean; attempts: number; exists: boolean } {
-    return {
-      isHidden: this.isHidden,
-      attempts: this.hideAttempts,
-      exists: !!this.loadingElement,
-    };
-  }
-}
-
-// 環境判定
-const isProduction = location.port === "4173"; // Vite preview server
-const isDevelopment = !isProduction;
-
-debugLog("環境判定", {
-  isDevelopment,
-  isProduction,
-  location: window.location.href,
-});
-
-// 手動Service Worker登録（vite-plugin-pwaを使用しない）
-async function registerServiceWorker() {
-  if (!isProduction) {
-    debugLog("開発環境のためService Worker登録をスキップ");
-    return;
-  }
-
-  if (!("serviceWorker" in navigator)) {
-    debugLog("Service Worker非対応");
-    return;
-  }
-
-  try {
-    debugLog("手動Service Worker登録開始");
-
-    const registration = await navigator.serviceWorker.register("/sw.js", {
-      scope: "/",
-    });
-
-    debugLog("Service Worker登録完了", registration.scope);
-
-    // 更新チェック
-    registration.addEventListener("updatefound", () => {
-      const newWorker = registration.installing;
-      if (newWorker) {
-        debugLog("新しいService Workerが見つかりました");
-
-        newWorker.addEventListener("statechange", () => {
-          if (
-            newWorker.state === "installed" &&
-            navigator.serviceWorker.controller
-          ) {
-            debugLog("新しいバージョンが利用可能です");
-
-            // ユーザーに更新を通知
-            if (confirm("新しいバージョンが利用可能です。更新しますか？")) {
-              newWorker.postMessage({ type: "SKIP_WAITING" });
-            }
-          }
-        });
-      }
-    });
-
-    // Service Worker状態変更時の処理
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      debugLog("Service Workerコントローラーが変更されました");
-      window.location.reload();
-    });
-  } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
-    debugLog("Service Worker登録失敗", errorMessage);
-  }
-}
+const isProduction = import.meta.env.PROD;
 
 // PWAインストールプロンプト管理
 interface BeforeInstallPromptEvent extends Event {
@@ -196,13 +32,11 @@ function setupPWAEvents() {
     const installButton = document.getElementById("install-button");
     const installDismiss = document.getElementById("install-dismiss");
 
-    // 既にインストール済みかチェック
     if (window.matchMedia("(display-mode: standalone)").matches) {
       debugLog("既にPWAインストール済み");
       return;
     }
 
-    // プロンプト表示
     setTimeout(() => {
       if (installPrompt) {
         installPrompt.classList.remove("translate-y-20", "opacity-0");
@@ -235,35 +69,87 @@ function setupPWAEvents() {
   });
 }
 
-// Service Workerデバッガーとマネージャー設定
+// Service Workerデバッガーとマネージャー設定（シンプル版）
 function setupServiceWorkerManager() {
   if (!("serviceWorker" in navigator)) return;
 
-  // Service Workerとの通信チャンネル
+  // Service Workerとの通信チャンネル（改善版）
   const swChannel = {
-    send: async (type: string, data?: unknown) => {
+    send: async (type: string, data?: unknown, timeout = 10000) => {
       if (!navigator.serviceWorker.controller) {
         throw new Error("Service Worker not active");
       }
 
       return new Promise((resolve, reject) => {
         const channel = new MessageChannel();
-        channel.port1.onmessage = (event) => resolve(event.data);
+        let isResolved = false;
 
-        setTimeout(() => reject(new Error("SW Timeout")), 5000);
+        channel.port1.onmessage = (event) => {
+          if (!isResolved) {
+            isResolved = true;
+            debugLog(`SW応答受信: ${type}`, event.data);
+            resolve(event.data);
+          }
+        };
 
-        navigator.serviceWorker.controller!.postMessage({ type, data }, [
-          channel.port2,
-        ]);
+        const timeoutId = setTimeout(() => {
+          if (!isResolved) {
+            isResolved = true;
+            debugLog(`SW通信タイムアウト: ${type} (${timeout}ms)`);
+            reject(new Error(`SW Timeout: ${type}`));
+          }
+        }, timeout);
+
+        try {
+          debugLog(`SW通信送信: ${type}`, data);
+          navigator.serviceWorker.controller.postMessage({ type, data }, [
+            channel.port2,
+          ]);
+        } catch (error) {
+          if (!isResolved) {
+            isResolved = true;
+            clearTimeout(timeoutId);
+            reject(error);
+          }
+        }
       });
     },
   };
 
-  // Service Workerデバッガー（型を明示的に定義）
+  // リトライ機能付きの安全な通信
+  const sendMessageWithRetry = async (
+    type: string,
+    data?: unknown,
+    maxRetries = 3
+  ) => {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        debugLog(`SW通信試行 ${attempt}/${maxRetries}: ${type}`);
+        const result = await swChannel.send(type, data, 8000);
+        debugLog(`SW通信成功: ${type}`, result);
+        return result;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        debugLog(`SW通信失敗 (試行${attempt}): ${type}`, lastError.message);
+
+        if (attempt < maxRetries) {
+          const waitTime = attempt * 1000;
+          debugLog(`${waitTime}ms待機後、再試行します`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
+      }
+    }
+
+    throw lastError || new Error(`Failed after ${maxRetries} attempts`);
+  };
+
+  // Service Workerデバッガー（改善版）
   const swDebugger = {
     test: async () => {
       try {
-        const result = await swChannel.send("CHECK_REMINDERS_NOW");
+        const result = await sendMessageWithRetry("PING");
         debugLog("Service Workerテスト完了", result);
         return result;
       } catch (error) {
@@ -271,139 +157,925 @@ function setupServiceWorkerManager() {
         throw error;
       }
     },
+
     getStatus: async () => {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      return {
-        registrations: registrations.length,
-        controller: !!navigator.serviceWorker.controller,
-        ready: await navigator.serviceWorker.ready,
-      };
+      try {
+        const result = await sendMessageWithRetry("GET_STATUS");
+        debugLog("Service Workerステータス取得完了", result);
+        return result;
+      } catch (error) {
+        debugLog("Service Workerステータス取得失敗", error);
+        return {
+          error: error instanceof Error ? error.message : "Unknown error",
+          registrations: await navigator.serviceWorker
+            .getRegistrations()
+            .then((regs) => regs.length)
+            .catch(() => 0),
+          controller: !!navigator.serviceWorker.controller,
+        };
+      }
+    },
+
+    manualCheck: async () => {
+      try {
+        const result = await sendMessageWithRetry("CHECK_REMINDERS_NOW", undefined, 15000);
+        debugLog("手動チェック完了", result);
+        return result;
+      } catch (error) {
+        debugLog("手動チェック失敗", error);
+        throw error;
+      }
     },
   };
 
-  // Service Worker デバッガーをグローバルに設定（型安全性のためany使用）
+  // Update Bell データ同期機能（シンプル版）
+  const updateBell = {
+    updateRemindersCache: async (reminders: unknown[]) => {
+      try {
+        const result = await sendMessageWithRetry("REMINDERS_DATA", reminders);
+        debugLog("リマインダーキャッシュ更新完了", result);
+        return result;
+      } catch (error) {
+        debugLog("リマインダーキャッシュ更新失敗", error);
+        return { error: error instanceof Error ? error.message : "Unknown error" };
+      }
+    },
+
+    updateSettingsCache: async (settings: unknown) => {
+      try {
+        const result = await sendMessageWithRetry("SETTINGS_DATA", settings);
+        debugLog("設定キャッシュ更新完了", result);
+        return result;
+      } catch (error) {
+        debugLog("設定キャッシュ更新失敗", error);
+        return { error: error instanceof Error ? error.message : "Unknown error" };
+      }
+    },
+
+    startPeriodicCheck: async (interval: number) => {
+      try {
+        const result = await sendMessageWithRetry("START_PERIODIC_CHECK", { interval });
+        debugLog("定期チェック開始完了", result);
+        return result;
+      } catch (error) {
+        debugLog("定期チェック開始失敗", error);
+        return { error: error instanceof Error ? error.message : "Unknown error" };
+      }
+    },
+
+    manualCheck: async () => {
+      try {
+        return await swDebugger.manualCheck();
+      } catch (error) {
+        debugLog("手動チェックエラー", error);
+        throw error;
+      }
+    }
+  };
+
+  // Service Worker 初期化監視
+  const waitForServiceWorker = async (maxWait = 10000): Promise<boolean> => {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < maxWait) {
+      if (navigator.serviceWorker.controller) {
+        debugLog("Service Worker アクティブ確認");
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    debugLog("Service Worker アクティブ待機タイムアウト");
+    return false;
+  };
+
+  // グローバルに設定（統一命名）
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any).swDebugger = swDebugger;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window as any).updateBell = updateBell;
 
-  debugLog("Service Worker管理機能セットアップ完了");
-}
+  debugLog("Service Workerデバッガー設定完了");
 
-// メインの初期化処理
-async function initializeApp() {
-  debugLog("アプリ初期化開始");
+  // Service Worker登録（修正版）
+  (async () => {
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js", {
+        scope: "/",
+      });
 
-  const loadingManager = LoadingManager.getInstance();
+      debugLog("Service Worker登録成功", {
+        scope: registration.scope,
+        state: registration.active?.state,
+      });
 
-  try {
-    // 即座にローディングを非表示にする試行
-    loadingManager.hide();
+      // アクティブになるまで待機
+      const isActive = await waitForServiceWorker();
+      if (isActive) {
+        debugLog("Service Worker通信準備完了");
 
-    // Service Worker関連セットアップ
-    setupServiceWorkerManager();
-    await registerServiceWorker();
-    setupPWAEvents();
+        // 初期ステータス確認
+        try {
+          const status = await swDebugger.getStatus();
+          debugLog("初期ステータス", status);
+        } catch (error) {
+          debugLog("初期ステータス取得失敗", error);
+        }
+      } else {
+        debugLog("Service Workerアクティブ化待機失敗");
+      }
 
-    // React アプリケーションのレンダリング
-    debugLog("React アプリレンダリング開始");
-    const rootElement = document.getElementById("root");
-
-    if (!rootElement) {
-      throw new Error("Root element not found");
+      // Service Worker更新時の処理
+      registration.addEventListener("updatefound", () => {
+        debugLog("Service Worker更新検出");
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.addEventListener("statechange", () => {
+            debugLog("Service Worker状態変更", newWorker.state);
+            if (newWorker.state === "activated") {
+              debugLog("新しいService Workerがアクティブになりました");
+            }
+          });
+        }
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      debugLog("Service Worker登録失敗", errorMessage);
     }
 
-    const root = ReactDOM.createRoot(rootElement);
-    root.render(
-      <React.StrictMode>
-        <App />
-      </React.StrictMode>,
-    );
+    // Service Workerからのメッセージ受信
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      debugLog("Service Workerからメッセージ受信", event.data);
 
-    debugLog("React アプリレンダリング完了");
-
-    // レンダリング後にローディングを非表示
-    setTimeout(() => loadingManager.hide(), 100);
-    setTimeout(() => loadingManager.hide(), 500);
-    setTimeout(() => loadingManager.hide(), 1000);
-  } catch (error) {
-    debugLog("アプリ初期化エラー", error);
-    loadingManager.forceHide();
-
-    // エラー表示
-    const rootElement = document.getElementById("root");
-    if (rootElement) {
-      rootElement.innerHTML = `
-        <div style="
-          display: flex; 
-          justify-content: center; 
-          align-items: center; 
-          height: 100vh; 
-          flex-direction: column;
-          font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-          color: #666;
-        ">
-          <h2>アプリの読み込みに失敗しました</h2>
-          <p>ページを再読み込みしてください</p>
-          <button onclick="location.reload()" style="
-            margin-top: 20px;
-            padding: 10px 20px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-          ">再読み込み</button>
-        </div>
-      `;
-    }
-  }
-}
-
-// 複数のタイミングで初期化を実行
-const initTriggers = [
-  // 即座に実行
-  () => initializeApp(),
-
-  // DOM読み込み完了後
-  () => {
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", initializeApp);
-    } else {
-      initializeApp();
-    }
-  },
-
-  // ウィンドウ読み込み完了後
-  () => {
-    window.addEventListener("load", () => {
-      setTimeout(initializeApp, 50);
+      // カスタムイベントとして再発行（Reactコンポーネントでリッスン可能）
+      window.dispatchEvent(
+        new CustomEvent("serviceWorkerMessage", {
+          detail: event.data,
+        })
+      );
     });
-  },
 
-  // フォールバック（タイマー）
-  () => {
-    setTimeout(initializeApp, 100);
-    setTimeout(initializeApp, 500);
-    setTimeout(initializeApp, 1000);
-  },
+    // Service Worker制御変更の監視
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      debugLog("Service Worker制御変更検出");
+      window.location.reload(); // 新しいService Workerで再開
+    });
+  })();
+}
 
-  // 最終フォールバック
-  () => {
-    setTimeout(() => {
-      const loadingManager = LoadingManager.getInstance();
-      loadingManager.forceHide();
-      debugLog("最終フォールバック: ローディング強制非表示");
-    }, 3000);
-  },
-];
-
-// 全てのトリガーを実行
-initTriggers.forEach((trigger, index) => {
-  try {
-    trigger();
-    debugLog(`初期化トリガー #${index + 1} 実行完了`);
-  } catch (error) {
-    debugLog(`初期化トリガー #${index + 1} エラー`, error);
+// エラーハンドリング強化
+window.addEventListener("error", (event) => {
+  if (event.message.includes("SW Timeout")) {
+    debugLog("Service Workerタイムアウトエラー検出", {
+      message: event.message,
+      filename: event.filename,
+      lineno: event.lineno,
+    });
   }
 });
 
-debugLog("main.tsx 読み込み完了");
+window.addEventListener("unhandledrejection", (event) => {
+  if (event.reason?.message?.includes("SW Timeout")) {
+    debugLog("未処理のService Workerタイムアウト", event.reason);
+    // デフォルトのエラー処理を防ぐ
+    event.preventDefault();
+  }
+});
+
+// React アプリケーション起動
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+// PWAイベント設定
+setupPWAEvents();
+
+// Service Worker初期化
+setupServiceWorkerManager();
+
+debugLog("アプリケーション初期化完了");// src/main.tsx - 完全修正版
+// タイムアウト問題解決・アプリ名統一完了
+
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App.tsx";
+import "./index.css";
+
+const debugLog = (message: string, data?: unknown) => {
+  console.log(`[MAIN] ${message}`, data || "");
+};
+
+const isProduction = import.meta.env.PROD;
+
+// PWAインストールプロンプト管理
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
+let deferredPrompt: BeforeInstallPromptEvent | null = null;
+
+function setupPWAEvents() {
+  if (!isProduction) return;
+
+  window.addEventListener("beforeinstallprompt", (e: Event) => {
+    debugLog("PWAインストールプロンプト受信");
+    e.preventDefault();
+    deferredPrompt = e as BeforeInstallPromptEvent;
+
+    const installPrompt = document.getElementById("install-prompt");
+    const installButton = document.getElementById("install-button");
+    const installDismiss = document.getElementById("install-dismiss");
+
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      debugLog("既にPWAインストール済み");
+      return;
+    }
+
+    setTimeout(() => {
+      if (installPrompt) {
+        installPrompt.classList.remove("translate-y-20", "opacity-0");
+        installPrompt.classList.add("translate-y-0", "opacity-100");
+        debugLog("PWAインストールプロンプト表示");
+      }
+    }, 3000);
+
+    installButton?.addEventListener("click", async () => {
+      debugLog("PWAインストールボタンクリック");
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        debugLog("PWAインストール結果", outcome);
+        deferredPrompt = null;
+        installPrompt?.classList.add("translate-y-20", "opacity-0");
+      }
+    });
+
+    installDismiss?.addEventListener("click", () => {
+      debugLog("PWAインストール拒否");
+      installPrompt?.classList.add("translate-y-20", "opacity-0");
+    });
+  });
+
+  window.addEventListener("appinstalled", () => {
+    debugLog("PWAインストール完了");
+    const installPrompt = document.getElementById("install-prompt");
+    installPrompt?.classList.add("translate-y-20", "opacity-0");
+  });
+}
+
+// Service Workerデバッガーとマネージャー設定（完全修正版）
+function setupServiceWorkerManager() {
+  if (!("serviceWorker" in navigator)) return;
+
+  // Service Workerとの通信チャンネル（改善版）
+  const swChannel = {
+    send: async (type: string, data?: unknown, timeout = 10000) => {
+      if (!navigator.serviceWorker.controller) {
+        throw new Error("Service Worker not active");
+      }
+
+      return new Promise((resolve, reject) => {
+        const channel = new MessageChannel();
+        let isResolved = false;
+
+        channel.port1.onmessage = (event) => {
+          if (!isResolved) {
+            isResolved = true;
+            debugLog(`SW応答受信: ${type}`, event.data);
+            resolve(event.data);
+          }
+        };
+
+        const timeoutId = setTimeout(() => {
+          if (!isResolved) {
+            isResolved = true;
+            debugLog(`SW通信タイムアウト: ${type} (${timeout}ms)`);
+            reject(new Error(`SW Timeout: ${type}`));
+          }
+        }, timeout);
+
+        try {
+          debugLog(`SW通信送信: ${type}`, data);
+          navigator.serviceWorker.controller.postMessage({ type, data }, [
+            channel.port2,
+          ]);
+        } catch (error) {
+          if (!isResolved) {
+            isResolved = true;
+            clearTimeout(timeoutId);
+            reject(error);
+          }
+        }
+      });
+    },
+  };
+
+  // リトライ機能付きの安全な通信
+  const sendMessageWithRetry = async (
+    type: string,
+    data?: unknown,
+    maxRetries = 3
+  ) => {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        debugLog(`SW通信試行 ${attempt}/${maxRetries}: ${type}`);
+        const result = await swChannel.send(type, data, 8000);
+        debugLog(`SW通信成功: ${type}`, result);
+        return result;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        debugLog(`SW通信失敗 (試行${attempt}): ${type}`, lastError.message);
+
+        if (attempt < maxRetries) {
+          const waitTime = attempt * 1000;
+          debugLog(`${waitTime}ms待機後、再試行します`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
+      }
+    }
+
+    throw lastError || new Error(`Failed after ${maxRetries} attempts`);
+  };
+
+  // Service Workerデバッガー（改善版）
+  const swDebugger = {
+    test: async () => {
+      try {
+        const result = await sendMessageWithRetry("PING");
+        debugLog("Service Workerテスト完了", result);
+        return result;
+      } catch (error) {
+        debugLog("Service Workerテスト失敗", error);
+        throw error;
+      }
+    },
+
+    getStatus: async () => {
+      try {
+        const result = await sendMessageWithRetry("GET_STATUS");
+        debugLog("Service Workerステータス取得完了", result);
+        return result;
+      } catch (error) {
+        debugLog("Service Workerステータス取得失敗", error);
+        return {
+          error: error instanceof Error ? error.message : "Unknown error",
+          registrations: await navigator.serviceWorker
+            .getRegistrations()
+            .then((regs) => regs.length)
+            .catch(() => 0),
+          controller: !!navigator.serviceWorker.controller,
+        };
+      }
+    },
+
+    manualCheck: async () => {
+      try {
+        const result = await sendMessageWithRetry("CHECK_REMINDERS_NOW", undefined, 15000);
+        debugLog("手動チェック完了", result);
+        return result;
+      } catch (error) {
+        debugLog("手動チェック失敗", error);
+        throw error;
+      }
+    },
+  };
+
+  // Update Bell データ同期機能（完全修正版）
+  const updateBell = {
+    updateRemindersCache: async (reminders: unknown[]) => {
+      try {
+        const result = await sendMessageWithRetry("REMINDERS_DATA", reminders);
+        debugLog("リマインダーキャッシュ更新完了", result);
+        return result;
+      } catch (error) {
+        debugLog("リマインダーキャッシュ更新失敗", error);
+        // エラーでもアプリの動作は継続
+        return { error: error instanceof Error ? error.message : "Unknown error" };
+      }
+    },
+
+    updateSettingsCache: async (settings: unknown) => {
+      try {
+        const result = await sendMessageWithRetry("SETTINGS_DATA", settings);
+        debugLog("設定キャッシュ更新完了", result);
+        return result;
+      } catch (error) {
+        debugLog("設定キャッシュ更新失敗", error);
+        // エラーでもアプリの動作は継続
+        return { error: error instanceof Error ? error.message : "Unknown error" };
+      }
+    },
+
+    startPeriodicCheck: async (interval: number) => {
+      try {
+        const result = await sendMessageWithRetry("START_PERIODIC_CHECK", { interval });
+        debugLog("定期チェック開始完了", result);
+        return result;
+      } catch (error) {
+        debugLog("定期チェック開始失敗", error);
+        // エラーでもアプリの動作は継続
+        return { error: error instanceof Error ? error.message : "Unknown error" };
+      }
+    },
+
+    manualCheck: async () => {
+      try {
+        return await swDebugger.manualCheck();
+      } catch (error) {
+        debugLog("手動チェックエラー", error);
+        throw error; // 手動チェックのエラーはユーザーに通知
+      }
+    }
+  };
+
+  // Service Worker 初期化監視
+  const waitForServiceWorker = async (maxWait = 10000): Promise<boolean> => {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < maxWait) {
+      if (navigator.serviceWorker.controller) {
+        debugLog("Service Worker アクティブ確認");
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    debugLog("Service Worker アクティブ待機タイムアウト");
+    return false;
+  };
+
+  // グローバルに設定（統一命名）
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window as any).swDebugger = swDebugger;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window as any).updateBell = updateBell; // bellReminder → updateBell
+
+  debugLog("Service Workerデバッガー設定完了");
+
+  // Service Worker登録（修正版）
+  (async () => {
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js", {
+        scope: "/",
+      });
+
+      debugLog("Service Worker登録成功", {
+        scope: registration.scope,
+        state: registration.active?.state,
+      });
+
+      // アクティブになるまで待機
+      const isActive = await waitForServiceWorker();
+      if (isActive) {
+        debugLog("Service Worker通信準備完了");
+
+        // 初期ステータス確認
+        try {
+          const status = await swDebugger.getStatus();
+          debugLog("初期ステータス", status);
+        } catch (error) {
+          debugLog("初期ステータス取得失敗", error);
+        }
+      } else {
+        debugLog("Service Workerアクティブ化待機失敗");
+      }
+
+      // Service Worker更新時の処理
+      registration.addEventListener("updatefound", () => {
+        debugLog("Service Worker更新検出");
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.addEventListener("statechange", () => {
+            debugLog("Service Worker状態変更", newWorker.state);
+            if (newWorker.state === "activated") {
+              debugLog("新しいService Workerがアクティブになりました");
+            }
+          });
+        }
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      debugLog("Service Worker登録失敗", errorMessage);
+    }
+
+    // Service Workerからのメッセージ受信
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      debugLog("Service Workerからメッセージ受信", event.data);
+
+      // カスタムイベントとして再発行（Reactコンポーネントでリッスン可能）
+      window.dispatchEvent(
+        new CustomEvent("serviceWorkerMessage", {
+          detail: event.data,
+        })
+      );
+    });
+
+    // Service Worker制御変更の監視
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      debugLog("Service Worker制御変更検出");
+      window.location.reload(); // 新しいService Workerで再開
+    });
+  })();
+}
+
+// エラーハンドリング強化
+window.addEventListener("error", (event) => {
+  if (event.message.includes("SW Timeout")) {
+    debugLog("Service Workerタイムアウトエラー検出", {
+      message: event.message,
+      filename: event.filename,
+      lineno: event.lineno,
+    });
+  }
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  if (event.reason?.message?.includes("SW Timeout")) {
+    debugLog("未処理のService Workerタイムアウト", event.reason);
+    // デフォルトのエラー処理を防ぐ
+    event.preventDefault();
+  }
+});
+
+// React アプリケーション起動
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+// PWAイベント設定
+setupPWAEvents();
+
+// Service Worker初期化
+setupServiceWorkerManager();
+
+debugLog("アプリケーション初期化完了");// src/main.tsx - 修正版
+// タイムアウト問題解決・エラーハンドリング強化
+
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App.tsx";
+import "./index.css";
+
+const debugLog = (message: string, data?: unknown) => {
+  console.log(`[MAIN] ${message}`, data || "");
+};
+
+const isProduction = import.meta.env.PROD;
+
+// PWAインストールプロンプト管理
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
+let deferredPrompt: BeforeInstallPromptEvent | null = null;
+
+function setupPWAEvents() {
+  if (!isProduction) return;
+
+  window.addEventListener("beforeinstallprompt", (e: Event) => {
+    debugLog("PWAインストールプロンプト受信");
+    e.preventDefault();
+    deferredPrompt = e as BeforeInstallPromptEvent;
+
+    const installPrompt = document.getElementById("install-prompt");
+    const installButton = document.getElementById("install-button");
+    const installDismiss = document.getElementById("install-dismiss");
+
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      debugLog("既にPWAインストール済み");
+      return;
+    }
+
+    setTimeout(() => {
+      if (installPrompt) {
+        installPrompt.classList.remove("translate-y-20", "opacity-0");
+        installPrompt.classList.add("translate-y-0", "opacity-100");
+        debugLog("PWAインストールプロンプト表示");
+      }
+    }, 3000);
+
+    installButton?.addEventListener("click", async () => {
+      debugLog("PWAインストールボタンクリック");
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        debugLog("PWAインストール結果", outcome);
+        deferredPrompt = null;
+        installPrompt?.classList.add("translate-y-20", "opacity-0");
+      }
+    });
+
+    installDismiss?.addEventListener("click", () => {
+      debugLog("PWAインストール拒否");
+      installPrompt?.classList.add("translate-y-20", "opacity-0");
+    });
+  });
+
+  window.addEventListener("appinstalled", () => {
+    debugLog("PWAインストール完了");
+    const installPrompt = document.getElementById("install-prompt");
+    installPrompt?.classList.add("translate-y-20", "opacity-0");
+  });
+}
+
+// Service Workerデバッガーとマネージャー設定（修正版）
+function setupServiceWorkerManager() {
+  if (!("serviceWorker" in navigator)) return;
+
+  // Service Workerとの通信チャンネル（改善版）
+  const swChannel = {
+    send: async (type: string, data?: unknown, timeout = 10000) => {
+      if (!navigator.serviceWorker.controller) {
+        throw new Error("Service Worker not active");
+      }
+
+      return new Promise((resolve, reject) => {
+        const channel = new MessageChannel();
+        let isResolved = false;
+
+        channel.port1.onmessage = (event) => {
+          if (!isResolved) {
+            isResolved = true;
+            debugLog(`SW応答受信: ${type}`, event.data);
+            resolve(event.data);
+          }
+        };
+
+        const timeoutId = setTimeout(() => {
+          if (!isResolved) {
+            isResolved = true;
+            debugLog(`SW通信タイムアウト: ${type} (${timeout}ms)`);
+            reject(new Error(`SW Timeout: ${type}`));
+          }
+        }, timeout);
+
+        try {
+          debugLog(`SW通信送信: ${type}`, data);
+          navigator.serviceWorker.controller.postMessage({ type, data }, [
+            channel.port2,
+          ]);
+        } catch (error) {
+          if (!isResolved) {
+            isResolved = true;
+            clearTimeout(timeoutId);
+            reject(error);
+          }
+        }
+      });
+    },
+  };
+
+  // リトライ機能付きの安全な通信
+  const sendMessageWithRetry = async (
+    type: string,
+    data?: unknown,
+    maxRetries = 3
+  ) => {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        debugLog(`SW通信試行 ${attempt}/${maxRetries}: ${type}`);
+        const result = await swChannel.send(type, data, 8000);
+        debugLog(`SW通信成功: ${type}`, result);
+        return result;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        debugLog(`SW通信失敗 (試行${attempt}): ${type}`, lastError.message);
+
+        if (attempt < maxRetries) {
+          const waitTime = attempt * 1000;
+          debugLog(`${waitTime}ms待機後、再試行します`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
+      }
+    }
+
+    throw lastError || new Error(`Failed after ${maxRetries} attempts`);
+  };
+
+  // Service Workerデバッガー（改善版）
+  const swDebugger = {
+    test: async () => {
+      try {
+        const result = await sendMessageWithRetry("PING");
+        debugLog("Service Workerテスト完了", result);
+        return result;
+      } catch (error) {
+        debugLog("Service Workerテスト失敗", error);
+        throw error;
+      }
+    },
+
+    getStatus: async () => {
+      try {
+        const result = await sendMessageWithRetry("GET_STATUS");
+        debugLog("Service Workerステータス取得完了", result);
+        return result;
+      } catch (error) {
+        debugLog("Service Workerステータス取得失敗", error);
+        return {
+          error: error instanceof Error ? error.message : "Unknown error",
+          registrations: await navigator.serviceWorker
+            .getRegistrations()
+            .then((regs) => regs.length)
+            .catch(() => 0),
+          controller: !!navigator.serviceWorker.controller,
+        };
+      }
+    },
+
+    manualCheck: async () => {
+      try {
+        const result = await sendMessageWithRetry("CHECK_REMINDERS_NOW", undefined, 15000);
+        debugLog("手動チェック完了", result);
+        return result;
+      } catch (error) {
+        debugLog("手動チェック失敗", error);
+        throw error;
+      }
+    },
+  };
+
+  // Bell Reminder データ同期機能（修正版）
+  const bellReminder = {
+    updateRemindersCache: async (reminders: unknown[]) => {
+      try {
+        const result = await sendMessageWithRetry("REMINDERS_DATA", reminders);
+        debugLog("リマインダーキャッシュ更新完了", result);
+        return result;
+      } catch (error) {
+        debugLog("リマインダーキャッシュ更新失敗", error);
+        // エラーでもアプリの動作は継続
+        return { error: error instanceof Error ? error.message : "Unknown error" };
+      }
+    },
+
+    updateSettingsCache: async (settings: unknown) => {
+      try {
+        const result = await sendMessageWithRetry("SETTINGS_DATA", settings);
+        debugLog("設定キャッシュ更新完了", result);
+        return result;
+      } catch (error) {
+        debugLog("設定キャッシュ更新失敗", error);
+        // エラーでもアプリの動作は継続
+        return { error: error instanceof Error ? error.message : "Unknown error" };
+      }
+    },
+
+    startPeriodicCheck: async (interval: number) => {
+      try {
+        const result = await sendMessageWithRetry("START_PERIODIC_CHECK", { interval });
+        debugLog("定期チェック開始完了", result);
+        return result;
+      } catch (error) {
+        debugLog("定期チェック開始失敗", error);
+        // エラーでもアプリの動作は継続
+        return { error: error instanceof Error ? error.message : "Unknown error" };
+      }
+    },
+
+    manualCheck: async () => {
+      try {
+        return await swDebugger.manualCheck();
+      } catch (error) {
+        debugLog("手動チェックエラー", error);
+        throw error; // 手動チェックのエラーはユーザーに通知
+      }
+    }
+  };
+
+  // Service Worker 初期化監視
+  const waitForServiceWorker = async (maxWait = 10000): Promise<boolean> => {
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < maxWait) {
+      if (navigator.serviceWorker.controller) {
+        debugLog("Service Worker アクティブ確認");
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    debugLog("Service Worker アクティブ待機タイムアウト");
+    return false;
+  };
+
+  // グローバルに設定（型安全性のためany使用）
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window as any).swDebugger = swDebugger;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window as any).bellReminder = bellReminder;
+
+  debugLog("Service Workerデバッガー設定完了");
+
+  // Service Worker登録（修正版）
+  (async () => {
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js", {
+        scope: "/",
+      });
+
+      debugLog("Service Worker登録成功", {
+        scope: registration.scope,
+        state: registration.active?.state,
+      });
+
+      // アクティブになるまで待機
+      const isActive = await waitForServiceWorker();
+      if (isActive) {
+        debugLog("Service Worker通信準備完了");
+
+        // 初期ステータス確認
+        try {
+          const status = await swDebugger.getStatus();
+          debugLog("初期ステータス", status);
+        } catch (error) {
+          debugLog("初期ステータス取得失敗", error);
+        }
+      } else {
+        debugLog("Service Workerアクティブ化待機失敗");
+      }
+
+      // Service Worker更新時の処理
+      registration.addEventListener("updatefound", () => {
+        debugLog("Service Worker更新検出");
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.addEventListener("statechange", () => {
+            debugLog("Service Worker状態変更", newWorker.state);
+            if (newWorker.state === "activated") {
+              debugLog("新しいService Workerがアクティブになりました");
+            }
+          });
+        }
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      debugLog("Service Worker登録失敗", errorMessage);
+    }
+
+    // Service Workerからのメッセージ受信
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      debugLog("Service Workerからメッセージ受信", event.data);
+
+      // カスタムイベントとして再発行（Reactコンポーネントでリッスン可能）
+      window.dispatchEvent(
+        new CustomEvent("serviceWorkerMessage", {
+          detail: event.data,
+        })
+      );
+    });
+
+    // Service Worker制御変更の監視
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      debugLog("Service Worker制御変更検出");
+      window.location.reload(); // 新しいService Workerで再開
+    });
+  })();
+}
+
+// エラーハンドリング強化
+window.addEventListener("error", (event) => {
+  if (event.message.includes("SW Timeout")) {
+    debugLog("Service Workerタイムアウトエラー検出", {
+      message: event.message,
+      filename: event.filename,
+      lineno: event.lineno,
+    });
+  }
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  if (event.reason?.message?.includes("SW Timeout")) {
+    debugLog("未処理のService Workerタイムアウト", event.reason);
+    // デフォルトのエラー処理を防ぐ
+    event.preventDefault();
+  }
+});
+
+// React アプリケーション起動
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+// PWAイベント設定
+setupPWAEvents();
+
+// Service Worker初期化
+setupServiceWorkerManager();
+
+debugLog("アプリケーション初期化完了");

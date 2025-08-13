@@ -14,7 +14,7 @@ import Header from "./components/Header";
 // Service Worker関連の型定義
 declare global {
   interface Window {
-    mangaReminder?: {
+    bellReminder?: {
       updateRemindersCache: (reminders: Reminder[]) => void;
       updateSettingsCache: (settings: unknown) => void;
       startPeriodicCheck: (interval: number) => void;
@@ -73,14 +73,14 @@ const App: React.FC = () => {
             break;
           case "REQUEST_REMINDERS_DATA":
             // Service WorkerからのデータRequest
-            if (window.mangaReminder?.updateRemindersCache) {
-              window.mangaReminder.updateRemindersCache(reminders);
+            if (window.bellReminder?.updateRemindersCache) {
+              window.bellReminder.updateRemindersCache(reminders);
             }
             break;
           case "REQUEST_SETTINGS_DATA":
             // Service WorkerからのSettingsRequest
-            if (window.mangaReminder?.updateSettingsCache) {
-              window.mangaReminder.updateSettingsCache(settings);
+            if (window.bellReminder?.updateSettingsCache) {
+              window.bellReminder.updateSettingsCache(settings);
             }
             break;
         }
@@ -90,23 +90,23 @@ const App: React.FC = () => {
 
   // リマインダーデータが変更された時にService Workerに同期
   useEffect(() => {
-    if (reminders.length > 0 && window.mangaReminder?.updateRemindersCache) {
-      window.mangaReminder.updateRemindersCache(reminders);
+    if (reminders.length > 0 && window.bellReminder?.updateRemindersCache) {
+      window.bellReminder.updateRemindersCache(reminders);
     }
   }, [reminders]);
 
   // 設定が変更された時にService Workerに同期
   useEffect(() => {
-    if (window.mangaReminder?.updateSettingsCache) {
-      window.mangaReminder.updateSettingsCache(settings);
+    if (window.bellReminder?.updateSettingsCache) {
+      window.bellReminder.updateSettingsCache(settings);
     }
 
     // 通知間隔が変更された場合は定期チェックを再開
     if (
       settings.notificationInterval &&
-      window.mangaReminder?.startPeriodicCheck
+      window.bellReminder?.startPeriodicCheck
     ) {
-      window.mangaReminder.startPeriodicCheck(settings.notificationInterval);
+      window.bellReminder.startPeriodicCheck(settings.notificationInterval);
     }
   }, [settings]);
 

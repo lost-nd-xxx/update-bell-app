@@ -102,7 +102,8 @@ const Settings: React.FC<SettingsProps> = ({
       },
     };
 
-    const filename = `web-manga-reminders-${new Date().toISOString().split("T")[0]}.json`;
+    // ファイル名を変更
+    const filename = `update-bell-${new Date().toISOString().split("T")[0]}.json`;
     downloadFile(JSON.stringify(data, null, 2), filename);
 
     setImportStatus("✅ データをエクスポートしました");
@@ -113,72 +114,34 @@ const Settings: React.FC<SettingsProps> = ({
     }, 3000);
   };
 
-  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setIsImporting(true);
-    setImportStatus("");
-    setImportType("");
-
-    try {
-      const content = await readFile(file);
-      const data: ExportData = JSON.parse(content);
-
-      if (!data.version || !data.reminders || !Array.isArray(data.reminders)) {
-        throw new Error("無効なファイル形式です");
-      }
-
-      const existingUrls = new Set(reminders.map((r) => r.url));
-      const duplicates = data.reminders.filter((r) => existingUrls.has(r.url));
-
-      if (duplicates.length > 0) {
-        const proceed = confirm(
-          `${duplicates.length}件の重複するリマインダーが見つかりました。\n` +
-            "続行すると既存のデータが上書きされます。続行しますか？",
-        );
-        if (!proceed) {
-          setIsImporting(false);
-          setImportStatus("インポートがキャンセルされました");
-          setImportType("error");
-          return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importData = JSON.parse(e.target?.result as string);
+        
+        if (importData.reminders) {
+          localStorage.setItem("update-bell-data", JSON.stringify(importData.reminders)); // キー変更
         }
+        if (importData.settings) {
+          localStorage.setItem("update-bell-settings", JSON.stringify(importData.settings)); // キー変更
+        }
+        if (importData.theme) {
+          localStorage.setItem("update-bell-theme", importData.theme); // キー変更
+        }
+        if (importData.timezone) {
+          localStorage.setItem("update-bell-timezone", importData.timezone); // キー変更
+        }
+
+        window.location.reload(); // アプリを再読み込み
+      } catch (error) {
+        console.error("Import failed:", error);
       }
-
-      if (data.settings) {
-        updateSettings(data.settings);
-      }
-
-      if (data.theme && onImportTheme) {
-        onImportTheme(data.theme);
-      } else if (data.theme) {
-        setTheme(data.theme);
-      }
-
-      if (onImportReminders && data.reminders.length > 0) {
-        onImportReminders(data.reminders);
-      } else {
-        localStorage.setItem(
-          "manga-reminder-data",
-          JSON.stringify(data.reminders),
-        );
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      }
-
-      setImportStatus(
-        `✅ ${data.reminders.length}件のリマインダーをインポートしました`,
-      );
-      setImportType("success");
-
-      event.target.value = "";
-    } catch (error) {
-      setImportStatus(`❌ エラー: ${getErrorMessage(error)}`);
-      setImportType("error");
-    } finally {
-      setIsImporting(false);
-    }
+    };
+    reader.readAsText(file);
   };
 
   const requestNotificationPermission = async () => {
@@ -603,12 +566,12 @@ const Settings: React.FC<SettingsProps> = ({
                   <div className="text-xs text-gray-500 dark:text-gray-400">
                     完全なライセンステキストは、各ライブラリのリポジトリまたは
                     <a
-                      href="https://github.com/lost-nd-xxx/web-manga-reminder/blob/main/THIRD-PARTY-LICENSES.md"
+                      href="https://github.com/lost-nd-xxx/update-bell-app/blob/main/THIRD-PARTY-LICENSES.md" // URL修正
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 dark:text-blue-400 hover:underline ml-1"
+                      className="text-blue-600 dark:text-blue-400 hover:underline"
                     >
-                      プロジェクトのライセンスファイル
+                      サードパーティライセンス
                       <ExternalLink size={10} className="inline ml-1" />
                     </a>
                     をご確認ください。
