@@ -37,7 +37,7 @@ console.log("環境情報:", {
   isProduction,
   shouldRegisterSW,
   hostname: location.hostname,
-  protocol: location.protocol
+  protocol: location.protocol,
 });
 
 // 手動Service Worker登録（メイン処理）
@@ -51,7 +51,7 @@ const registerManualServiceWorker = () => {
         console.log("手動SW状態:", {
           active: registration.active?.scriptURL,
           installing: registration.installing?.scriptURL,
-          waiting: registration.waiting?.scriptURL
+          waiting: registration.waiting?.scriptURL,
         });
         return registration;
       })
@@ -68,19 +68,21 @@ const registerManualServiceWorker = () => {
 // Service Worker登録処理（HTTPS環境では手動SWのみ使用）
 if (shouldRegisterSW) {
   console.log("Service Worker登録開始 (手動SW使用)");
-  
+
   // PWAプラグインを完全にスキップして手動SW使用
   registerManualServiceWorker()
     .then((registration) => {
       console.log("手動Service Worker登録完了");
-      
+
       // 登録完了後、既存のdev-swがあれば警告
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        const devSW = registrations.find(reg => 
-          reg.active?.scriptURL.includes('dev-sw.js')
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        const devSW = registrations.find((reg) =>
+          reg.active?.scriptURL.includes("dev-sw.js"),
         );
         if (devSW && devSW !== registration) {
-          console.warn("dev-sw.js が検出されました。手動SWとの競合の可能性があります。");
+          console.warn(
+            "dev-sw.js が検出されました。手動SWとの競合の可能性があります。",
+          );
         }
       });
     })
@@ -156,7 +158,7 @@ if (rootElement) {
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
       <App />
-    </React.StrictMode>
+    </React.StrictMode>,
   );
 } else {
   console.error("Root element not found");
@@ -170,21 +172,22 @@ setTimeout(() => {
 // Service Worker 状況を10秒後に確認
 setTimeout(() => {
   console.log("=== 10秒後のService Worker状況確認 ===");
-  navigator.serviceWorker.getRegistrations().then(registrations => {
-    console.log('登録されたService Worker数:', registrations.length);
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    console.log("登録されたService Worker数:", registrations.length);
     registrations.forEach((registration, index) => {
       console.log(`SW[${index}]:`, {
         scope: registration.scope,
         scriptURL: registration.active?.scriptURL,
-        state: registration.active?.state
+        state: registration.active?.state,
       });
     });
-    
-    const manualSW = registrations.find(reg => 
-      reg.active?.scriptURL.includes('/sw.js') && 
-      !reg.active?.scriptURL.includes('dev-sw.js')
+
+    const manualSW = registrations.find(
+      (reg) =>
+        reg.active?.scriptURL.includes("/sw.js") &&
+        !reg.active?.scriptURL.includes("dev-sw.js"),
     );
-    
+
     if (manualSW) {
       console.log("✅ 手動Service Worker (/sw.js) が正常に動作中");
     } else {

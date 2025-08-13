@@ -110,7 +110,11 @@ export class ServiceWorkerDebugger {
         localStorage.getItem("update-bell-data") || "[]",
       );
 
-      console.log("SW更新処理:", { reminderId, timestamp, reminderCount: reminders.length });
+      console.log("SW更新処理:", {
+        reminderId,
+        timestamp,
+        reminderCount: reminders.length,
+      });
 
       // 配列から該当リマインダーを検索（修正）
       const reminderIndex = reminders.findIndex(
@@ -120,10 +124,10 @@ export class ServiceWorkerDebugger {
       if (reminderIndex !== -1) {
         // 最終通知時刻を更新
         reminders[reminderIndex].lastNotified = timestamp;
-        
+
         // LocalStorageに保存（配列として）
         localStorage.setItem("update-bell-data", JSON.stringify(reminders));
-        
+
         console.log(
           `✅ Updated lastNotified for reminder ${reminderId}:`,
           timestamp,
@@ -135,7 +139,7 @@ export class ServiceWorkerDebugger {
             detail: { reminderId, timestamp },
           }),
         );
-        
+
         console.log("📡 reminderUpdated イベント発火完了");
       } else {
         console.warn(`⚠️ Reminder not found: ${reminderId}`);
