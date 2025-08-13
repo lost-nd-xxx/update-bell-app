@@ -86,7 +86,7 @@ export class ServiceWorkerDebugger {
   private sendRemindersData() {
     try {
       const remindersData = JSON.parse(
-        localStorage.getItem("web-manga-reminders") || "{}",
+        localStorage.getItem("update-bell-data") || "{}",
       );
 
       navigator.serviceWorker.controller?.postMessage({
@@ -106,7 +106,7 @@ export class ServiceWorkerDebugger {
   ) {
     try {
       const storage = JSON.parse(
-        localStorage.getItem("web-manga-reminders") || "{}",
+        localStorage.getItem("update-bell-data") || "{}",
       );
 
       if (storage.reminders) {
@@ -115,7 +115,7 @@ export class ServiceWorkerDebugger {
         );
         if (reminder) {
           reminder.lastNotified = timestamp;
-          localStorage.setItem("web-manga-reminders", JSON.stringify(storage));
+          localStorage.setItem("update-bell-data", JSON.stringify(storage));
           console.log(
             `Updated lastNotified for reminder ${reminderId}:`,
             timestamp,
@@ -233,7 +233,7 @@ export class ServiceWorkerDebugger {
     ]);
 
     const remindersData = JSON.parse(
-      localStorage.getItem("web-manga-reminders") || "{}",
+      localStorage.getItem("update-bell-data") || "{}",
     );
 
     const report = {

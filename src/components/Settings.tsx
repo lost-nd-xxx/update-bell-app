@@ -102,7 +102,7 @@ const Settings: React.FC<SettingsProps> = ({
       },
     };
 
-    const filename = `web-manga-reminders-${new Date().toISOString().split("T")[0]}.json`;
+    const filename = `update-bell-${new Date().toISOString().split("T")[0]}.json`;
     downloadFile(JSON.stringify(data, null, 2), filename);
 
     setImportStatus("✅ データをエクスポートしました");
@@ -159,7 +159,7 @@ const Settings: React.FC<SettingsProps> = ({
         onImportReminders(data.reminders);
       } else {
         localStorage.setItem(
-          "manga-reminder-data",
+          "update-bell-data",
           JSON.stringify(data.reminders),
         );
         setTimeout(() => {
@@ -603,7 +603,7 @@ const Settings: React.FC<SettingsProps> = ({
                   <div className="text-xs text-gray-500 dark:text-gray-400">
                     完全なライセンステキストは、各ライブラリのリポジトリまたは
                     <a
-                      href="https://github.com/lost-nd-xxx/web-manga-reminder/blob/main/THIRD-PARTY-LICENSES.md"
+                      href="https://github.com/lost-nd-xxx/update-bell-app/blob/main/THIRD-PARTY-LICENSES.md"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 dark:text-blue-400 hover:underline ml-1"

@@ -118,7 +118,7 @@ function setupPWAEvents() {
       if (deferredPrompt) {
         deferredPrompt.prompt();
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { outcome } = await deferredPrompt.userChoice;
+        await deferredPrompt.userChoice;
         deferredPrompt = null;
         installPrompt?.classList.add("translate-y-20", "opacity-0");
       }

@@ -9,7 +9,7 @@ export const useTimezone = (
     useState<TimezoneChangeDetection | null>(null);
   const [lastKnownTimezone, setLastKnownTimezone] = useState<string>(() => {
     return (
-      localStorage.getItem("manga-reminder-timezone") ||
+      localStorage.getItem("update-bell-timezone") ||
       Intl.DateTimeFormat().resolvedOptions().timeZone
     );
   });
@@ -35,7 +35,7 @@ export const useTimezone = (
       } else {
         // 影響を受けるリマインダーがない場合は自動更新
         setLastKnownTimezone(currentTimezone);
-        localStorage.setItem("manga-reminder-timezone", currentTimezone);
+        localStorage.setItem("update-bell-timezone", currentTimezone);
       }
     }
   }, [lastKnownTimezone, reminders]);
@@ -78,7 +78,7 @@ export const useTimezone = (
 
     // 新しいタイムゾーンを保存
     setLastKnownTimezone(current);
-    localStorage.setItem("manga-reminder-timezone", current);
+    localStorage.setItem("update-bell-timezone", current);
 
     // ダイアログを閉じる
     setTimezoneChanged(null);
@@ -88,7 +88,7 @@ export const useTimezone = (
     if (timezoneChanged) {
       // 新しいタイムゾーンを保存（何もしないという選択）
       setLastKnownTimezone(timezoneChanged.current);
-      localStorage.setItem("manga-reminder-timezone", timezoneChanged.current);
+      localStorage.setItem("update-bell-timezone", timezoneChanged.current);
     }
     setTimezoneChanged(null);
   };

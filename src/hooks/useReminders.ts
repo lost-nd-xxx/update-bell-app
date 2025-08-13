@@ -4,7 +4,7 @@ import { generateId } from "../utils/helpers";
 
 export const useReminders = () => {
   const [reminders, setReminders] = useState<Reminder[]>(() => {
-    const saved = localStorage.getItem("manga-reminder-data");
+    const saved = localStorage.getItem("update-bell-data");
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -19,7 +19,7 @@ export const useReminders = () => {
 
   // リマインダーをlocalStorageに保存
   useEffect(() => {
-    localStorage.setItem("manga-reminder-data", JSON.stringify(reminders));
+    localStorage.setItem("update-bell-data", JSON.stringify(reminders));
   }, [reminders]);
 
   const addReminder = (
@@ -49,12 +49,13 @@ export const useReminders = () => {
     setReminders((prev) => prev.filter((reminder) => reminder.id !== id));
   };
 
-  const duplicateReminder = (id: string) => {
+  const duplicateReminder = (id: string): void => {
     const original = reminders.find((r) => r.id === id);
     if (original) {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id: _id, createdAt: _createdAt, ...reminderData } = original;
-      return addReminder({
+      addReminder({
+        // ← return を削除
         ...reminderData,
         title: `${original.title} (コピー)`,
       });

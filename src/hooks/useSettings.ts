@@ -18,7 +18,7 @@ const defaultSettings: AppSettings = {
 
 export const useSettings = () => {
   const [settings, setSettings] = useState<AppSettings>(() => {
-    const saved = localStorage.getItem("manga-reminder-settings");
+    const saved = localStorage.getItem("update-bell-settings");
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -33,7 +33,7 @@ export const useSettings = () => {
 
   // 設定をlocalStorageに保存
   useEffect(() => {
-    localStorage.setItem("manga-reminder-settings", JSON.stringify(settings));
+    localStorage.setItem("update-bell-settings", JSON.stringify(settings));
   }, [settings]);
 
   // 通知許可状態を監視
