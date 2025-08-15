@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
-import { Reminder, AppState, ServiceWorkerMessage } from "./types";
+import { Reminder, AppState } from "./types";
 import { useReminders } from "./hooks/useReminders";
 import { useSettings } from "./hooks/useSettings";
 import { useTheme } from "./hooks/useTheme";
@@ -11,20 +11,16 @@ import Settings from "./components/Settings";
 import TimezoneChangeDialog from "./components/TimezoneChangeDialog";
 import Header from "./components/Header";
 
-// Service Worker関連の型定義
 declare global {
   interface Window {
     updateBell?: {
-      updateRemindersCache: (reminders: Reminder[]) => void;
-      updateSettingsCache: (settings: unknown) => void;
-      startPeriodicCheck: (interval: number) => void;
+      debugger?: unknown;
+      showLogs?: () => void;
     };
   }
 }
 
 const App: React.FC = () => {
-  const { settings, updateSettings } = useSettings();
-  const [theme, setTheme] = useTheme();
   const {
     reminders,
     addReminder,
@@ -32,16 +28,19 @@ const App: React.FC = () => {
     deleteReminder,
     bulkUpdateReminders,
   } = useReminders();
+  const { settings, updateSettings } = useSettings();
+  const [theme, setTheme] = useTheme();
   const { timezoneChanged, handleTimezoneChange, dismissTimezoneChange } =
     useTimezone(reminders, updateReminder);
 
+  const [statsExpanded, setStatsExpanded] = useState(false);
   const [appState, setAppState] = useState<AppState>({
     currentView: "dashboard",
     editingReminder: null,
     filter: {
       searchTerm: "",
       selectedTags: [],
-      showPaused: true,
+      showPaused: false,
     },
     sort: {
       field: "lastNotified",
@@ -51,64 +50,25 @@ const App: React.FC = () => {
     error: null,
   });
 
-  // 統計情報の表示状態
-  const [statsExpanded, setStatsExpanded] = useState(false);
-
-  // Service Worker初期化とデータ同期
+  // Service Worker メッセージ処理
   useEffect(() => {
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.addEventListener("message", (event) => {
-        const message = event.data as ServiceWorkerMessage;
-
-        switch (message.type) {
-          case "NOTIFICATION_SENT":
-            if (message.reminderId && message.timestamp) {
-              updateReminder(message.reminderId, {
-                lastNotified: message.timestamp,
-              });
-            }
-            break;
-          case "NOTIFICATION_CLICKED":
-            // 通知クリック時の処理（必要に応じて実装）
-            break;
-          case "REQUEST_REMINDERS_DATA":
-            // Service WorkerからのデータRequest
-            if (window.updateBell?.updateRemindersCache) {
-              window.updateBell.updateRemindersCache(reminders);
-            }
-            break;
-          case "REQUEST_SETTINGS_DATA":
-            // Service WorkerからのSettingsRequest
-            if (window.updateBell?.updateSettingsCache) {
-              window.updateBell.updateSettingsCache(settings);
-            }
-            break;
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data && event.data.type === "UPDATE_LAST_NOTIFICATION") {
+          const { reminderId, timestamp } = event.data;
+          if (reminderId && timestamp) {
+            updateReminder(reminderId, { lastNotified: timestamp });
+          }
         }
-      });
-    }
-  }, [reminders, settings, updateReminder]);
+      };
 
-  // リマインダーデータが変更された時にService Workerに同期
-  useEffect(() => {
-    if (reminders.length > 0 && window.updateBell?.updateRemindersCache) {
-      window.updateBell.updateRemindersCache(reminders);
+      navigator.serviceWorker.addEventListener("message", handleMessage);
+      return () => {
+        navigator.serviceWorker.removeEventListener("message", handleMessage);
+      };
     }
-  }, [reminders]);
-
-  // 設定が変更された時にService Workerに同期
-  useEffect(() => {
-    if (window.updateBell?.updateSettingsCache) {
-      window.updateBell.updateSettingsCache(settings);
-    }
-
-    // 通知間隔が変更された場合は定期チェックを再開
-    if (
-      settings.notificationInterval &&
-      window.updateBell?.startPeriodicCheck
-    ) {
-      window.updateBell.startPeriodicCheck(settings.notificationInterval);
-    }
-  }, [settings]);
+    return undefined;
+  }, [updateReminder]);
 
   const handleViewChange = (
     view: AppState["currentView"],
@@ -119,7 +79,7 @@ const App: React.FC = () => {
       currentView: view,
       editingReminder: editingReminder || null,
     }));
-    // 設定画面に移動する際は統計を閉じる
+
     if (view === "settings") {
       setStatsExpanded(false);
     }
@@ -160,14 +120,12 @@ const App: React.FC = () => {
     }));
   };
 
-  // テーマインポート機能の追加
   const handleImportTheme = (importedTheme: "light" | "dark" | "system") => {
     setTheme(importedTheme);
   };
-  // インポート機能の追加
+
   const handleImportReminders = (importedReminders: Reminder[]) => {
     try {
-      // 既存のリマインダーとインポートされたリマインダーをマージ
       const newReminders: Reminder[] = [];
       const updates: Array<{ id: string; data: Partial<Reminder> }> = [];
 
@@ -175,17 +133,15 @@ const App: React.FC = () => {
         const existing = reminders.find((r) => r.url === imported.url);
 
         if (existing) {
-          // 既存のリマインダーを更新
           updates.push({
             id: existing.id,
             data: {
               ...imported,
-              id: existing.id, // IDは保持
-              createdAt: existing.createdAt, // 作成日時も保持
+              id: existing.id,
+              createdAt: existing.createdAt,
             },
           });
         } else {
-          // 新しいリマインダーとして追加
           newReminders.push({
             ...imported,
             id: Date.now().toString(36) + Math.random().toString(36).substr(2),
@@ -195,12 +151,10 @@ const App: React.FC = () => {
         }
       });
 
-      // 一括更新
       if (updates.length > 0) {
         bulkUpdateReminders(updates);
       }
 
-      // 新規追加
       newReminders.forEach((reminder) => {
         const { ...reminderData } = reminder;
         addReminder(reminderData);
@@ -213,7 +167,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors scroll-stable">
-      {/* ヘッダー */}
       <Header
         onSettingsClick={() =>
           appState.currentView === "settings"
@@ -227,7 +180,6 @@ const App: React.FC = () => {
         isSettingsView={appState.currentView === "settings"}
       />
 
-      {/* タイムゾーン変更ダイアログ */}
       {timezoneChanged && (
         <TimezoneChangeDialog
           previousTimezone={timezoneChanged.previous}
@@ -238,7 +190,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* メインコンテンツ */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {appState.currentView === "dashboard" && (
           <Dashboard
@@ -284,7 +235,6 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* フローティングアクションボタン */}
       {appState.currentView === "dashboard" && (
         <button
           onClick={() => handleViewChange("create")}

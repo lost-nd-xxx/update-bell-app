@@ -8,7 +8,6 @@ import {
   Download,
   Upload,
   Trash2,
-  Shield,
   Info,
   CheckCircle,
   AlertCircle,
@@ -29,12 +28,10 @@ interface SettingsProps {
   onImportTheme?: (theme: "light" | "dark" | "system") => void;
 }
 
-// Navigator型拡張（PWA検出用）
 interface ExtendedNavigator extends Navigator {
   standalone?: boolean;
 }
 
-// サードパーティライセンス情報
 const thirdPartyLicenses = [
   {
     name: "React",
@@ -123,61 +120,38 @@ const Settings: React.FC<SettingsProps> = ({
 
     try {
       const content = await readFile(file);
-      const data: ExportData = JSON.parse(content);
+      const data = JSON.parse(content) as ExportData;
 
-      if (!data.version || !data.reminders || !Array.isArray(data.reminders)) {
+      if (!data.reminders || !Array.isArray(data.reminders)) {
         throw new Error("無効なファイル形式です");
       }
 
-      const existingUrls = new Set(reminders.map((r) => r.url));
-      const duplicates = data.reminders.filter((r) => existingUrls.has(r.url));
+      if (data.reminders && onImportReminders) {
+        onImportReminders(data.reminders);
+      }
 
-      if (duplicates.length > 0) {
-        const proceed = confirm(
-          `${duplicates.length}件の重複するリマインダーが見つかりました。\n` +
-            "続行すると既存のデータが上書きされます。続行しますか？",
-        );
-        if (!proceed) {
-          setIsImporting(false);
-          setImportStatus("インポートがキャンセルされました");
-          setImportType("error");
-          return;
-        }
+      if (data.theme && onImportTheme) {
+        onImportTheme(data.theme);
       }
 
       if (data.settings) {
         updateSettings(data.settings);
       }
 
-      if (data.theme && onImportTheme) {
-        onImportTheme(data.theme);
-      } else if (data.theme) {
-        setTheme(data.theme);
-      }
-
-      if (onImportReminders && data.reminders.length > 0) {
-        onImportReminders(data.reminders);
-      } else {
-        localStorage.setItem(
-          "update-bell-data",
-          JSON.stringify(data.reminders),
-        );
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      }
-
       setImportStatus(
-        `✅ ${data.reminders.length}件のリマインダーをインポートしました`,
+        `✅ ${data.reminders.length}個のリマインダーをインポートしました`,
       );
       setImportType("success");
-
-      event.target.value = "";
     } catch (error) {
-      setImportStatus(`❌ エラー: ${getErrorMessage(error)}`);
+      setImportStatus(`❌ インポートに失敗: ${getErrorMessage(error)}`);
       setImportType("error");
     } finally {
       setIsImporting(false);
+      event.target.value = "";
+      setTimeout(() => {
+        setImportStatus("");
+        setImportType("");
+      }, 5000);
     }
   };
 
@@ -246,21 +220,20 @@ const Settings: React.FC<SettingsProps> = ({
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* ヘッダー */}
       <div className="flex items-center gap-4 mb-6">
         <button
           onClick={onBack}
           className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+          aria-label="ダッシュボードに戻る"
         >
           <ArrowLeft size={20} />
         </button>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           設定
-        </h2>
+        </h1>
       </div>
 
       <div className="space-y-6">
-        {/* 通知設定 */}
         <div className="card p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <Bell size={20} />
@@ -304,37 +277,18 @@ const Settings: React.FC<SettingsProps> = ({
               {settings.notifications.permission !== "granted" && (
                 <button
                   onClick={requestNotificationPermission}
-                  className={`
-                    group relative px-4 py-3 rounded-lg font-medium text-sm transition-all duration-200
-                    ${
-                      settings.notifications.permission === "denied"
-                        ? "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                        : "bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/30 dark:hover:bg-purple-800/50 text-purple-700 dark:text-purple-300"
-                    }
-                    border-2 
-                    ${
-                      settings.notifications.permission === "denied"
-                        ? "border-gray-200 dark:border-gray-600"
-                        : "border-purple-500 hover:border-purple-400"
-                    }
-                  `}
+                  className="group relative px-4 py-3 rounded-lg font-medium text-sm transition-all duration-200 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/30 dark:hover:bg-purple-800/50 text-purple-700 dark:text-purple-300 border-2 border-purple-500 hover:border-purple-400"
                   disabled={settings.notifications.permission === "denied"}
                 >
                   <div className="flex items-center justify-center gap-2">
                     <Bell
                       size={16}
-                      className={`${
-                        settings.notifications.permission === "denied"
-                          ? "text-gray-400 dark:text-gray-500"
-                          : "text-purple-700 dark:text-purple-300"
-                      }`}
+                      className="text-purple-700 dark:text-purple-300"
                     />
                     <span>通知を許可</span>
                   </div>
 
-                  {settings.notifications.permission !== "denied" && (
-                    <div className="absolute inset-0 rounded-lg bg-purple-200 dark:bg-purple-400 opacity-0 group-hover:opacity-20 transition-opacity duration-200"></div>
-                  )}
+                  <div className="absolute inset-0 rounded-lg bg-purple-200 dark:bg-purple-400 opacity-0 group-hover:opacity-20 transition-opacity duration-200"></div>
                 </button>
               )}
 
@@ -356,7 +310,6 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
 
-        {/* テーマ設定 */}
         <div className="card p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             テーマ設定
@@ -407,14 +360,12 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
 
-        {/* データ管理 */}
         <div className="card p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             データ管理
           </h3>
 
           <div className="space-y-4">
-            {/* エクスポート */}
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-medium text-gray-900 dark:text-white">
@@ -433,7 +384,6 @@ const Settings: React.FC<SettingsProps> = ({
               </button>
             </div>
 
-            {/* インポート */}
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-medium text-gray-900 dark:text-white">
@@ -456,7 +406,6 @@ const Settings: React.FC<SettingsProps> = ({
               </label>
             </div>
 
-            {/* インポート状態表示 */}
             {importStatus && (
               <div
                 className={`mt-2 p-3 rounded-lg border ${
@@ -490,7 +439,6 @@ const Settings: React.FC<SettingsProps> = ({
               </div>
             )}
 
-            {/* データクリア */}
             <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
@@ -513,7 +461,36 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
 
-        {/* アプリ情報 */}
+        <div className="card p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <Info size={20} />
+            注意事項
+          </h3>
+
+          <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+            <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <p className="font-medium text-yellow-800 dark:text-yellow-300 mb-1">
+                データ保存について
+              </p>
+              <p className="text-yellow-700 dark:text-yellow-200">
+                このアプリはブラウザのローカルストレージを使用してデータを保存します。
+                ブラウザのキャッシュを削除するとデータが失われる可能性があります。
+                重要なデータは定期的にエクスポートしてバックアップを取ることをお勧めします。
+              </p>
+            </div>
+
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="font-medium text-blue-800 dark:text-blue-300 mb-1">
+                将来の機能変更について
+              </p>
+              <p className="text-blue-700 dark:text-blue-200">
+                より確実な通知のため、将来的に外部プッシュ通知サービスの導入を予定しています。
+                その際、現在のオフライン動作機能は廃止される可能性があります。
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="card p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             アプリ情報
@@ -538,66 +515,36 @@ const Settings: React.FC<SettingsProps> = ({
 
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">
-                リマインダー数
+                プラットフォーム
               </span>
               <span className="text-gray-900 dark:text-white">
-                {reminders.length}件
+                {browserInfo.platform}
               </span>
             </div>
 
             <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">
-                タイムゾーン
-              </span>
+              <span className="text-gray-600 dark:text-gray-400">言語</span>
               <span className="text-gray-900 dark:text-white">
-                {settings.timezone}
+                {browserInfo.language}
               </span>
             </div>
           </div>
-        </div>
 
-        {/* 免責事項 */}
-        <div className="card p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <Shield size={20} />
-            注意事項
-          </h3>
-
-          <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-            <p>• 通知機能はブラウザとOSの設定に依存します</p>
-            <p>
-              • ブラウザのキャッシュを削除するとデータが失われる可能性があります
-            </p>
-            <p>• 定期的なデータのエクスポートをお勧めします</p>
-            <p>• 現在はオフラインでも基本機能が使用できます</p>
-            <p>
-              •
-              将来的に外部サービス導入により、オフライン動作は廃止される可能性があります
-            </p>
-          </div>
-        </div>
-
-        {/* Third Party Licenses */}
-        <div className="card p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <Book size={20} />
-            Third Party Licenses
-          </h3>
-
-          <div className="space-y-4">
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              このアプリは以下のオープンソースライブラリを使用しています。
-            </div>
-
+          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={() => setShowLicenses(!showLicenses)}
-              className="btn btn-secondary text-white w-full"
+              className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
+              <Book size={16} />
               {showLicenses ? "ライセンス一覧を非表示" : "ライセンス一覧を表示"}
             </button>
 
             {showLicenses && (
               <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 max-h-96 overflow-y-auto scrollbar-thin">
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+                  このアプリは以下のオープンソースライブラリを使用しています。
+                </p>
+
                 <div className="space-y-3">
                   {thirdPartyLicenses.map((lib) => (
                     <div

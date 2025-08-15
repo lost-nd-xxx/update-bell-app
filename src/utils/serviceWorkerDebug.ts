@@ -1,5 +1,5 @@
-// src/utils/serviceWorkerDebug.ts
-// Service Worker デバッグヘルパークラス
+// Service Worker デバッグ支援ツール
+// 開発時のみ有効（本番ビルドでは自動除外）
 
 interface ServiceWorkerDebugInfo {
   isSupported: boolean;
@@ -57,7 +57,6 @@ export class ServiceWorkerDebugger {
         this.registration =
           (await navigator.serviceWorker.getRegistration()) || null;
         this.setupMessageListener();
-        console.log("SW Debugger initialized:", this.registration);
       } catch (error) {
         console.error("Failed to initialize SW debugger:", error);
       }
@@ -66,8 +65,6 @@ export class ServiceWorkerDebugger {
 
   private setupMessageListener() {
     navigator.serviceWorker.addEventListener("message", (event) => {
-      console.log("Message from SW:", event.data);
-
       switch (event.data.type) {
         case "REQUEST_REMINDERS_DATA":
           this.sendRemindersData();
@@ -93,8 +90,6 @@ export class ServiceWorkerDebugger {
         type: "REMINDERS_DATA_RESPONSE",
         data: remindersData,
       });
-
-      console.log("Sent reminders data to SW:", remindersData);
     } catch (error) {
       console.error("Failed to send reminders data:", error);
     }
@@ -105,47 +100,28 @@ export class ServiceWorkerDebugger {
     timestamp: string,
   ) {
     try {
-      // 配列形式のデータを取得（修正）
+      // 配列形式のデータを取得
       const reminders = JSON.parse(
         localStorage.getItem("update-bell-data") || "[]",
       );
 
-      console.log("SW更新処理:", {
-        reminderId,
-        timestamp,
-        reminderCount: reminders.length,
-      });
-
-      // 配列から該当リマインダーを検索（修正）
       const reminderIndex = reminders.findIndex(
         (r: ReminderData) => r.id === reminderId,
       );
 
       if (reminderIndex !== -1) {
-        // 最終通知時刻を更新
         reminders[reminderIndex].lastNotified = timestamp;
-
-        // LocalStorageに保存（配列として）
         localStorage.setItem("update-bell-data", JSON.stringify(reminders));
 
-        console.log(
-          `✅ Updated lastNotified for reminder ${reminderId}:`,
-          timestamp,
-        );
-
-        // アプリの状態も更新（カスタムイベント発火）
+        // アプリの状態更新通知
         window.dispatchEvent(
           new CustomEvent("reminderUpdated", {
             detail: { reminderId, timestamp },
           }),
         );
-
-        console.log("📡 reminderUpdated イベント発火完了");
-      } else {
-        console.warn(`⚠️ Reminder not found: ${reminderId}`);
       }
     } catch (error) {
-      console.error("❌ Failed to update reminder notification time:", error);
+      console.error("Failed to update reminder notification time:", error);
     }
   }
 
@@ -169,7 +145,6 @@ export class ServiceWorkerDebugger {
         [channel.port2],
       );
 
-      // タイムアウト
       setTimeout(() => resolve([]), 5000);
     });
   }
@@ -180,9 +155,6 @@ export class ServiceWorkerDebugger {
         type: "START_NOTIFICATION_CHECK",
         intervalMinutes,
       });
-      console.log(
-        `Started notification check with ${intervalMinutes}min interval`,
-      );
     }
   }
 
@@ -191,7 +163,6 @@ export class ServiceWorkerDebugger {
       navigator.serviceWorker.controller.postMessage({
         type: "STOP_NOTIFICATION_CHECK",
       });
-      console.log("Stopped notification check");
     }
   }
 
@@ -200,7 +171,6 @@ export class ServiceWorkerDebugger {
       navigator.serviceWorker.controller.postMessage({
         type: "MANUAL_NOTIFICATION_CHECK",
       });
-      console.log("Manual notification check triggered");
     }
   }
 
@@ -214,7 +184,6 @@ export class ServiceWorkerDebugger {
       updateFound: false,
     };
 
-    // アップデート確認
     if (this.registration) {
       await this.registration.update();
       info.updateFound = !!this.registration.waiting;
@@ -224,7 +193,7 @@ export class ServiceWorkerDebugger {
   }
 
   async getNotificationInfo(): Promise<NotificationDebugInfo> {
-    // maxActionsは標準にないプロパティなので、安全にアクセス
+    // maxActionsは非標準プロパティ
     const NotificationWithExtensions = Notification as typeof Notification & {
       maxActions?: number;
     };
@@ -265,7 +234,7 @@ export class ServiceWorkerDebugger {
             .length || 0,
       },
       settings: remindersData.settings || {},
-      debugLogs: debugLogs.slice(-50), // 最新50件
+      debugLogs: debugLogs.slice(-50),
       userAgent: navigator.userAgent,
       url: window.location.href,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -288,12 +257,9 @@ export class ServiceWorkerDebugger {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
-    console.log("Debug report exported:", report);
   }
 }
 
-// グローバルインスタンス
 let debuggerInstance: ServiceWorkerDebugger | null = null;
 
 export function getServiceWorkerDebugger(): ServiceWorkerDebugger {
@@ -303,7 +269,7 @@ export function getServiceWorkerDebugger(): ServiceWorkerDebugger {
   return debuggerInstance;
 }
 
-// デバッグ用のグローバル関数（開発時のみ）
+// 開発時のみグローバル関数を追加
 if (import.meta.env.DEV) {
   const globalFunctions: GlobalDebugFunctions = {
     get: () => getServiceWorkerDebugger(),
