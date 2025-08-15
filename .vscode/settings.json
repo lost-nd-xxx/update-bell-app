@@ -1,26 +1,17 @@
 {
-  // Prettier設定
   "prettier.enable": true,
   "prettier.requireConfig": true,
-  
-  // 保存時動作の設定
   "editor.formatOnSave": true,
   "editor.formatOnSaveMode": "file",
   "files.autoSave": "off",
-  
-  // ESLint設定（強化）
   "eslint.enable": true,
   "eslint.validate": [
     "javascript",
-    "javascriptreact", 
+    "javascriptreact",
     "typescript",
     "typescriptreact"
   ],
-  
-  // デフォルトフォーマッター設定
   "editor.defaultFormatter": "esbenp.prettier-vscode",
-  
-  // ファイル形式別設定
   "[typescriptreact]": {
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "esbenp.prettier-vscode",

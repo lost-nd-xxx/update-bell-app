@@ -38,13 +38,13 @@ pnpm-debug.log*
 
 # ===== エディター・IDE =====
 # VS Code 個人設定（除外）
-.vscode/settings.json
 .vscode/launch.json
 .vscode/sftp.json
 
-# VS Code プロジェクト設定（含める - コメントアウト）
-# .vscode/tasks.json 全開発者に有用
-# .vscode/extensions.json 推奨拡張機能
+# VS Code プロジェクト設定は含める
+# .vscode/settings.json（品質管理基盤）
+# .vscode/tasks.json（開発タスク）
+# .vscode/extensions.json（推奨拡張機能）
 
 # その他のエディター
 .idea/
