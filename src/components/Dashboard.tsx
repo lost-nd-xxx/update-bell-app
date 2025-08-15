@@ -15,6 +15,9 @@ interface DashboardProps {
   onTogglePause: (id: string, isPaused: boolean) => void;
   onCreateNew: () => void;
   statsExpanded: boolean;
+  // 通知設定導線強化のために追加
+  notificationPermission?: string;
+  onNavigateToSettings?: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -28,6 +31,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   onTogglePause,
   onCreateNew,
   statsExpanded,
+  notificationPermission,
+  onNavigateToSettings,
 }) => {
   // フィルタリングとソート処理
   const filteredAndSortedReminders = useMemo(() => {
@@ -110,6 +115,29 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* 通知設定案内バナー */}
+      {notificationPermission !== "granted" && reminders.length > 0 && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <Bell
+              className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5"
+              size={16}
+            />
+            <div className="flex-1">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                リマインダーの通知を受信するには通知設定が必要です
+              </p>
+            </div>
+            <button
+              onClick={onNavigateToSettings}
+              className="text-sm font-medium text-yellow-700 dark:text-yellow-300 hover:text-yellow-900 dark:hover:text-yellow-100 transition-colors underline"
+            >
+              設定で有効にする
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ヘッダー制御の統計情報表示 */}
       {statsExpanded && (
         <div className="card p-6 animate-slide-up">

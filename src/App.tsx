@@ -257,6 +257,8 @@ const App: React.FC = () => {
             }
             onCreateNew={() => handleViewChange("create")}
             statsExpanded={statsExpanded}
+            notificationPermission={settings.notifications.permission}
+            onNavigateToSettings={() => handleViewChange("settings")}
           />
         )}
 
