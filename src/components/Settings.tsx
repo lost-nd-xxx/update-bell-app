@@ -304,10 +304,37 @@ const Settings: React.FC<SettingsProps> = ({
               {settings.notifications.permission !== "granted" && (
                 <button
                   onClick={requestNotificationPermission}
-                  className="btn btn-primary text-sm text-white"
+                  className={`
+                    group relative px-4 py-3 rounded-lg font-medium text-sm transition-all duration-200
+                    ${
+                      settings.notifications.permission === "denied"
+                        ? "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                        : "bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/30 dark:hover:bg-purple-800/50 text-purple-700 dark:text-purple-300"
+                    }
+                    border-2 
+                    ${
+                      settings.notifications.permission === "denied"
+                        ? "border-gray-200 dark:border-gray-600"
+                        : "border-purple-500 hover:border-purple-400"
+                    }
+                  `}
                   disabled={settings.notifications.permission === "denied"}
                 >
-                  通知を許可
+                  <div className="flex items-center justify-center gap-2">
+                    <Bell
+                      size={16}
+                      className={`${
+                        settings.notifications.permission === "denied"
+                          ? "text-gray-400 dark:text-gray-500"
+                          : "text-purple-700 dark:text-purple-300"
+                      }`}
+                    />
+                    <span>通知を許可</span>
+                  </div>
+
+                  {settings.notifications.permission !== "denied" && (
+                    <div className="absolute inset-0 rounded-lg bg-purple-200 dark:bg-purple-400 opacity-0 group-hover:opacity-20 transition-opacity duration-200"></div>
+                  )}
                 </button>
               )}
 
