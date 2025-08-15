@@ -312,13 +312,13 @@ const Settings: React.FC<SettingsProps> = ({
               )}
 
               {!browserInfo.isPWA && (
-                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded">
+                <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded">
                   <div className="flex items-start gap-2">
                     <Info
                       size={16}
-                      className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5"
+                      className="text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5"
                     />
-                    <div className="text-sm text-blue-800 dark:text-blue-300">
+                    <div className="text-sm text-purple-800 dark:text-purple-300">
                       <strong>PWAとしてインストール</strong>
                       することで、より安定した通知が可能になります。
                     </div>
@@ -340,7 +340,7 @@ const Settings: React.FC<SettingsProps> = ({
               onClick={() => setTheme("light")}
               className={`p-3 rounded-lg border-2 transition-colors ${
                 theme === "light"
-                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                  ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
                   : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
               }`}
             >
@@ -354,7 +354,7 @@ const Settings: React.FC<SettingsProps> = ({
               onClick={() => setTheme("dark")}
               className={`p-3 rounded-lg border-2 transition-colors ${
                 theme === "dark"
-                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                  ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
                   : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
               }`}
             >
@@ -368,7 +368,7 @@ const Settings: React.FC<SettingsProps> = ({
               onClick={() => setTheme("system")}
               className={`p-3 rounded-lg border-2 transition-colors ${
                 theme === "system"
-                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                  ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
                   : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
               }`}
             >

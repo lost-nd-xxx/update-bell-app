@@ -46,7 +46,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
       className={`card p-6 border-l-4 transition-all hover:shadow-md ${
         reminder.isPaused
           ? "border-yellow-500 bg-yellow-50/50 dark:bg-yellow-900/10"
-          : "border-blue-500 bg-white dark:bg-gray-800"
+          : "border-purple-500 bg-white dark:bg-gray-800"
       }`}
     >
       {/* ヘッダー */}
@@ -130,7 +130,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
 
           {/* 次回通知 */}
           {!reminder.isPaused && (
-            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+            <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
               <Calendar size={16} className="flex-shrink-0" />
               <span>
                 次回:{" "}

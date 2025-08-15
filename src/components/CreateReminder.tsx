@@ -486,17 +486,20 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
           </div>
 
           {/* 設定内容の確認 */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Clock className="text-blue-600 dark:text-blue-400" size={16} />
-              <span className="font-medium text-blue-800 dark:text-blue-300">
+              <Clock
+                className="text-purple-600 dark:text-purple-400"
+                size={16}
+              />
+              <span className="font-medium text-purple-800 dark:text-purple-300">
                 設定内容の確認
               </span>
             </div>
-            <p className="text-blue-700 dark:text-blue-300 text-sm">
+            <p className="text-purple-700 dark:text-purple-300 text-sm">
               {scheduleDescription}
             </p>
-            <p className="text-blue-600 dark:text-blue-400 text-xs mt-1">
+            <p className="text-purple-600 dark:text-purple-400 text-xs mt-1">
               次回通知予定: {nextNotification.toLocaleString("ja-JP")}
             </p>
           </div>

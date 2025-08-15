@@ -131,7 +131,7 @@ const Header: React.FC<HeaderProps> = ({
                 onClick={onStatsClick}
                 className={`p-2 rounded-lg transition-colors ${
                   statsExpanded
-                    ? "text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/20"
+                    ? "text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/20"
                     : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
                 }`}
                 aria-label="統計情報を表示"
@@ -146,7 +146,7 @@ const Header: React.FC<HeaderProps> = ({
               onClick={onSettingsClick}
               className={`p-2 rounded-lg transition-colors ${
                 isSettingsView
-                  ? "text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/20"
+                  ? "text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/20"
                   : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
               }`}
               aria-label={

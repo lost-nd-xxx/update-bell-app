@@ -114,7 +114,10 @@ const Dashboard: React.FC<DashboardProps> = ({
       {statsExpanded && (
         <div className="card p-6 animate-slide-up">
           <div className="flex items-center gap-3 mb-4">
-            <BarChart3 className="text-blue-600 dark:text-blue-400" size={24} />
+            <BarChart3
+              className="text-purple-600 dark:text-purple-400"
+              size={24}
+            />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               統計情報
             </h2>
@@ -158,17 +161,17 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {/* 通知についての説明 */}
       {reminders.length > 0 && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <Bell
-              className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5"
+              className="text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5"
               size={16}
             />
             <div className="text-sm">
-              <p className="font-medium text-blue-800 dark:text-blue-300 mb-1">
+              <p className="font-medium text-purple-800 dark:text-purple-300 mb-1">
                 通知について
               </p>
-              <p className="text-blue-700 dark:text-blue-200">
+              <p className="text-purple-700 dark:text-purple-200">
                 「最終通知」は実際に通知が送信された時刻に更新されます。通知許可と定期チェックが有効になっている必要があります。
               </p>
             </div>
