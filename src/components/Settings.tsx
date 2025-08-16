@@ -11,6 +11,8 @@ import {
   Info,
   CheckCircle,
   AlertCircle,
+  XCircle,
+  AlertTriangle,
   ExternalLink,
   Book,
 } from "lucide-react";
@@ -102,7 +104,7 @@ const Settings: React.FC<SettingsProps> = ({
     const filename = `update-bell-${new Date().toISOString().split("T")[0]}.json`;
     downloadFile(JSON.stringify(data, null, 2), filename);
 
-    setImportStatus("✅ データをエクスポートしました");
+    setImportStatus("データをエクスポートしました");
     setImportType("success");
     setTimeout(() => {
       setImportStatus("");
@@ -139,15 +141,16 @@ const Settings: React.FC<SettingsProps> = ({
       }
 
       setImportStatus(
-        `✅ ${data.reminders.length}個のリマインダーをインポートしました`,
+        `${data.reminders.length}個のリマインダーをインポートしました`,
       );
       setImportType("success");
     } catch (error) {
-      setImportStatus(`❌ インポートに失敗: ${getErrorMessage(error)}`);
+      setImportStatus(`インポートに失敗: ${getErrorMessage(error)}`);
       setImportType("error");
     } finally {
       setIsImporting(false);
       event.target.value = "";
+
       setTimeout(() => {
         setImportStatus("");
         setImportType("");
@@ -190,13 +193,39 @@ const Settings: React.FC<SettingsProps> = ({
   const getNotificationStatusText = () => {
     switch (settings.notifications.permission) {
       case "granted":
-        return "✅ 許可済み";
+        return (
+          <div className="flex items-center gap-2">
+            <CheckCircle
+              className="text-green-600 dark:text-green-400"
+              size={16}
+            />
+            <span>許可済み</span>
+          </div>
+        );
       case "denied":
-        return "❌ 拒否済み";
+        return (
+          <div className="flex items-center gap-2">
+            <XCircle className="text-red-600 dark:text-red-400" size={16} />
+            <span>拒否済み</span>
+          </div>
+        );
       case "unsupported":
-        return "❌ 非対応";
+        return (
+          <div className="flex items-center gap-2">
+            <XCircle className="text-red-600 dark:text-red-400" size={16} />
+            <span>非対応</span>
+          </div>
+        );
       default:
-        return "⚠️ 未設定";
+        return (
+          <div className="flex items-center gap-2">
+            <AlertTriangle
+              className="text-yellow-600 dark:text-yellow-400"
+              size={16}
+            />
+            <span>未設定</span>
+          </div>
+        );
     }
   };
 
@@ -269,26 +298,18 @@ const Settings: React.FC<SettingsProps> = ({
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   通知許可状態
                 </span>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
                   {getNotificationStatusText()}
-                </span>
+                </div>
               </div>
 
               {settings.notifications.permission !== "granted" && (
                 <button
                   onClick={requestNotificationPermission}
-                  className="group relative px-4 py-3 rounded-lg font-medium text-sm transition-all duration-200 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/30 dark:hover:bg-purple-800/50 text-purple-700 dark:text-purple-300 border-2 border-purple-500 hover:border-purple-400"
+                  className="btn btn-primary text-sm text-white"
                   disabled={settings.notifications.permission === "denied"}
                 >
-                  <div className="flex items-center justify-center gap-2">
-                    <Bell
-                      size={16}
-                      className="text-purple-700 dark:text-purple-300"
-                    />
-                    <span>通知を許可</span>
-                  </div>
-
-                  <div className="absolute inset-0 rounded-lg bg-purple-200 dark:bg-purple-400 opacity-0 group-hover:opacity-20 transition-opacity duration-200"></div>
+                  通知を許可
                 </button>
               )}
 
