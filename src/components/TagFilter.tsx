@@ -41,7 +41,7 @@ const TagFilter: React.FC<TagFilterProps> = ({
               onClick={() => onTagToggle(tag)}
               className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-all ${
                 isSelected
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  ? "bg-purple-600 text-white hover:bg-purple-700"
                   : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
               }`}
             >
@@ -49,7 +49,7 @@ const TagFilter: React.FC<TagFilterProps> = ({
               {isSelected && (
                 <X
                   size={14}
-                  className="ml-1 hover:bg-blue-500 rounded-full p-0.5"
+                  className="ml-1 hover:bg-purple-500 rounded-full p-0.5"
                 />
               )}
             </button>
