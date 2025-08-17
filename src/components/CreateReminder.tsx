@@ -26,13 +26,13 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
     url: "",
     schedule: {
       type: "weekly" as ScheduleType,
-      dayOfWeek: 1, // 月曜日
+      dayOfWeek: 1,
       hour: 10,
       minute: 0,
       interval: 1,
       weekOfMonth: 1,
       dateFilter: "all" as DateFilterType,
-      selectedDays: [1], // 月曜日（複数曜日選択用）
+      selectedDays: [1],
     } as Schedule & { selectedDays: number[] },
     tags: [] as string[],
     isPaused: false,
@@ -42,7 +42,6 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
   const [warnings, setWarnings] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // 編集モードの場合、データを設定
   useEffect(() => {
     if (editingReminder) {
       setFormData({
@@ -62,7 +61,6 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
     }
   }, [editingReminder]);
 
-  // 周期設定変更時に警告をチェック
   useEffect(() => {
     const newWarnings: string[] = [];
 
@@ -85,7 +83,6 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
     formData.schedule.dayOfWeek,
   ]);
 
-  // バリデーション
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -126,7 +123,6 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
   const handleSubmit = () => {
     if (!validateForm()) return;
 
-    // selectedDaysを除外したscheduleを作成
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { selectedDays, ...cleanSchedule } = formData.schedule;
 
@@ -134,10 +130,9 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
       title: formData.title,
       url: normalizeUrl(formData.url),
       tags: formData.tags,
-      isPaused: formData.isPaused, // ← 明示的に設定
+      isPaused: formData.isPaused,
       schedule: {
         ...cleanSchedule,
-        // specific_daysの場合はselectedDaysをscheduleに含める
         ...(formData.schedule.type === "specific_days" && {
           selectedDays: formData.schedule.selectedDays,
         }),
@@ -179,35 +174,19 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (tagInput.trim()) {
-        addTag();
-      } else {
-        handleSubmit();
-      }
+      handleSubmit();
     }
   };
 
   const handleDayToggle = (day: number) => {
-    setFormData((prev) => {
-      const newSelectedDays = prev.schedule.selectedDays.includes(day)
-        ? prev.schedule.selectedDays.filter((d) => d !== day)
-        : [...prev.schedule.selectedDays, day].sort();
-
-      return {
-        ...prev,
-        schedule: {
-          ...prev.schedule,
-          selectedDays: newSelectedDays,
-          // 最初に選択された曜日をdayOfWeekに設定
-          dayOfWeek: newSelectedDays[0] || 1,
-        },
-      };
-    });
+    const selectedDays = formData.schedule.selectedDays || [];
+    const newSelectedDays = selectedDays.includes(day)
+      ? selectedDays.filter((d) => d !== day)
+      : [...selectedDays, day];
+    updateSchedule({ selectedDays: newSelectedDays });
   };
 
-  // プレビュー情報
-  const scheduleDescription = generateScheduleDescription(formData.schedule);
-  const nextNotification = calculateNextNotificationTime(formData.schedule);
+  const nextNotificationTime = calculateNextNotificationTime(formData.schedule);
 
   return (
     <div className="card p-6 max-w-2xl mx-auto">
@@ -224,7 +203,6 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
       </div>
 
       <div className="space-y-6">
-        {/* 基本情報 */}
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -269,13 +247,11 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
           </div>
         </div>
 
-        {/* 周期設定 */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900 dark:text-white">
             通知設定
           </h3>
 
-          {/* 周期タイプ */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               通知周期
@@ -295,14 +271,12 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
             </select>
           </div>
 
-          {/* 詳細設定 - 毎日（日付フィルター削除） */}
           {formData.schedule.type === "daily" && (
             <div className="text-sm text-gray-600 dark:text-gray-400">
               毎日指定した時刻に通知されます。
             </div>
           )}
 
-          {/* 詳細設定 - 数日ごと */}
           {formData.schedule.type === "interval" && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -326,7 +300,6 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
             </div>
           )}
 
-          {/* 詳細設定 - 毎週 */}
           {formData.schedule.type === "weekly" && (
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -370,24 +343,28 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
             </div>
           )}
 
-          {/* 詳細設定 - 特定の曜日（チェックボックス式） */}
           {formData.schedule.type === "specific_days" && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                曜日を選択 *
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                曜日（複数選択可）
               </label>
               <div className="grid grid-cols-7 gap-2">
                 {[0, 1, 2, 3, 4, 5, 6].map((day) => (
-                  <label key={day} className="flex flex-col items-center">
+                  <label
+                    key={day}
+                    className={`flex items-center justify-center p-2 rounded border cursor-pointer transition-colors ${
+                      formData.schedule.selectedDays?.includes(day)
+                        ? "bg-purple-100 border-purple-500 text-purple-700 dark:bg-purple-900/30 dark:border-purple-400 dark:text-purple-300"
+                        : "border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500"
+                    }`}
+                  >
                     <input
                       type="checkbox"
-                      checked={formData.schedule.selectedDays.includes(day)}
+                      checked={formData.schedule.selectedDays?.includes(day)}
                       onChange={() => handleDayToggle(day)}
-                      className="mb-1 rounded border-gray-300 dark:border-gray-600"
+                      className="sr-only"
                     />
-                    <span className="text-xs text-center text-gray-700 dark:text-gray-300">
-                      {getDayName(day)}
-                    </span>
+                    <span className="text-sm">{getDayName(day)}</span>
                   </label>
                 ))}
               </div>
@@ -399,7 +376,6 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
             </div>
           )}
 
-          {/* 詳細設定 - 毎月 */}
           {formData.schedule.type === "monthly" && (
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -441,7 +417,6 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
             </div>
           )}
 
-          {/* 時刻設定 - 改善されたレイアウト */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               通知時刻
@@ -458,7 +433,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
                   }
                   className={`input w-20 text-center ${errors.hour ? "border-red-500" : ""}`}
                 />
-                <span className="text-gray-600 dark:text-gray-400 font-medium">
+                <span className="text-sm text-gray-500 dark:text-gray-400">
                   時
                 </span>
               </div>
@@ -473,7 +448,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
                   }
                   className={`input w-20 text-center ${errors.minute ? "border-red-500" : ""}`}
                 />
-                <span className="text-gray-600 dark:text-gray-400 font-medium">
+                <span className="text-sm text-gray-500 dark:text-gray-400">
                   分
                 </span>
               </div>
@@ -484,45 +459,52 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
               </p>
             )}
           </div>
+        </div>
 
-          {/* 設定内容の確認 */}
-          <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Clock
-                className="text-purple-600 dark:text-purple-400"
-                size={16}
-              />
-              <span className="font-medium text-purple-800 dark:text-purple-300">
-                設定内容の確認
-              </span>
+        <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <Clock
+              className="text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5"
+              size={16}
+            />
+            <div className="flex-1">
+              <h4 className="font-medium text-purple-800 dark:text-purple-300 mb-1">
+                設定内容確認
+              </h4>
+              <p className="text-sm text-purple-700 dark:text-purple-200 mb-2">
+                {generateScheduleDescription(formData.schedule)}
+              </p>
+              {nextNotificationTime && (
+                <p className="text-sm text-purple-600 dark:text-purple-300">
+                  次回通知予定:{" "}
+                  {nextNotificationTime.toLocaleString("ja-JP", {
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    weekday: "short",
+                  })}
+                </p>
+              )}
             </div>
-            <p className="text-purple-700 dark:text-purple-300 text-sm">
-              {scheduleDescription}
-            </p>
-            <p className="text-purple-600 dark:text-purple-400 text-xs mt-1">
-              次回通知予定: {nextNotification.toLocaleString("ja-JP")}
-            </p>
           </div>
 
-          {/* 警告メッセージ */}
           {warnings.length > 0 && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-              <div className="flex items-start gap-2">
-                <AlertTriangle
-                  className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5"
-                  size={16}
-                />
-                <div className="text-sm text-yellow-800 dark:text-yellow-200">
-                  {warnings.map((warning, index) => (
-                    <p key={index}>{warning}</p>
-                  ))}
-                </div>
+            <div className="mt-3 flex items-start gap-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
+              <AlertTriangle
+                className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5"
+                size={16}
+              />
+              <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                {warnings.map((warning, index) => (
+                  <p key={index}>{warning}</p>
+                ))}
               </div>
             </div>
           )}
         </div>
 
-        {/* タグ設定 */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             タグ
@@ -556,12 +538,12 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
               {formData.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm"
+                  className="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-3 py-1 rounded-full text-sm"
                 >
                   #{tag}
                   <button
                     onClick={() => removeTag(tag)}
-                    className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 ml-1"
+                    className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 ml-1"
                   >
                     <X size={14} />
                   </button>
@@ -571,7 +553,6 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
           )}
         </div>
 
-        {/* 一時停止設定 */}
         <div>
           <label className="flex items-center gap-2">
             <input
@@ -591,7 +572,6 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
           </p>
         </div>
 
-        {/* アクションボタン */}
         <div className="flex gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={handleSubmit}

@@ -15,7 +15,6 @@ interface DashboardProps {
   onTogglePause: (id: string, isPaused: boolean) => void;
   onCreateNew: () => void;
   statsExpanded: boolean;
-  // 通知設定導線強化のために追加
   notificationPermission?: string;
   onNavigateToSettings?: () => void;
 }
@@ -34,10 +33,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   notificationPermission,
   onNavigateToSettings,
 }) => {
-  // フィルタリングとソート処理
   const filteredAndSortedReminders = useMemo(() => {
     const filtered = reminders.filter((reminder) => {
-      // 検索フィルター
       const matchesSearch =
         filter.searchTerm === "" ||
         reminder.title
@@ -45,18 +42,15 @@ const Dashboard: React.FC<DashboardProps> = ({
           .includes(filter.searchTerm.toLowerCase()) ||
         reminder.url.toLowerCase().includes(filter.searchTerm.toLowerCase());
 
-      // タグフィルター
       const matchesTags =
         filter.selectedTags.length === 0 ||
         filter.selectedTags.every((tag) => reminder.tags.includes(tag));
 
-      // 一時停止フィルター
       const matchesPause = filter.showPaused || !reminder.isPaused;
 
       return matchesSearch && matchesTags && matchesPause;
     });
 
-    // ソート処理
     filtered.sort((a, b) => {
       let comparison = 0;
 
@@ -68,7 +62,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           break;
         }
         case "nextNotification": {
-          // 次回通知時刻でソート（実装は複雑になるため簡略化）
           comparison = a.schedule.hour - b.schedule.hour;
           break;
         }
@@ -89,7 +82,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     return filtered;
   }, [reminders, filter, sort]);
 
-  // 全てのタグを取得
   const allTags = useMemo(() => {
     const tags = new Set<string>();
     reminders.forEach((reminder) => {
@@ -115,7 +107,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 通知設定案内バナー */}
       {notificationPermission !== "granted" && reminders.length > 0 && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
           <div className="flex items-start gap-3">
@@ -138,7 +129,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      {/* ヘッダー制御の統計情報表示 */}
       {statsExpanded && (
         <div className="card p-6">
           <div className="flex items-center gap-3 mb-4">
@@ -187,7 +177,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      {/* 通知についての説明 */}
       {reminders.length > 0 && (
         <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
           <div className="flex items-start gap-3">
@@ -207,10 +196,8 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      {/* 検索・フィルター */}
       <div className="card p-6">
         <div className="space-y-4">
-          {/* 検索バー */}
           <div className="relative">
             <Search
               className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
@@ -225,9 +212,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             />
           </div>
 
-          {/* フィルターオプション */}
           <div className="flex flex-wrap items-center gap-4">
-            {/* ソート設定 */}
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 並び順:
@@ -259,7 +244,6 @@ const Dashboard: React.FC<DashboardProps> = ({
               </button>
             </div>
 
-            {/* 一時停止フィルター */}
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -275,7 +259,6 @@ const Dashboard: React.FC<DashboardProps> = ({
             </label>
           </div>
 
-          {/* タグフィルター */}
           {allTags.length > 0 && (
             <TagFilter
               allTags={allTags}
@@ -291,7 +274,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* リマインダー一覧 */}
       <div className="space-y-4">
         {filteredAndSortedReminders.length === 0 ? (
           <div className="card p-12 text-center">
@@ -328,7 +310,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         )}
       </div>
 
-      {/* 検索結果の情報 */}
       {filter.searchTerm ||
       filter.selectedTags.length > 0 ||
       !filter.showPaused ? (
