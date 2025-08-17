@@ -140,7 +140,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {/* ヘッダー制御の統計情報表示 */}
       {statsExpanded && (
-        <div className="card p-6 animate-slide-up">
+        <div className="card p-6">
           <div className="flex items-center gap-3 mb-4">
             <BarChart3
               className="text-purple-600 dark:text-purple-400"
