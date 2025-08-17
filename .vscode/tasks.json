@@ -37,24 +37,6 @@
       "detail": "型チェック + ESLint自動修正 + Prettier を一括実行"
     },
     {
-      "label": "🚀 安全コミット準備",
-      "type": "shell",
-      "command": "npm",
-      "args": ["run", "safe-commit"],
-      "group": {
-        "kind": "build"
-      },
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": false
-      },
-      "problemMatcher": ["$tsc", "$eslint-stylish"],
-      "detail": "品質チェック完了後にコミット準備完了メッセージを表示"
-    },
-    {
       "label": "📝 型チェック",
       "type": "shell",
       "command": "npm",

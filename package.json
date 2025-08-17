@@ -19,7 +19,6 @@
     "build": "tsc && vite build",
     "build:debug": "cross-env NODE_ENV=development tsc && vite build",
     "preview": "vite preview",
-    "serve": "http-server dist -p 4173 -c-1",
     "debug:sw": "npm run build && http-server dist -S -p 8443",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
@@ -27,10 +26,7 @@
     "type-check": "tsc --noEmit",
     "check:all": "npm run type-check && npm run lint && npm run format",
     "check:fix": "npm run type-check && npm run lint:fix && npm run format",
-    "pre-commit": "npm run check:fix",
-    "safe-commit": "npm run check:fix && echo '✅ 品質チェック完了 - git add と git commit を実行してください'",
     "dev:https": "vite --https",
-    "debug:https": "npm run build && http-server dist -S -C cert.pem -K key.pem -p 8443 -a localhost",
     "preview:https": "vite preview --https --port 8443",
     "icons": "node scripts/convert-icons.js",
     "icons:clean": "rm -f public/icon-*.png public/icon-mask.svg public/favicon.ico && npm run icons"
