@@ -1,4 +1,11 @@
 {
+  "tailwindCSS.validate": true,
+  "tailwindCSS.lint.invalidApply": "error",
+  "tailwindCSS.lint.invalidVariant": "error",
+  "tailwindCSS.lint.invalidScreen": "error",
+  "tailwindCSS.lint.invalidTailwindDirective": "error",
+  "css.validate": false,
+  "scss.validate": false,
   "prettier.enable": true,
   "prettier.requireConfig": true,
   "editor.formatOnSave": true,
