@@ -595,13 +595,13 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
         <div className="flex gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={handleSubmit}
-            className="btn btn-primary flex-1 text-white"
+            className="btn btn-primary flex-1 text-white font-bold"
           >
             {editingReminder ? "更新" : "作成"}
           </button>
           <button
             onClick={onCancel}
-            className="btn btn-secondary flex-1 text-white"
+            className="btn btn-secondary flex-1 text-white font-bold"
           >
             キャンセル
           </button>
