@@ -38,8 +38,26 @@ const thirdPartyLicenses = [
   {
     name: "React",
     license: "MIT",
-    copyright: "Meta Platforms, Inc. and affiliates",
+    copyright: "Meta Platforms, Inc. and affiliates.",
     url: "https://github.com/facebook/react",
+  },
+  {
+    name: "React DOM",
+    license: "MIT",
+    copyright: "Meta Platforms, Inc. and affiliates.",
+    url: "https://github.com/facebook/react",
+  },
+  {
+    name: "Vite",
+    license: "MIT",
+    copyright: "2019-present, Yuxi (Evan) You and Vite contributors",
+    url: "https://github.com/vitejs/vite",
+  },
+  {
+    name: "TypeScript",
+    license: "Apache 2.0",
+    copyright: "Microsoft Corporation",
+    url: "https://github.com/Microsoft/TypeScript",
   },
   {
     name: "Tailwind CSS",
@@ -50,26 +68,32 @@ const thirdPartyLicenses = [
   {
     name: "Lucide React",
     license: "ISC",
-    copyright: "Lucide Contributors",
+    copyright: "2020, Lucide Contributors",
     url: "https://github.com/lucide-icons/lucide",
-  },
-  {
-    name: "Vite",
-    license: "MIT",
-    copyright: "Evan You & Vite Contributors",
-    url: "https://github.com/vitejs/vite",
-  },
-  {
-    name: "TypeScript",
-    license: "Apache 2.0",
-    copyright: "Microsoft Corporation",
-    url: "https://github.com/Microsoft/TypeScript",
   },
   {
     name: "vite-plugin-pwa",
     license: "MIT",
-    copyright: "Anthony Fu",
+    copyright: "2020-present, Anthony Fu",
     url: "https://github.com/vite-pwa/vite-plugin-pwa",
+  },
+  {
+    name: "ESLint",
+    license: "MIT",
+    copyright: "2013-present Nicholas C. Zakas and an ESLint team.",
+    url: "https://github.com/eslint/eslint",
+  },
+  {
+    name: "Prettier",
+    license: "MIT",
+    copyright: "2017-present, James Long and contributors",
+    url: "https://github.com/prettier/prettier",
+  },
+  {
+    name: "Rounded Mplus 1c",
+    license: "SIL Open Font License 1.1",
+    copyright: "2018-2022 The M PLUS Project Authors.",
+    url: "https://fonts.google.com/specimen/M+PLUS+Rounded+1c",
   },
 ];
 

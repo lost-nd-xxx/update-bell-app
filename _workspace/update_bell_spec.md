@@ -54,7 +54,7 @@
 - **状態管理**: React Hooks（カスタムフック活用）
 - **PWA**: vite-plugin-pwa
 - **通知**: Web Notifications API
-- **アイコン**: Lucide React
+- **アイコン**: Lucide React, および一部アイコンには "Rounded Mplus 1c" フォントを画像化して使用。
 - **デプロイ**: GitHub Actions, GitHub Pages
 
 ### 開発環境のセットアップ
