@@ -138,7 +138,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       )}
 
       {notificationPermission !== "granted" && reminders.length > 0 && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mt-4">
           <div className="flex items-start gap-3">
             <Bell
               className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5"
@@ -159,7 +159,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      <div className="card pt-4 pb-4">
+      <div className="card my-4">
         <div className="relative mb-1 pb-1">
           <Search
             className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"

@@ -12,6 +12,8 @@
       "Segoe UI",
       Roboto,
       sans-serif;
+    /* スクロールバーのガタつき防止のため、常にy軸のスクロールバー領域を確保 */
+    overflow-y: scroll;
   }
 
   body {
