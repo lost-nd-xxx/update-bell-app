@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  Calendar,
   Tag,
   Edit,
   Trash2,
@@ -8,12 +7,11 @@ import {
   Pause,
   ExternalLink,
   Clock,
+  Calendar,
 } from "lucide-react";
 import { Reminder } from "../types";
 import {
-  formatDate,
   formatRelativeTime,
-  calculateNextNotificationTime,
   generateScheduleDescription,
   extractDomain,
 } from "../utils/helpers";
@@ -31,13 +29,11 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
   onDelete,
   onTogglePause,
 }) => {
-  const nextNotificationTime = calculateNextNotificationTime(reminder.schedule);
   const scheduleDescription = generateScheduleDescription(reminder.schedule);
   const domain = extractDomain(reminder.url);
 
   const handleUrlClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    // リファラーを送信しないように rel="noopener noreferrer nofollow" を設定
     window.open(reminder.url, "_blank", "noopener,noreferrer,nofollow");
   };
 
@@ -49,11 +45,10 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
           : "border-purple-500 bg-white dark:bg-gray-800"
       }`}
     >
-      {/* ヘッダー */}
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
+      <div className="flex flex-wrap justify-between items-start mb-4 gap-y-2">
+        <div className="flex-1 min-w-0 sm:flex-none sm:w-auto">
+          <div className="flex items-center gap-2 mb-2 min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white line-clamp-2">
               {reminder.title}
             </h3>
             {reminder.isPaused && (
@@ -75,8 +70,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
           </button>
         </div>
 
-        {/* アクションボタン */}
-        <div className="flex items-center gap-1 ml-4">
+        <div className="flex items-center gap-1 sm:ml-4">
           <button
             onClick={() => onTogglePause(!reminder.isPaused)}
             className={`p-2 rounded-lg transition-colors border ${
@@ -107,45 +101,22 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
         </div>
       </div>
 
-      {/* 詳細情報 */}
       <div className="space-y-3">
-        {/* スケジュール情報 */}
         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-          <Calendar size={16} className="flex-shrink-0" />
+          <Clock size={16} className="flex-shrink-0" />
           <span>{scheduleDescription}</span>
         </div>
 
-        {/* 通知情報 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-          {/* 最終通知 */}
-          <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-            <Clock size={16} className="flex-shrink-0" />
-            <span>
-              最終通知:{" "}
-              {reminder.lastNotified
-                ? formatRelativeTime(reminder.lastNotified)
-                : "未通知"}
-            </span>
-          </div>
-
-          {/* 次回通知 */}
-          {!reminder.isPaused && (
-            <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
-              <Calendar size={16} className="flex-shrink-0" />
-              <span>
-                次回:{" "}
-                {formatDate(nextNotificationTime, {
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-            </div>
-          )}
+        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+          <Calendar size={16} className="flex-shrink-0" />
+          <span>
+            最終通知:{" "}
+            {reminder.lastNotified
+              ? formatRelativeTime(reminder.lastNotified)
+              : "未通知"}
+          </span>
         </div>
 
-        {/* タグ */}
         {reminder.tags && reminder.tags.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
             <Tag size={16} className="text-gray-400 flex-shrink-0" />
@@ -163,7 +134,6 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
         )}
       </div>
 
-      {/* 一時停止の詳細情報 */}
       {reminder.isPaused && reminder.pausedAt && (
         <div className="mt-3 pt-3 border-t border-yellow-200 dark:border-yellow-800">
           <div className="text-sm text-yellow-700 dark:text-yellow-300">

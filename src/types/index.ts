@@ -37,7 +37,6 @@ export interface Reminder {
 
 // アプリケーション設定
 export interface AppSettings {
-  notificationInterval: number; // 通知チェック間隔（分）
   theme: "light" | "dark" | "system";
   timezone: string; // 現在のタイムゾーン
   lastTimezoneCheck: string; // 最終タイムゾーンチェック日時

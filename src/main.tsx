@@ -5,11 +5,13 @@ import "./index.css";
 
 const hideLoadingScreen = () => {
   const loadingScreen = document.getElementById("loading-screen");
-  if (loadingScreen && loadingScreen.style.display !== "none") {
-    loadingScreen.classList.add("opacity-0");
+  if (loadingScreen && !loadingScreen.classList.contains("hidden")) {
+    loadingScreen.classList.add("hidden");
     setTimeout(() => {
-      loadingScreen.style.display = "none";
-    }, 300);
+      if (loadingScreen) {
+        loadingScreen.style.display = "none";
+      }
+    }, 300); // transition duration
     return true;
   }
   return false;
@@ -22,9 +24,8 @@ const isDevelopment =
   location.hostname === "localhost" ||
   location.hostname === "127.0.0.1" ||
   location.port === "3000";
-const isHTTPS = location.protocol === "https:";
 const isProduction = !isDevelopment;
-const shouldRegisterSW = isProduction || isHTTPS;
+const shouldRegisterSW = isProduction; // 開発中はSWを登録しない
 
 // Service Worker登録
 const registerManualServiceWorker = () => {

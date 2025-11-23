@@ -20,158 +20,43 @@
 }
 
 @layer components {
-  /* ボタンの基本スタイル */
-  .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
-  }
-
-  .btn-primary {
-    @apply bg-blue-600 hover:bg-blue-700 focus:ring-blue-500;
-    /* ライトテーマでのテキスト色を明示的に黒に設定（!important で強制） */
-    color: black !important;
-  }
-
-  .btn-primary:hover {
-    color: black !important;
-  }
-
-  .btn-primary:focus {
-    color: black !important;
-  }
-
-  /* ダークテーマでは白文字を維持 */
-  .dark .btn-primary {
-    color: white !important;
-  }
-
-  .dark .btn-primary:hover {
-    color: white !important;
-  }
-
-  .dark .btn-primary:focus {
-    color: white !important;
-  }
-
-  .btn-secondary {
-    @apply bg-gray-600 hover:bg-gray-700 focus:ring-gray-500;
-    /* ライトテーマでのテキスト色を明示的に黒に設定（!important で強制） */
-    color: black !important;
-  }
-
-  .btn-secondary:hover {
-    color: black !important;
-  }
-
-  .btn-secondary:focus {
-    color: black !important;
-  }
-
-  /* ダークテーマでは白文字を維持 */
-  .dark .btn-secondary {
-    color: white !important;
-  }
-
-  .dark .btn-secondary:hover {
-    color: white !important;
-  }
-
-  .dark .btn-secondary:focus {
-    color: white !important;
-  }
-
-  .btn-danger {
-    @apply bg-red-600 hover:bg-red-700 focus:ring-red-500;
-    /* ライトテーマでのテキスト色を明示的に黒に設定（!important で強制） */
-    color: black !important;
-  }
-
-  .btn-danger:hover {
-    color: black !important;
-  }
-
-  .btn-danger:focus {
-    color: black !important;
-  }
-
-  /* ダークテーマでは白文字を維持 */
-  .dark .btn-danger {
-    color: white !important;
-  }
-
-  .dark .btn-danger:hover {
-    color: white !important;
-  }
-
-  .dark .btn-danger:focus {
-    color: white !important;
-  }
-
   /* 入力フィールドの基本スタイル */
   .input {
-    @apply w-full px-3 py-2 border rounded-lg transition-colors focus:ring-2 focus:ring-blue-500 focus:border-transparent;
-    /* ライトテーマ */
-    background-color: white;
-    color: #111827; /* gray-900 */
-    border-color: #d1d5db; /* gray-300 */
+    @apply w-full px-2 py-1 border rounded-lg transition-colors focus:ring-2 focus:ring-purple-500 focus:border-transparent
+           bg-white text-gray-900 border-gray-300; /* @applyでTailwindユーティリティを使用 */
   }
 
   .input::placeholder {
-    color: #6b7280; /* gray-500 */
+    @apply text-gray-500;
   }
 
   /* ダークテーマ */
   .dark .input {
-    background-color: #374151 !important; /* gray-700 */
-    color: white !important;
-    border-color: #4b5563; /* gray-600 */
+    @apply bg-gray-800 text-white border-gray-600; /* @applyでTailwindユーティリティを使用し、!importantを削除 */
   }
 
   .dark .input::placeholder {
-    color: #9ca3af; /* gray-400 */
+    @apply text-gray-400;
   }
 
   /* select要素も同様に設定 */
   .dark select.input {
-    color: white !important;
+    @apply text-white; /* !important を削除 */
   }
 
   /* input要素のautofill対応 */
+  /* autofillはブラウザのデフォルトスタイルを上書きするため、!importantは残す。カラーコードはコメントでTailwind名を示す */
   .dark .input:-webkit-autofill,
   .dark .input:-webkit-autofill:hover,
   .dark .input:-webkit-autofill:focus {
     -webkit-text-fill-color: white !important;
-    -webkit-box-shadow: 0 0 0px 1000px #374151 inset !important;
+    -webkit-box-shadow: 0 0 0px 1000px #374151 /* gray-700 */ inset !important;
     transition: background-color 5000s ease-in-out 0s;
-  }
-
-  /* カードの基本スタイル */
-  .card {
-    @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700;
   }
 
   /* タグスタイル */
   .tag {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-  }
-
-  .tag-blue {
-    @apply bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300;
-  }
-
-  .tag-gray {
-    @apply bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300;
-  }
-
-  .tag-yellow {
-    @apply bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300;
-  }
-
-  .tag-green {
-    @apply bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300;
-  }
-
-  .tag-red {
-    @apply bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300;
   }
 }
 

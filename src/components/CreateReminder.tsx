@@ -41,6 +41,8 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
   const [tagInput, setTagInput] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [hourInput, setHourInput] = useState("10");
+  const [minuteInput, setMinuteInput] = useState("00");
 
   useEffect(() => {
     if (editingReminder) {
@@ -58,6 +60,26 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
         tags: [...editingReminder.tags],
         isPaused: editingReminder.isPaused,
       });
+      setHourInput(editingReminder.schedule.hour.toString().padStart(2, "0"));
+      setMinuteInput(
+        editingReminder.schedule.minute.toString().padStart(2, "0"),
+      );
+    } else {
+      // 新規作成時のデフォルト値を設定
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + 10);
+      const defaultHour = now.getHours();
+      const defaultMinute = Math.floor(now.getMinutes() / 10) * 10;
+      setFormData((prev) => ({
+        ...prev,
+        schedule: {
+          ...prev.schedule,
+          hour: defaultHour,
+          minute: defaultMinute,
+        },
+      }));
+      setHourInput(defaultHour.toString().padStart(2, "0"));
+      setMinuteInput(defaultMinute.toString().padStart(2, "0"));
     }
   }, [editingReminder]);
 
@@ -123,20 +145,26 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
   const handleSubmit = () => {
     if (!validateForm()) return;
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { selectedDays, ...cleanSchedule } = formData.schedule;
+    let scheduleToSave: Omit<Schedule, "selectedDays"> & {
+      selectedDays?: number[];
+    };
+
+    if (formData.schedule.type === "specific_days") {
+      // If it's specific_days, include selectedDays
+      scheduleToSave = formData.schedule;
+    } else {
+      // For other types, explicitly create an object without selectedDays
+      const tempSchedule: Partial<Schedule> = { ...formData.schedule };
+      delete tempSchedule.selectedDays; // Remove the property if it exists
+      scheduleToSave = tempSchedule as Omit<Schedule, "selectedDays">; // Cast to desired type
+    }
 
     const reminderData = {
       title: formData.title,
       url: normalizeUrl(formData.url),
       tags: formData.tags,
       isPaused: formData.isPaused,
-      schedule: {
-        ...cleanSchedule,
-        ...(formData.schedule.type === "specific_days" && {
-          selectedDays: formData.schedule.selectedDays,
-        }),
-      },
+      schedule: scheduleToSave,
       lastNotified: editingReminder?.lastNotified || null,
       pausedAt: formData.isPaused
         ? editingReminder?.pausedAt || new Date().toISOString()
@@ -196,7 +224,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
         </h2>
         <button
           onClick={onCancel}
-          className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-full border border-gray-500/50"
         >
           <X size={20} />
         </button>
@@ -355,7 +383,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
                     className={`flex items-center justify-center p-2 rounded border cursor-pointer transition-colors ${
                       formData.schedule.selectedDays?.includes(day)
                         ? "bg-purple-100 border-purple-500 text-purple-700 dark:bg-purple-900/30 dark:border-purple-400 dark:text-purple-300"
-                        : "border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500"
+                        : "border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500 text-gray-500"
                     }`}
                   >
                     <input
@@ -427,10 +455,16 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
                   type="number"
                   min="0"
                   max="23"
-                  value={formData.schedule.hour}
-                  onChange={(e) =>
-                    updateSchedule({ hour: parseInt(e.target.value) || 0 })
-                  }
+                  value={hourInput}
+                  onChange={(e) => setHourInput(e.target.value)}
+                  onBlur={() => {
+                    const hour = Math.max(
+                      0,
+                      Math.min(23, parseInt(hourInput, 10) || 0),
+                    );
+                    setHourInput(hour.toString().padStart(2, "0"));
+                    updateSchedule({ hour });
+                  }}
                   className={`input w-20 text-center ${errors.hour ? "border-red-500" : ""}`}
                 />
                 <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -442,10 +476,16 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
                   type="number"
                   min="0"
                   max="59"
-                  value={formData.schedule.minute}
-                  onChange={(e) =>
-                    updateSchedule({ minute: parseInt(e.target.value) || 0 })
-                  }
+                  value={minuteInput}
+                  onChange={(e) => setMinuteInput(e.target.value)}
+                  onBlur={() => {
+                    const minute = Math.max(
+                      0,
+                      Math.min(59, parseInt(minuteInput, 10) || 0),
+                    );
+                    setMinuteInput(minute.toString().padStart(2, "0"));
+                    updateSchedule({ minute });
+                  }}
                   className={`input w-20 text-center ${errors.minute ? "border-red-500" : ""}`}
                 />
                 <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -526,7 +566,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
             <button
               type="button"
               onClick={addTag}
-              className="btn btn-secondary text-white"
+              className="btn btn-secondary text-white rounded-full border border-gray-500/20 p-1"
               disabled={!tagInput.trim()}
             >
               <Plus size={16} />
@@ -572,16 +612,16 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
           </p>
         </div>
 
-        <div className="flex gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex gap-4 pt-4">
           <button
             onClick={handleSubmit}
-            className="btn btn-primary flex-1 text-white font-bold"
+            className="btn btn-primary flex-1 text-white font-bold rounded-lg border border-gray-500/20 pt-4 pb-4"
           >
             {editingReminder ? "更新" : "作成"}
           </button>
           <button
             onClick={onCancel}
-            className="btn btn-secondary flex-1 text-white font-bold"
+            className="btn btn-secondary flex-1 text-white font-bold rounded-lg border border-gray-500/20 pt-4 pb-4"
           >
             キャンセル
           </button>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Plus } from "lucide-react";
 import { Reminder, AppState } from "./types";
 import { useReminders } from "./hooks/useReminders";
@@ -10,6 +10,7 @@ import CreateReminder from "./components/CreateReminder";
 import Settings from "./components/Settings";
 import TimezoneChangeDialog from "./components/TimezoneChangeDialog";
 import Header from "./components/Header";
+import { calculateNextScheduledNotification, debounce } from "./utils/helpers";
 
 declare global {
   interface Window {
@@ -33,7 +34,6 @@ const App: React.FC = () => {
   const { timezoneChanged, handleTimezoneChange, dismissTimezoneChange } =
     useTimezone(reminders, updateReminder);
 
-  const [statsExpanded, setStatsExpanded] = useState(false);
   const [appState, setAppState] = useState<AppState>({
     currentView: "dashboard",
     editingReminder: null,
@@ -50,25 +50,58 @@ const App: React.FC = () => {
     error: null,
   });
 
-  // Service Worker メッセージ処理
-  useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      const handleMessage = (event: MessageEvent) => {
-        if (event.data && event.data.type === "UPDATE_LAST_NOTIFICATION") {
-          const { reminderId, timestamp } = event.data;
-          if (reminderId && timestamp) {
-            updateReminder(reminderId, { lastNotified: timestamp });
-          }
-        }
-      };
-
-      navigator.serviceWorker.addEventListener("message", handleMessage);
-      return () => {
-        navigator.serviceWorker.removeEventListener("message", handleMessage);
-      };
+  const scheduleNextNotificationCallback = useCallback(() => {
+    if (
+      !("serviceWorker" in navigator) ||
+      !navigator.serviceWorker.controller
+    ) {
+      return;
     }
-    return undefined;
-  }, [updateReminder]);
+    const nextNotification = calculateNextScheduledNotification(reminders);
+    if (nextNotification) {
+      navigator.serviceWorker.controller.postMessage({
+        type: "SCHEDULE_NEXT_REMINDER",
+        payload: nextNotification,
+      });
+    } else {
+      navigator.serviceWorker.controller.postMessage({
+        type: "CANCEL_ALL_REMINDERS",
+      });
+    }
+  }, [reminders]);
+
+  const debouncedScheduleRef = useRef(
+    debounce(scheduleNextNotificationCallback, 200),
+  );
+
+  useEffect(() => {
+    debouncedScheduleRef.current = debounce(
+      scheduleNextNotificationCallback,
+      200,
+    );
+  }, [scheduleNextNotificationCallback]);
+
+  useEffect(() => {
+    debouncedScheduleRef.current();
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === "NOTIFICATION_EXECUTED") {
+        console.log(
+          "Notification executed, rescheduling...",
+          event.data.payload,
+        );
+        updateReminder(event.data.payload.executedReminderId, {
+          lastNotified: new Date().toISOString(),
+        });
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", handleMessage);
+
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", handleMessage);
+    };
+  }, [reminders, updateReminder, debouncedScheduleRef]);
 
   const handleViewChange = (
     view: AppState["currentView"],
@@ -79,14 +112,6 @@ const App: React.FC = () => {
       currentView: view,
       editingReminder: editingReminder || null,
     }));
-
-    if (view === "settings") {
-      setStatsExpanded(false);
-    }
-  };
-
-  const handleStatsToggle = () => {
-    setStatsExpanded(!statsExpanded);
   };
 
   const handleTitleClick = () => {
@@ -120,6 +145,10 @@ const App: React.FC = () => {
     }));
   };
 
+  const handleClearAllTags = () => {
+    handleFilterChange({ selectedTags: [] });
+  };
+
   const handleImportTheme = (importedTheme: "light" | "dark" | "system") => {
     setTheme(importedTheme);
   };
@@ -138,15 +167,17 @@ const App: React.FC = () => {
             data: {
               ...imported,
               id: existing.id,
-              createdAt: existing.createdAt,
+              createdAt: imported.createdAt || existing.createdAt,
             },
           });
         } else {
           newReminders.push({
             ...imported,
             id: Date.now().toString(36) + Math.random().toString(36).substr(2),
-            createdAt: new Date().toISOString(),
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            createdAt: imported.createdAt || new Date().toISOString(),
+            timezone:
+              imported.timezone ||
+              Intl.DateTimeFormat().resolvedOptions().timeZone,
           });
         }
       });
@@ -173,10 +204,8 @@ const App: React.FC = () => {
             ? handleViewChange("dashboard")
             : handleViewChange("settings")
         }
-        onStatsClick={handleStatsToggle}
         onTitleClick={handleTitleClick}
         notificationsEnabled={settings.notifications.enabled}
-        statsExpanded={statsExpanded}
         isSettingsView={appState.currentView === "settings"}
       />
 
@@ -207,9 +236,9 @@ const App: React.FC = () => {
               })
             }
             onCreateNew={() => handleViewChange("create")}
-            statsExpanded={statsExpanded}
             notificationPermission={settings.notifications.permission}
             onNavigateToSettings={() => handleViewChange("settings")}
+            onClearAllTags={handleClearAllTags}
           />
         )}
 

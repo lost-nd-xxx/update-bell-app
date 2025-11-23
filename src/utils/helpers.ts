@@ -424,3 +424,40 @@ export const getErrorMessage = (error: unknown): string => {
   }
   return "予期しないエラーが発生しました";
 };
+
+// 次にスケジュールされるべき通知を計算する
+export const calculateNextScheduledNotification = (
+  reminders: import("../types").Reminder[],
+): { reminder: import("../types").Reminder; scheduleTime: number } | null => {
+  const now = new Date();
+  let nextNotification = null;
+
+  for (const reminder of reminders) {
+    if (reminder.isPaused) continue;
+
+    const lastNotified = reminder.lastNotified
+      ? new Date(reminder.lastNotified)
+      : null;
+    let candidate = calculateNextNotificationTime(reminder.schedule, now);
+
+    // 既に通知済み、または計算された時刻が過去の場合、次の候補を計算
+    while ((lastNotified && candidate <= lastNotified) || candidate <= now) {
+      const nextBase = new Date(candidate);
+      // 1分進めて再計算（無限ループ防止）
+      nextBase.setMinutes(nextBase.getMinutes() + 1);
+      candidate = calculateNextNotificationTime(reminder.schedule, nextBase);
+    }
+
+    if (
+      !nextNotification ||
+      candidate < new Date(nextNotification.scheduleTime)
+    ) {
+      nextNotification = {
+        reminder,
+        scheduleTime: candidate.getTime(),
+      };
+    }
+  }
+
+  return nextNotification;
+};

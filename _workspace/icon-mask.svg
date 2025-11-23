@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
   <rect width="256" height="256" fill="none" />
   <!-- 波紋（2本） -->
-  <g fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" transform="translate(30,65)">
+  <g fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" transform="translate(30,65)">
     <path d="M64 0 A40 40 0 0 0 24 40" />
     <path d="M64 20 A20 20 0 0 0 44 40" />
   </g>
@@ -25,13 +25,13 @@
       C104 222, 116 232, 128 232
       C140 232, 152 222, 152 210
       Z
-    " fill="#000"/>
+    " fill="#fff"/>
     <path d="
       M128 16
       A12 12 0 0 1 140 28
       A12 12 0 0 1 116 28
       A12 12 0 0 1 128 16
       Z
-    " fill="#000"/>
+    " fill="#fff"/>
   </g>
 </svg>

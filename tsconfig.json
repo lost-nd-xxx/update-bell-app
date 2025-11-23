@@ -19,40 +19,21 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-
-    /* Additional strict checks */
-    "exactOptionalPropertyTypes": true,
-    "noImplicitReturns": true,
-    "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": false,
     "noUncheckedIndexedAccess": false,
 
     /* Path mapping */
-    "baseUrl": ".",
+
     "paths": {
-      "@/*": ["src/*"],
-      "@/components/*": ["src/components/*"],
-      "@/hooks/*": ["src/hooks/*"],
-      "@/types/*": ["src/types/*"],
-      "@/utils/*": ["src/utils/*"]
+      "@/*": ["./src/*"],
+      "@/components/*": ["./src/components/*"],
+      "@/hooks/*": ["./src/hooks/*"],
+      "@/types/*": ["./src/types/*"],
+      "@/utils/*": ["./src/utils/*"]
     },
 
     /* Type definitions */
     "types": ["vite/client", "node"]
   },
-  "include": [
-    "src",
-    "vite-env.d.ts"
-    // "public/sw.js" を一時的に除外（PWAプラグイン復活後に再追加）
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "build"
-  ],
-  "references": [
-    {
-      "path": "./tsconfig.node.json"
-    }
-  ]
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.json"],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }

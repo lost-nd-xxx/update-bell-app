@@ -62,46 +62,17 @@
       "purpose": "any maskable"
     }
   ],
-  "screenshots": [
-    {
-      "src": "./screenshot-mobile.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "メインダッシュボード"
-    },
-    {
-      "src": "./screenshot-desktop.png", 
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "デスクトップ版"
-    }
-  ],
+  "screenshots": [],
   "shortcuts": [
     {
       "name": "新規リマインダー作成",
       "description": "新しいリマインダーを作成する",
-      "url": "./?action=create",
-      "icons": [
-        {
-          "src": "./icon-192x192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
+      "url": "./?action=create"
     },
     {
       "name": "設定画面",
       "description": "アプリの設定を変更する", 
-      "url": "./?action=settings",
-      "icons": [
-        {
-          "src": "./icon-192x192.png",
-          "sizes": "192x192", 
-          "type": "image/png"
-        }
-      ]
+      "url": "./?action=settings"
     }
   ],
   "protocol_handlers": [

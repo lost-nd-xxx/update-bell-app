@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { AppSettings } from "../types";
 
 const defaultSettings: AppSettings = {
-  notificationInterval: 30, // デフォルトを30分に変更
   theme: "system",
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   lastTimezoneCheck: new Date().toISOString(),
@@ -36,45 +35,28 @@ export const useSettings = () => {
     localStorage.setItem("update-bell-settings", JSON.stringify(settings));
   }, [settings]);
 
-  // 通知許可状態を監視
+  // 初期化時に通知許可状態を同期する
   useEffect(() => {
     if ("Notification" in window) {
-      const updatePermission = () => {
-        setSettings((prev) => ({
-          ...prev,
-          notifications: {
-            ...prev.notifications,
-            permission: Notification.permission,
-          },
-        }));
-      };
-
-      // 初期状態を設定
-      updatePermission();
-
-      // 許可状態の変更を監視（Safariなど一部ブラウザでサポート）
-      if ("permissions" in navigator) {
-        navigator.permissions
-          .query({ name: "notifications" as PermissionName })
-          .then((permission) => {
-            permission.addEventListener("change", updatePermission);
-            return () =>
-              permission.removeEventListener("change", updatePermission);
-          })
-          .catch(() => {
-            // permissions APIが利用できない場合は無視
-          });
-      }
+      setSettings((prev) => ({
+        ...prev,
+        notifications: {
+          ...prev.notifications,
+          permission: Notification.permission,
+          enabled: Notification.permission === "granted",
+        },
+      }));
     } else {
       setSettings((prev) => ({
         ...prev,
         notifications: {
           ...prev.notifications,
           permission: "unsupported",
+          enabled: false,
         },
       }));
     }
-  }, []);
+  }, []); // 空の依存配列で、マウント時に一度だけ実行
 
   // タイムゾーンを定期的にチェック
   useEffect(() => {

@@ -52,10 +52,17 @@ export const useReminders = () => {
   const duplicateReminder = (id: string): void => {
     const original = reminders.find((r) => r.id === id);
     if (original) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id: _id, createdAt: _createdAt, ...reminderData } = original;
+      const reminderData: Omit<
+        Reminder,
+        "id" | "createdAt" | "timezone" | "lastNotified" | "pausedAt"
+      > = {
+        title: original.title,
+        url: original.url,
+        schedule: original.schedule,
+        tags: original.tags,
+        isPaused: original.isPaused,
+      };
       addReminder({
-        // ← return を削除
         ...reminderData,
         title: `${original.title} (コピー)`,
       });
