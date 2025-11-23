@@ -20,6 +20,7 @@ PWAとしてホーム画面にインストールして使用することをお�
 - 🔍 **検索・フィルター** - タイトル・URL・タグでの絞り込み
 
 ### PWAとは？
+
 PWA（Progressive Web App）は、Webサイトをスマホアプリのように使える技術です。ブラウザから「ホーム画面に追加」することで、アプリアイコンが作成され、より安定した通知を受け取れるようになります。
 
 ## 📱 対応環境
@@ -39,8 +40,7 @@ PWA（Progressive Web App）は、Webサイトをスマホアプリのように�
    - タグを追加（任意）
 
 2. **通知の設定**
-   - 初回使用時にブラウザの通知許可を求められます
-   - 設定画面でチェック間隔を調整可能（15分〜2時間）
+   - 初回使用時に、通知を有効にするための案内が表示されます。必要に応じてブラウザの通知許可を設定してください。
    - PWAとしてインストールすることで、より確実な通知を受信できます
 
 3. **管理機能**
@@ -84,190 +84,15 @@ PWA（Progressive Web App）は、Webサイトをスマホアプリのように�
 
 ---
 
-## 🛠️ 開発者向け情報
-
-**このプロジェクトは Claude AI によってほぼ全体が実装されており、人間の開発者は主に仕様策定、ビルド、デバッグを担当しています。**
-
-### 技術スタック
-
-- **フロントエンド**: React 18 + TypeScript + Tailwind CSS
-- **PWA**: Service Worker + vite-plugin-pwa + Web Notifications API
-- **ビルドツール**: Vite + TypeScript
-- **デプロイ**: GitHub Pages + GitHub Actions
-- **アイコン**: Lucide React
-- **状態管理**: React Hooks（カスタムフック活用）
-
-### 📋 プロジェクト仕様書
-
-詳細な仕様については、以下をご参照ください：
-- **[プロジェクト仕様書](./update_bell_spec.md)** - アプリの詳細仕様と実装状況
-
-#### 仕様書の内容
-- 機能仕様と実装状況
-- 技術構成と依存関係
-- データ管理とエクスポート/インポート仕様
-- PWA対応とService Worker設定
-- 今後の拡張予定
-
-### 開発環境のセットアップ
-
-#### 必要な環境
-- Node.js 18.0.0 以上
-- npm または yarn
-
-#### セットアップ手順
-
-```bash
-# リポジトリのクローン
-git clone https://github.com/lost-nd-xxx/update-bell-app.git
-cd update-bell-app
-
-# 依存関係のインストール
-npm install
-
-# 開発サーバーの起動
-npm run dev
-```
-
-開発サーバーは `http://localhost:3000` で起動します。
-
-#### 利用可能なスクリプト
-
-```bash
-# 開発サーバー起動
-npm run dev
-
-# 本番ビルド
-npm run build
-
-# ビルド結果のプレビュー
-npm run preview
-
-# 型チェック
-npm run type-check
-
-# ESLint実行
-npm run lint
-
-# ESLint自動修正
-npm run lint:fix
-
-# Prettier実行
-npm run format
-```
-
-### プロジェクト構造
-
-```
-src/                # ソースコード
-├── components/          # Reactコンポーネント
-│   ├── Dashboard.tsx    # メインダッシュボード
-│   ├── CreateReminder.tsx # リマインダー作成・編集
-│   ├── Settings.tsx     # 設定画面
-│   ├── ReminderCard.tsx # リマインダー表示カード
-│   ├── TagFilter.tsx    # タグフィルター
-│   ├── Header.tsx       # ヘッダーコンポーネント
-│   └── TimezoneChangeDialog.tsx # タイムゾーン変更ダイアログ
-├── hooks/              # カスタムフック
-│   ├── useReminders.ts # リマインダー管理
-│   ├── useSettings.ts  # 設定管理
-│   ├── useTheme.ts     # テーマ管理
-│   └── useTimezone.ts  # タイムゾーン管理
-├── types/              # TypeScript型定義
-│   └── index.ts
-├── utils/              # ユーティリティ関数
-│   └── helpers.ts
-├── App.tsx             # メインアプリコンポーネント
-├── main.tsx           # エントリーポイント
-└── index.css          # グローバルスタイル
-public/             # 静的ファイル
-├── icon-.png         # PWAアイコン各サイズ
-├── screenshot-.png   # PWAスクリーンショット
-└── sw.js             # Service Worker
-_workspace/         # 開発・仕様管理
-├── update_bell_spec.md # プロジェクト仕様書
-├── *.svg              # アイコン・画像素材（SVG）
-├── *.png              # アイコン・画像素材（PNG）
-└── *.psd              # アイコン・画像素材（Photoshop）
-.vscode/            # VS Code設定
-├── tasks.json         # 開発タスク設定
-└── extensions.json    # 推奨拡張機能
-package.json        # 依存関係・スクリプト定義
-package-lock.json   # 依存関係ロックファイル
-vite.config.ts      # Vite・PWA設定
-tsconfig.json       # TypeScript設定
-tsconfig.node.json  # TypeScript（Node.js）設定
-index.html          # HTMLエントリーポイント
-LICENSE             # MITライセンス
-THIRD-PARTY-LICENSES.md # サードパーティライセンス
-README.md           # プロジェクト説明
-```
-
-### PWA設定
-
-PWA機能は `vite-plugin-pwa` を使用して実装されています。
-
-#### Service Worker
-- 本番環境でのみ登録
-- キャッシュ戦略: Cache First（静的リソース）+ Network First（API）
-- 通知機能: 定期チェック + バックグラウンド同期
-
-#### マニフェスト
-- アプリ名: 「おしらせベル」
-- アイコン: 72x72 〜 512x512（マスク対応）
-- ショートカット: 新規作成・設定画面
-
-### デプロイ
-
-GitHub Actionsを使用してGitHub Pagesに自動デプロイされます。
-
-```yaml
-# .github/workflows/deploy.yml で設定
-# main ブランチへのプッシュで自動実行
-```
-
-### VS Code タスク設定
-
-このプロジェクトには開発効率化のためのVS Code タスク設定（`.vscode/tasks.json`）が含まれています：
-
-- **🔍 全チェック実行**: 型チェック + ESLint + Prettier を一括実行
-- **🛠️ 修正付き全チェック**: ESLint自動修正 + Prettier を含む一括実行
-- **🚀 開発サーバー起動**: Vite開発サーバーを起動
-- **📦 本番ビルド**: 本番用ビルドを実行
-
-VS Codeで `Ctrl+Shift+P` → `Tasks: Run Task` から実行できます。
-
-### 貢献について
-
-プルリクエストやイシューの報告を歓迎します！
-
-#### 開発ガイドライン
-
-1. **コードスタイル**: ESLint + Prettier設定に従ってください
-2. **型安全性**: TypeScriptの型チェックを通してください
-3. **テスト**: 重要な機能は動作確認をお願いします
-4. **コミット**: 変更内容を明確にしたコミットメッセージをお願いします
-
-#### プルリクエストの流れ
-
-1. このリポジトリをフォーク
-2. 機能ブランチを作成 (`git checkout -b feature/amazing-feature`)
-3. 変更をコミット (`git commit -m 'Add amazing feature'`)
-4. ブランチにプッシュ (`git push origin feature/amazing-feature`)
-5. プルリクエストを作成
-
 ### ライセンス
 
-MIT License - 詳細は [LICENSE](LICENSE) ファイルを参照してください。
-
-### Third Party Licenses
-
-このプロジェクトは複数のオープンソースライブラリを使用しています。使用しているライブラリとそのライセンス情報については [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md) をご確認ください。
+このアプリケーションはMITライセンスのもとで公開されています。詳細は [LICENSE](LICENSE) ファイルをご参照ください。  
+また、本アプリは複数のオープンソースライブラリを使用しています。詳細は [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md) をご確認ください。
 
 ### 作者
 
 **lost_nd_xxx（ろすえん）** - 仕様策定・プロジェクト管理  
-**Claude AI** - 実装・コード作成
+**Claude Code, Gemini CLI** - 実装・コード作成・改修
 
 ### サポート・免責事項
 
@@ -277,7 +102,3 @@ MIT License - 詳細は [LICENSE](LICENSE) ファイルを参照してくださ�
 - 💡 **機能要望**: 歓迎しますが、実装をお約束するものではありません
 - 🔧 **メンテナンス**: 不定期での更新となります
 - ⚠️ **免責**: 本アプリの使用により生じたいかなる損害についても責任を負いかねます
-
----
-
-**このプロジェクトは Claude AI によってほぼ全体が実装されており、人間の開発者は主に仕様策定、ビルド、デバッグを担当しています。**

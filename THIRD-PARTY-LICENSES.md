@@ -44,11 +44,17 @@
 - **Repository**: https://github.com/vite-pwa/vite-plugin-pwa
 - **npm**: https://www.npmjs.com/package/vite-plugin-pwa
 
-## @vitejs/plugin-react
+## ESLint
 - **License**: MIT License
-- **Copyright**: Copyright (c) 2019-present, Yuxi (Evan) You and Vite contributors
-- **Repository**: https://github.com/vitejs/vite-plugin-react
-- **npm**: https://www.npmjs.com/package/@vitejs/plugin-react
+- **Copyright**: Copyright (c) 2013-present Nicholas C. Zakas and an ESLint team.
+- **Repository**: https://github.com/eslint/eslint
+- **npm**: https://www.npmjs.com/package/eslint
+
+## Prettier
+- **License**: MIT License
+- **Copyright**: Copyright (c) 2017-present, James Long and contributors
+- **Repository**: https://github.com/prettier/prettier
+- **npm**: https://www.npmjs.com/package/prettier
 
 ---
 
@@ -107,4 +113,4 @@ limitations under the License.
 
 ---
 
-*最終更新: 2025-08-12*
+*最終更新: 2025-11-23*
