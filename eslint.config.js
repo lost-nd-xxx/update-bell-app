@@ -54,6 +54,26 @@ export default [
     },
   })),
 
+  // Configuration for scripts/convert-icons.js (Node.js environment)
+  {
+    files: ["scripts/convert-icons.js"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+
+  // Configuration for CJS config files
+  {
+    files: ["**/*.cjs"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+
   // Ignore patterns
   {
     ignores: [

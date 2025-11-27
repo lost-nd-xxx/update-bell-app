@@ -43,7 +43,8 @@
 
 ## 開発者向け情報
 
-**このプロジェクトは当初 Claude AI によってほぼ全体が実装され、その後 Gemini CLI によって改修・メンテナンスが行われています。人間の開発者は主に仕様策定、ビルド、デバッグを担当しています。**
+このプロジェクトは当初 Claude AI によってほぼ全体が実装され、その後 Gemini CLI によって改修・メンテナンスが行われています。
+人間の開発者は主に仕様策定、ビルド、デバッグを担当しています。
 
 ### 技術スタック
 
@@ -52,7 +53,7 @@
 - **ビルドツール**: Vite 5
 - **スタイリング**: Tailwind CSS 3
 - **状態管理**: React Hooks（カスタムフック活用）
-- **PWA**: vite-plugin-pwa
+- **PWA**: Web Manifest / Service Worker
 - **通知**: Web Notifications API
 - **アイコン**: Lucide React, および一部アイコンには "Rounded Mplus 1c" フォントを画像化して使用。
 - **デプロイ**: GitHub Actions, GitHub Pages
@@ -77,7 +78,7 @@ npm install
 
 # 3. (任意) ローカル開発用の証明書を生成
 # mkcert -install
-# mkcert localhost+3.pem localhost+3-key.pem
+# mkcert localhost.pem localhost-key.pem
 
 # 4. 開発サーバーの起動
 npm run dev
@@ -92,16 +93,21 @@ npm run dev
 - `npm run preview`: ビルド結果をローカルでプレビュー
 - `npm run type-check`: TypeScriptの型チェックを実行
 - `npm run lint`: ESLintでコードをチェック
+- `npm run lint:fix`: ESLintでコードをチェック（自動修正）
 - `npm run format`: Prettierでコードをフォーマット
+- `npm run check:all`: type-check、lint、formatを実行
+- `npm run check:fix`: type-check、lint:fix、formatを実行
+- `npm run icons`: svgからアイコンを生成
+- `npm run icons:clean`: svgからアイコンを生成（古いものを削除）
 
 ### PWA・Service Worker仕様
 
-PWA機能は `vite-plugin-pwa` を使用して実装されています。
+PWA機能は、Web ManifestとService Workerによって実装されています。
 
-- **Service Worker**: 本番環境でのみ登録されます。キャッシュ戦略は `vite-plugin-pwa` のデフォルト（`autoUpdate`）に従います。
-- **マニフェスト**: アプリ名、アイコン、ショートカットなどが定義されています。
-- **通知機能**: Service WorkerとWeb Notifications APIを利用し、定期チェックとバックグラウンド同期を行います。
-- **開発時の注意**: 開発環境ではPWAとService Workerの主要機能は無効化されています。
+- **Service Worker**: `public/sw.js`が本番環境でのみアプリによって登録されます。現在の実装は通知機能に特化しており、オフライン用のキャッシュ機能は含まれていません。
+- **マニフェスト**: アプリ名、アイコン、ショートカットなどが `public/manifest.json` に定義されています。
+- **通知機能**: アプリから受け取ったスケジュールに基づき、Service WorkerがWeb Notifications APIを利用して通知を送信します。
+- **開発時の注意**: 開発環境ではService Workerの登録は無効化されます。
 
 ### プロジェクト構造
 
@@ -140,10 +146,6 @@ VS Codeで `Ctrl+Shift+P` → `Tasks: Run Task` から各種チェックやビ�
 
 プルリクエストやイシューの報告を歓迎します。
 
-- **コードスタイル**: ESLint + Prettier設定に従ってください。
-- **型安全性**: `npm run type-check` でエラーが出ないことを確認してください。
-- **コミット**: 変更内容を明確にしたコミットメッセージをお願いします。
-
 ---
 
 ## 将来拡張ロードマップ
@@ -151,15 +153,3 @@ VS Codeで `Ctrl+Shift+P` → `Tasks: Run Task` から各種チェックやビ�
 ### 優先度：高
 
 - **外部プッシュ通知**: より確実な通知のため（Web Push API等）
-- **通知詳細設定**: 通知音・バイブレーション・表示時間等の設定
-- **UI/UX改善**: ユーザビリティ向上・アクセシビリティ対応
-
-### 優先度：中
-
-- **QRコードエクスポート/インポート**: プライバシー保護データ移行
-- **リマインダーテンプレート**: よく使用する設定の保存・再利用
-- **通知内容カスタマイズ**: メッセージテンプレート機能
-
-### 優先度：検討中
-
-- **複数デバイス間同期**: クラウドストレージ連携（Google Drive API等）

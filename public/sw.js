@@ -22,26 +22,28 @@ self.addEventListener("activate", (event) => {
 
 const showNotification = (reminder) => {
   debugLog("通知を表示します:", reminder.title);
-  self.registration.showNotification(reminder.title, {
-    body: `リマインダー: ${reminder.title}`,
-    icon: "/icon-192x192.png",
-    badge: "/icon-monochrome.png", // This should be a monochrome icon
-    tag: `reminder-${reminder.id}`,
-    data: {
-      url: reminder.url,
-      reminderId: reminder.id
-    },
-  }).then(() => {
-    // Notify clients that notification was shown
-    self.clients.matchAll().then(clients => {
-      clients.forEach(client => {
-        client.postMessage({
-          type: 'NOTIFICATION_EXECUTED',
-          payload: { executedReminderId: reminder.id }
+  self.registration
+    .showNotification(reminder.title, {
+      body: `リマインダー: ${reminder.title}`,
+      icon: "/icon-192x192.png",
+      badge: "/icon-badge.png", // This should be a monochrome icon
+      tag: `reminder-${reminder.id}`,
+      data: {
+        url: reminder.url,
+        reminderId: reminder.id,
+      },
+    })
+    .then(() => {
+      // Notify clients that notification was shown
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({
+            type: "NOTIFICATION_EXECUTED",
+            payload: { executedReminderId: reminder.id },
+          });
         });
       });
     });
-  });
 };
 
 const scheduleNextNotification = (reminder, scheduleTime) => {
@@ -54,12 +56,17 @@ const scheduleNextNotification = (reminder, scheduleTime) => {
   const delay = scheduleTime - now;
 
   if (delay <= 0) {
-    debugLog("スケジュール時刻が過去です。通知をすぐに実行します。", { reminder, scheduleTime });
+    debugLog("スケジュール時刻が過去です。通知をすぐに実行します。", {
+      reminder,
+      scheduleTime,
+    });
     showNotification(reminder);
     return;
   }
-  
-  debugLog(`次の通知を予約しました: ${reminder.title} in ${Math.round(delay/1000)}s`);
+
+  debugLog(
+    `次の通知を予約しました: ${reminder.title} in ${Math.round(delay / 1000)}s`,
+  );
 
   notificationTimer = setTimeout(() => {
     showNotification(reminder);
@@ -67,11 +74,11 @@ const scheduleNextNotification = (reminder, scheduleTime) => {
 };
 
 const cancelAllNotifications = () => {
-    if (notificationTimer) {
-        clearTimeout(notificationTimer);
-        notificationTimer = null;
-        debugLog("すべての予約済み通知（タイマー）をキャンセルしました。");
-    }
+  if (notificationTimer) {
+    clearTimeout(notificationTimer);
+    notificationTimer = null;
+    debugLog("すべての予約済み通知（タイマー）をキャンセルしました。");
+  }
 };
 
 self.addEventListener("message", (event) => {
@@ -80,27 +87,27 @@ self.addEventListener("message", (event) => {
   debugLog(`メッセージ受信: ${type}`, payload);
 
   switch (type) {
-    case 'SCHEDULE_NEXT_REMINDER':
+    case "SCHEDULE_NEXT_REMINDER":
       if (payload && payload.reminder && payload.scheduleTime) {
         scheduleNextNotification(payload.reminder, payload.scheduleTime);
       }
       break;
 
-    case 'CANCEL_ALL_REMINDERS':
-        cancelAllNotifications();
-        break;
+    case "CANCEL_ALL_REMINDERS":
+      cancelAllNotifications();
+      break;
 
     case "TEST_NOTIFICATION":
       setTimeout(() => {
         self.registration.showNotification("おしらせベル テスト通知", {
           body: "通知が正しく設定されています。",
           icon: "/icon-192x192.png",
-          badge: "/icon-monochrome.png",
+          badge: "/icon-badge.png",
           tag: "test-notification",
         });
       }, 5000);
       break;
-    
+
     default:
       debugLog(`未対応メッセージ: ${type}`);
   }

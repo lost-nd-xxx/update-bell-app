@@ -20,8 +20,7 @@
     "type-check": "tsc --noEmit",
     "check:all": "npm run type-check && npm run lint && npm run format",
     "check:fix": "npm run type-check && npm run lint:fix && npm run format",
-    "icons": "node scripts/convert-icons.js",
-    "icons:clean": "rm -f public/icon-*.png public/icon-mask.svg public/favicon.ico && npm run icons"
+    "icons": "node scripts/convert-icons.js"
   },
   "dependencies": {
     "lucide-react": "^0.263.1",

@@ -10,13 +10,13 @@
   <rect width="256" height="256" fill="url(#grad1)" />
 
   <!-- 波紋（白） -->
-  <g fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" transform="translate(30,45)">
+  <g fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" transform="translate(30,55)">
     <path d="M64 0 A40 40 0 0 0 24 40" />
     <path d="M64 20 A20 20 0 0 0 44 40" />
   </g>
 
   <!-- ベル本体＋装飾突起（白） -->
-  <g transform="translate(75,40) scale(0.55)">
+  <g transform="translate(80,42) scale(0.50)">
     <path d="
       M128 28
       C92 28, 64 56, 64 92
@@ -47,7 +47,7 @@
   </g>
 
   <!-- 文字（おしベル、白＋ダークグレー縁取り線幅1） -->
-  <text x="50%" y="220" font-family="'Rounded Mplus 1c', 'Rounded Mplus', 'Rounded M+', sans-serif" font-weight="900" font-size="38" fill="#ffffff" stroke="#222222" stroke-width="1" text-anchor="middle" dominant-baseline="text-after-edge" letter-spacing="2">
+  <text x="50%" y="210" font-family="'Rounded Mplus 1c', 'Rounded Mplus', 'Rounded M+', sans-serif" font-weight="900" font-size="38" fill="#fff" stroke="#222" stroke-width="1" text-anchor="middle" dominant-baseline="text-after-edge" letter-spacing="0">
     おしベル
   </text>
 </svg>
