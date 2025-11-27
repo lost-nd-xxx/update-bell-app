@@ -17,7 +17,12 @@ import {
   BarChart3,
 } from "lucide-react";
 import { AppSettings, Reminder, ExportData } from "../types";
-import { downloadFile, readFile, getErrorMessage } from "../utils/helpers";
+import {
+  downloadFile,
+  readFile,
+  getErrorMessage,
+  isReminder,
+} from "../utils/helpers";
 
 interface SettingsProps {
   theme: "light" | "dark" | "system";
@@ -189,8 +194,11 @@ const Settings: React.FC<SettingsProps> = ({
         throw new Error("無効なファイル形式です");
       }
 
-      if (data.reminders && onImportReminders) {
-        onImportReminders(data.reminders);
+      const validReminders = data.reminders.filter(isReminder);
+      const invalidCount = data.reminders.length - validReminders.length;
+
+      if (validReminders.length > 0 && onImportReminders) {
+        onImportReminders(validReminders);
       }
       if (data.theme && onImportTheme) {
         onImportTheme(data.theme);
@@ -198,11 +206,12 @@ const Settings: React.FC<SettingsProps> = ({
       if (data.settings) {
         updateSettings(data.settings);
       }
-      displayStatusMessage(
-        `${data.reminders.length}個のリマインダーをインポートしました`,
-        "success",
-        "import",
-      );
+
+      let message = `${validReminders.length}個のリマインダーをインポートしました`;
+      if (invalidCount > 0) {
+        message += ` (${invalidCount}個の無効なデータは除外されました)`;
+      }
+      displayStatusMessage(message, "success", "import");
     } catch (error) {
       displayStatusMessage(
         `インポートに失敗: ${getErrorMessage(error)}`,

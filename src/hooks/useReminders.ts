@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Reminder } from "../types";
-import { generateId } from "../utils/helpers";
+import { generateId, isReminder } from "../utils/helpers"; // isReminderをインポート
 
 export const useReminders = () => {
   const [reminders, setReminders] = useState<Reminder[]>(() => {
@@ -8,7 +8,8 @@ export const useReminders = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed : [];
+        // isReminder 型ガード関数でフィルタリング
+        return Array.isArray(parsed) ? parsed.filter(isReminder) : [];
       } catch (error) {
         console.error("リマインダーデータの読み込みに失敗:", error);
         return [];

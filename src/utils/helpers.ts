@@ -1,4 +1,4 @@
-import { Schedule, DateFilterType } from "../types";
+import { Schedule, DateFilterType, ScheduleType, Reminder } from "../types";
 
 // ユニークIDを生成
 export const generateId = (): string => {
@@ -290,8 +290,9 @@ export const generateScheduleDescription = (schedule: Schedule): string => {
 // URLの妥当性をチェック
 export const isValidUrl = (url: string): boolean => {
   try {
-    new URL(url);
-    return true;
+    const parsedUrl = new URL(url);
+    // httpとhttpsプロトコルのみを許可
+    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https: ";
   } catch {
     return false;
   }
@@ -394,6 +395,61 @@ export const shuffleArray = <T>(array: T[]): T[] => {
 // オブジェクトのディープコピー
 export const deepClone = <T>(obj: T): T => {
   return JSON.parse(JSON.stringify(obj));
+};
+
+// --- 型ガード関数 ---
+const isScheduleType = (type: unknown): type is ScheduleType => {
+  return (
+    typeof type === "string" &&
+    ["daily", "weekly", "monthly", "interval", "specific_days"].includes(type)
+  );
+};
+
+const isDateFilterType = (type: unknown): type is DateFilterType => {
+  return (
+    typeof type === "string" && ["all", "weekdays", "weekends"].includes(type)
+  );
+};
+
+export const isSchedule = (obj: unknown): obj is Schedule => {
+  if (typeof obj !== "object" || obj === null) return false;
+  const o = obj as Record<string, unknown>;
+
+  return (
+    isScheduleType(o.type) &&
+    typeof o.interval === "number" &&
+    typeof o.hour === "number" &&
+    typeof o.minute === "number" &&
+    (o.dateFilter === undefined || isDateFilterType(o.dateFilter)) &&
+    (o.selectedDays === undefined ||
+      (Array.isArray(o.selectedDays) &&
+        o.selectedDays.every((day: unknown) => typeof day === "number"))) &&
+    (o.dayOfWeek === undefined || typeof o.dayOfWeek === "number") &&
+    (o.weekOfMonth === undefined || typeof o.weekOfMonth === "number")
+  );
+};
+
+export const isReminder = (obj: unknown): obj is Reminder => {
+  if (typeof obj !== "object" || obj === null) return false;
+  const o = obj as Record<string, unknown>;
+
+  return (
+    typeof o.id === "string" &&
+    typeof o.title === "string" &&
+    typeof o.url === "string" &&
+    isSchedule(o.schedule) &&
+    Array.isArray(o.tags) &&
+    o.tags.every((tag: unknown) => typeof tag === "string") &&
+    typeof o.createdAt === "string" &&
+    typeof o.isPaused === "boolean" &&
+    typeof o.timezone === "string" &&
+    (o.lastNotified === undefined ||
+      o.lastNotified === null ||
+      typeof o.lastNotified === "string") &&
+    (o.pausedAt === undefined ||
+      o.pausedAt === null ||
+      typeof o.pausedAt === "string")
+  );
 };
 
 // デバウンス関数 - any型を具体的な関数型に修正
