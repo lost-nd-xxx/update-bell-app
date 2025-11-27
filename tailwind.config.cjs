@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: 'class', // HTMLクラスに基づいてダークモードを切り替える
+  darkMode: "class", // HTMLクラスに基づいてダークモードを切り替える
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
