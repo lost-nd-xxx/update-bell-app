@@ -80,11 +80,17 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId,
-          reminderId: reminder.id,
-          message: reminder.title,
-          scheduledTime: nextNotification.scheduleTime,
-          url: reminder.url,
+          userId, // 最上位のuserId
+          reminder: { // reminderキーの下にリマインダーオブジェクトをネスト
+            userId, // リマインダーオブジェクト内のuserId (冗長だが現在のFunctionsコードに合わせる)
+            reminderId: reminder.id,
+            message: reminder.title,
+            scheduledTime: nextNotification.scheduleTime,
+            url: reminder.url,
+            // 必要に応じて他のリマインダープロパティも追加
+            status: reminder.status, // 例えば現在のステータスも送る
+            subscription: reminder.subscription, // サブスクリプション情報も送る
+          }
         }),
       });
     } catch (error) {
