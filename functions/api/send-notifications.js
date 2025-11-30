@@ -26,12 +26,12 @@ async function generateAuthorizationHeader(aud, sub, vapidPrivateKey) {
 
   const signatureBase = `${encodedHeader.toString().replace(/,/g, "")}.${encodedClaims.toString().replace(/,/g, "")}`;
 
-  // VAPID秘密鍵をArrayBufferに変換
+  // VAPID秘密鍵をRawのUint8Arrayに変換
   const privateKeyBuffer = base64UrlToUint8Array(vapidPrivateKey);
 
   // ECDSA秘密鍵をインポート
   const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
+    "raw", // フォーマットを 'raw' に変更
     privateKeyBuffer,
     { name: "ECDSA", namedCurve: "P-256" },
     true,
