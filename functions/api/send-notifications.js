@@ -25,7 +25,7 @@ export default {
     }
 
     webpush.setVapidDetails(
-      "mailto:your-email@example.com", // TODO: お問い合わせ先などに変更
+      "mailto:shimayoshiba@gmail.com",
       vapidKeys.publicKey,
       vapidKeys.privateKey,
     );
