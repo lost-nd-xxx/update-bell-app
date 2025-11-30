@@ -7,4 +7,4 @@ pages_build_output_dir = "dist"
 schedule = "* * * * *"
 entrypoint = "api/send-notifications"
 
-
+compatibility_flags = [ "nodejs_compat" ]
