@@ -9,7 +9,7 @@ async function executeSendNotifications(env) {
   const now = Date.now();
 
   const vapidKeys = {
-    publicKey: env.VAPID_PUBLIC_KEY,
+    publicKey: env.VITE_VAPID_PUBLIC_KEY,
     privateKey: env.VAPID_PRIVATE_KEY,
   };
 
