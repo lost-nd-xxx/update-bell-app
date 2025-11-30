@@ -9,9 +9,8 @@ async function executeSendNotifications(env) {
   console.log(`[DEBUG] --- Pages Function Notification Logic Start (Time: ${new Date().toISOString()}) ---`);
   const now = Date.now();
 
-  // Notification Sender WorkerのURL (Cloudflare WorkersのURLは name.workers.dev 形式)
+  // Notification Sender WorkerのURL
   const NOTIFICATION_SENDER_WORKER_URL = `https://update-bell-app-notification-sender.lost-nd-xxx.workers.dev`;
-  // ここでlost-nd-xxx をユーザーのアカウント名に置き換えるように指示する必要がある。
 
   // Notification Sender Workerとの認証用シークレット
   const NOTIFICATION_SENDER_SECRET = env.NOTIFICATION_SENDER_SECRET;
@@ -45,7 +44,7 @@ async function executeSendNotifications(env) {
 
     const allExpiredEndpoints = [];
 
-    // リマインダーをユーザーIDでグループ化し、通知Senderに一度に渡す
+    // リマインダーをユーザーIDでグループ化
     const remindersByUser = pendingReminders.reduce((acc, reminder) => {
       const userId = reminder.data.userId;
       if (!acc[userId]) {
@@ -70,13 +69,10 @@ async function executeSendNotifications(env) {
       }
 
       // 通知ペイロードはリマインダーごとに生成
-      const notificationsToSend = userReminders.map(rem => ({
-        payload: {
-          title: "おしらせベル",
-          body: rem.data.message,
-          url: rem.data.url,
-        },
-        reminderKey: rem.key, // 処理後に削除するためにキーを保持
+      const payloadsToSend = userReminders.map(rem => ({
+        title: "おしらせベル",
+        body: rem.data.message,
+        url: rem.data.url,
       }));
 
       // Notification Sender Workerを呼び出す
@@ -90,30 +86,40 @@ async function executeSendNotifications(env) {
           },
           body: JSON.stringify({
             subscriptions: subscriptions,
-            payloads: notificationsToSend.map(n => n.payload) // すべてのペイロードを一度に渡す
+            payloads: payloadsToSend // 複数のペイロードをそのまま渡す
           }),
         });
 
         if (!workerResponse.ok) {
           const errorText = await workerResponse.text();
           console.error(`[ERROR] Notification Sender Worker returned an error: ${workerResponse.status} ${workerResponse.statusText}. Body: ${errorText}`);
-          continue; // このユーザーのリマインダーはスキップし、次のユーザーへ
+          // Workerがエラーを返した場合でも、リマインダーはKVから削除する（再通知防止）
+          for (const rem of userReminders) {
+            await env.REMINDER_STORE.delete(rem.key);
+            console.log(`[INFO] Processed (and possibly failed to notify) and deleted reminder: ${rem.key}`);
+          }
+          continue;
         }
 
         const workerResult = await workerResponse.json();
         if (workerResult.expiredEndpoints && workerResult.expiredEndpoints.length > 0) {
-          allExpiredEndpoints.push(...workerResult.expiredEndpoints);
+          allExpiredEndpoints.push(...workerResult.expiredEndpoints.map(endpoint => ({ userId, endpoint })));
           console.log(`[INFO] Notification Sender Worker reported ${workerResult.expiredEndpoints.length} expired endpoints for user ${userId}.`);
         }
         
         // 処理されたリマインダーをKVから削除
-        for (const notif of notificationsToSend) {
-          await env.REMINDER_STORE.delete(notif.reminderKey);
-          console.log(`[INFO] Processed and deleted reminder: ${notif.reminderKey}`);
+        for (const rem of userReminders) {
+          await env.REMINDER_STORE.delete(rem.key);
+          console.log(`[INFO] Processed and deleted reminder: ${rem.key}`);
         }
 
       } catch (error) {
         console.error(`[ERROR] Error calling Notification Sender Worker for user ${userId}:`, error);
+        // エラー発生時もリマインダーはKVから削除する
+        for (const rem of userReminders) {
+          await env.REMINDER_STORE.delete(rem.key);
+          console.log(`[INFO] Processed (and possibly failed to notify) and deleted reminder: ${rem.key}`);
+        }
         continue;
       }
     }
@@ -121,25 +127,18 @@ async function executeSendNotifications(env) {
     // 期限切れの購読情報をクリーンアップ (Pages Functions側で処理)
     if (allExpiredEndpoints.length > 0) {
       console.log(`[DEBUG] Cleaning up ${allExpiredEndpoints.length} expired endpoints across users.`);
-      // ユーザーIDごとにグループ化し、KVから削除
-      // この部分は既存のロジックを流用可能
-      const subsByUser = allExpiredEndpoints.reduce((acc, endpoint) => {
-        // endpointからuserIdを逆引きする必要があるが、それはここではできない。
-        // workerからuserId情報も受け取るようにするか、Pages Functionでサブスクリプションを管理する際にuserIdを付与する。
-        // ここでは便宜上、サブスクリプションが期限切れになったユーザーの他のサブスクリプションも確認する形にする。
-        // より正確にするには workerResult.expiredEndpoints に { userId, endpoint } の形で含める必要がある
-        // TODO: Notification Sender WorkerからのexpiredEndpointsにuserIdを含めてもらう
-
-        // 現状は、Pages Function側で全サブスクリプションを再取得し、expiredEndpointsと突き合わせる
-        // これはKVアクセスが増えるため効率が悪い
+      
+      const expiredByUserId = allExpiredEndpoints.reduce((acc, { userId, endpoint }) => {
+        if (!acc[userId]) acc[userId] = [];
+        acc[userId].push(endpoint);
+        return acc;
       }, {});
 
-      // ここでは簡易的に、期限切れがあったユーザーのサブスクリプション全体を再評価する
-      const uniqueUserIdsWithExpiredSubs = [...new Set(pendingReminders.map(r => r.data.userId))]; // 処理したユーザーから取得
-      for (const userId of uniqueUserIdsWithExpiredSubs) {
+      for (const userId in expiredByUserId) {
         const subKey = `user:${userId}:subscriptions`;
         const currentSubs = (await env.REMINDER_STORE.get(subKey, "json")) || [];
-        const filteredSubs = currentSubs.filter(s => !allExpiredEndpoints.includes(s.endpoint)); // 期限切れのエンドポイントを除外
+        const endpointsToRemove = new Set(expiredByUserId[userId]);
+        const filteredSubs = currentSubs.filter(s => !endpointsToRemove.has(s.endpoint)); 
 
         if (filteredSubs.length < currentSubs.length) { // 実際に削除されたものがある場合のみ更新
           if (filteredSubs.length > 0) {
