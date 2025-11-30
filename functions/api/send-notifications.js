@@ -1,4 +1,5 @@
-import webpush from "web-push";
+// web-pushライブラリはShim経由でインポート
+import { sendNotification, setVapidDetails } from "../lib/web-push-shim";
 
 /**
  * 共通の通知送信ロジック
@@ -18,7 +19,7 @@ async function executeSendNotifications(env) {
     return new Response("VAPID keys missing.", { status: 500 });
   }
 
-  webpush.setVapidDetails(
+  setVapidDetails(
     "mailto:shimayoshiba@gmail.com",
     vapidKeys.publicKey,
     vapidKeys.privateKey
@@ -62,7 +63,7 @@ async function executeSendNotifications(env) {
       });
 
       const promises = subscriptions.map((sub) =>
-        webpush.sendNotification(sub, payload).catch((error) => {
+        return sendNotification(sub, payload).catch((error) => {
           if (error.statusCode === 410) {
             console.log(`Subscription for ${userId} has expired. Deleting.`);
             return { expired: true, userId, endpoint: sub.endpoint };
