@@ -47,7 +47,6 @@ export interface AppSettings {
   };
   ui: {
     showWelcome: boolean; // ウェルカム画面の表示
-    compactMode: boolean; // コンパクト表示モード
   };
 }
 

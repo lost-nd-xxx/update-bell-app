@@ -12,7 +12,6 @@ const defaultSettings: AppSettings = {
   },
   ui: {
     showWelcome: true,
-    compactMode: false,
   },
 };
 

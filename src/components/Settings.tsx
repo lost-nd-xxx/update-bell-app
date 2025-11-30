@@ -105,19 +105,28 @@ const Settings: React.FC<SettingsProps> = ({
   };
 
   const exportData = () => {
-    const data: ExportData = {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { timezone, lastTimezoneCheck, notifications, ...settingsBase } =
+      settings;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { permission, enabled, ...notificationsToExport } = notifications;
+
+    const settingsToExport = {
+      ...settingsBase,
+      notifications: notificationsToExport,
+    };
+
+    const data = {
       version: process.env.APP_VERSION || "1.0.0",
       exportDate: new Date().toISOString(),
       reminders,
-      settings,
+      settings: settingsToExport,
       theme,
-      metadata: {
-        userAgent: navigator.userAgent,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      },
     };
 
-    const filename = `update-bell-${new Date().toISOString().split("T")[0]}.json`;
+    const filename = `update-bell-${
+      new Date().toISOString().split("T")[0]
+    }.json`;
     downloadFile(JSON.stringify(data, null, 2), filename);
     displayStatusMessage("データをエクスポートしました", "success", "import");
   };

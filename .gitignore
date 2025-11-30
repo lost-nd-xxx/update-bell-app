@@ -17,8 +17,6 @@ pnpm-lock.yaml
 # ===== 環境変数 =====
 .env*
 !.env.example
-wrangler.toml
-
 
 # ===== ログファイル =====
 *.log
