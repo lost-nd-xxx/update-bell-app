@@ -123,4 +123,33 @@ self.addEventListener("notificationclick", (event) => {
   }
 });
 
+self.addEventListener('push', event => {
+  debugLog('Push event received', event.data ? event.data.text() : 'No payload');
+  
+  let pushData;
+  try {
+    pushData = event.data.json();
+  } catch (e) {
+    debugLog('Failed to parse push data as JSON', event.data.text());
+    pushData = {
+      title: 'Update Bell',
+      body: event.data.text() || 'You have a new reminder.',
+    };
+  }
+
+  const title = pushData.title || 'Update Bell Reminder';
+  const options = {
+    body: pushData.body,
+    icon: pushData.icon || '/icon-192x192.png',
+    badge: pushData.badge || '/icon-badge.png',
+    tag: pushData.tag || 'general-notification',
+    data: {
+      url: pushData.url, // URLをdataに含めることで、notificationclickで利用
+    },
+  };
+
+  const notificationPromise = self.registration.showNotification(title, options);
+  event.waitUntil(notificationPromise);
+});
+
 debugLog("Service Worker (v2.1.0) 起動完了");

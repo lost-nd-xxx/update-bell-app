@@ -55,9 +55,13 @@ const checkSvgFiles = () => {
 
 // サイズに応じた最適なSVGファイルを選択
 const selectSvgFile = (size) => {
-  if (size >= 256) return svgFiles.large; // 256px以上: 文字入り
-  if (size > 32) return svgFiles.medium; // 72-256px: 文字なし標準
-  return svgFiles.tiny; // 32px以下: 極小用
+  if (size >= 256) {
+    return svgFiles.large; // 256px以上: 文字入り
+  }
+  if (size >= 72) {
+    return svgFiles.medium; // 72px-255px: 文字なし標準
+  }
+  return svgFiles.tiny; // 71px以下: 極小用
 };
 
 // PNGアイコンを生成

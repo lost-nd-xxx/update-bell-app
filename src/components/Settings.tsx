@@ -23,6 +23,7 @@ import {
   getErrorMessage,
   isReminder,
 } from "../utils/helpers";
+import { usePushNotifications } from "../hooks/usePushNotifications";
 
 interface SettingsProps {
   theme: "light" | "dark" | "system";
@@ -38,69 +39,6 @@ interface SettingsProps {
 interface ExtendedNavigator extends Navigator {
   standalone?: boolean;
 }
-
-const thirdPartyLicenses = [
-  {
-    name: "React",
-    license: "MIT",
-    copyright: "Meta Platforms, Inc. and affiliates.",
-    url: "https://github.com/facebook/react",
-  },
-  {
-    name: "React DOM",
-    license: "MIT",
-    copyright: "Meta Platforms, Inc. and affiliates.",
-    url: "https://github.com/facebook/react",
-  },
-  {
-    name: "Vite",
-    license: "MIT",
-    copyright: "2019-present, Yuxi (Evan) You and Vite contributors",
-    url: "https://github.com/vitejs/vite",
-  },
-  {
-    name: "TypeScript",
-    license: "Apache 2.0",
-    copyright: "Microsoft Corporation",
-    url: "https://github.com/Microsoft/TypeScript",
-  },
-  {
-    name: "Tailwind CSS",
-    license: "MIT",
-    copyright: "Tailwind Labs, Inc.",
-    url: "https://github.com/tailwindlabs/tailwindcss",
-  },
-  {
-    name: "Lucide React",
-    license: "ISC",
-    copyright: "2020, Lucide Contributors",
-    url: "https://github.com/lucide-icons/lucide",
-  },
-  {
-    name: "vite-plugin-pwa",
-    license: "MIT",
-    copyright: "2020-present, Anthony Fu",
-    url: "https://github.com/vite-pwa/vite-plugin-pwa",
-  },
-  {
-    name: "ESLint",
-    license: "MIT",
-    copyright: "2013-present Nicholas C. Zakas and an ESLint team.",
-    url: "https://github.com/eslint/eslint",
-  },
-  {
-    name: "Prettier",
-    license: "MIT",
-    copyright: "2017-present, James Long and contributors",
-    url: "https://github.com/prettier/prettier",
-  },
-  {
-    name: "Rounded Mplus 1c",
-    license: "SIL Open Font License 1.1",
-    copyright: "2018-2022 The M PLUS Project Authors.",
-    url: "https://fonts.google.com/specimen/M+PLUS+Rounded+1c",
-  },
-];
 
 const Settings: React.FC<SettingsProps> = ({
   theme,
@@ -120,7 +58,14 @@ const Settings: React.FC<SettingsProps> = ({
     "success" | "error" | ""
   >("");
   const [isImporting, setIsImporting] = useState(false);
-  const [showLicenses, setShowLicenses] = useState(false);
+
+  const {
+    subscribeToPushNotifications,
+    unsubscribeFromPushNotifications,
+    isSubscribing,
+    subscription,
+    error: pushError,
+  } = usePushNotifications();
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -359,6 +304,136 @@ const Settings: React.FC<SettingsProps> = ({
               <div className="text-sm text-gray-600 dark:text-gray-400">
                 {getNotificationStatusText()}
               </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                通知方法
+              </label>
+              <div className="mt-2 space-y-2">
+                <div
+                  onClick={() =>
+                    updateSettings({
+                      notifications: {
+                        ...settings.notifications,
+                        method: "local",
+                      },
+                    })
+                  }
+                  className={`p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                    settings.notifications.method === "local"
+                      ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
+                      : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500"
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      name="notification-method"
+                      id="notification-local"
+                      readOnly
+                      checked={settings.notifications.method === "local"}
+                      className="h-4 w-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                    />
+                    <label htmlFor="notification-local" className="ml-3 block">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        ローカル通知 (シンプル)
+                      </span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        手軽・アプリを開いている時のみ
+                      </p>
+                    </label>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => {
+                    if (settings.notifications.permission === "granted") {
+                      updateSettings({
+                        notifications: {
+                          ...settings.notifications,
+                          method: "push",
+                        },
+                      });
+                    }
+                  }}
+                  className={`p-3 rounded-lg border-2 transition-colors ${
+                    settings.notifications.permission !== "granted"
+                      ? "cursor-not-allowed opacity-60"
+                      : "cursor-pointer"
+                  } ${
+                    settings.notifications.method === "push"
+                      ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
+                      : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500"
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      name="notification-method"
+                      id="notification-push"
+                      readOnly
+                      checked={settings.notifications.method === "push"}
+                      disabled={settings.notifications.permission !== "granted"}
+                      className="h-4 w-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                    />
+                    <label htmlFor="notification-push" className="ml-3 block">
+                      <span
+                        className={`text-sm font-medium ${settings.notifications.permission !== "granted" ? "text-gray-500" : "text-gray-900 dark:text-white"}`}
+                      >
+                        プッシュ通知 (高信頼性)
+                      </span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        アプリを閉じていても届く
+                        {settings.notifications.permission !== "granted" &&
+                          " (最初に通知を許可してください)"}
+                      </p>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              {settings.notifications.method === "push" &&
+                settings.notifications.permission === "granted" && (
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    {subscription ? (
+                      <div>
+                        <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+                          <CheckCircle size={16} />
+                          <span>このブラウザのプッシュ通知は有効です。</span>
+                        </div>
+                        <button
+                          onClick={unsubscribeFromPushNotifications}
+                          disabled={isSubscribing}
+                          className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline disabled:opacity-50"
+                        >
+                          {isSubscribing
+                            ? "処理中..."
+                            : "このブラウザでのプッシュ通知を無効にする"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          より確実な通知を受け取るために、このブラウザのプッシュ通知を有効にします。
+                        </p>
+                        <button
+                          onClick={subscribeToPushNotifications}
+                          disabled={isSubscribing}
+                          className="w-full sm:w-auto justify-center inline-flex items-center px-4 py-2 border-2 border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-sm font-medium rounded-lg text-purple-700 dark:text-purple-300 disabled:opacity-50"
+                        >
+                          {isSubscribing
+                            ? "有効化しています..."
+                            : "このブラウザでプッシュ通知を有効にする"}
+                        </button>
+                      </div>
+                    )}
+                    {pushError && (
+                      <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                        {pushError}
+                      </p>
+                    )}
+                  </div>
+                )}
             </div>
 
             <div className="mt-4 flex flex-col sm:flex-row gap-3">
@@ -651,6 +726,51 @@ const Settings: React.FC<SettingsProps> = ({
             </div>
 
             <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">作者</span>
+              <span className="text-gray-900 dark:text-white">lost_nd_xxx</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">
+                お問い合わせ / フィードバック
+              </span>
+              <div className="flex gap-4">
+                <a
+                  href="https://marshmallow-qa.com/lost_nd_xxx"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                >
+                  マシュマロ(アカウント不要)
+                  <ExternalLink size={12} />
+                </a>
+                <a
+                  href="https://github.com/lost-nd-xxx/update-bell-app/issues"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                >
+                  GitHub Issues(要アカウント)
+                  <ExternalLink size={12} />
+                </a>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">
+                ソースコード
+              </span>
+              <a
+                href="https://github.com/lost-nd-xxx/update-bell-app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                GitHub <ExternalLink size={12} />
+              </a>
+            </div>
+
+            <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">PWA状態</span>
               <span
                 className={`${browserInfo.isPWA ? "text-green-600" : "text-gray-500"}`}
@@ -677,65 +797,16 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
 
           <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={() => setShowLicenses(!showLicenses)}
-              className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300 rounded-lg p-2 border-2 border-gray-200 dark:border-gray-600"
+            <a
+              href="THIRD-PARTY-LICENSES.md" // または GitHub リポジトリへのURL
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300 rounded-lg p-2 border-2 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               <Book size={16} />
-              {showLicenses ? "ライセンス一覧を非表示" : "ライセンス一覧を表示"}
-            </button>
-
-            {showLicenses && (
-              <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 max-h-96 overflow-y-auto scrollbar-thin mt-4">
-                <p className="text-sm text-gray-700 dark:text-gray-300 mb-4 pb-4 border-b border-gray-200 dark:border-gray-600">
-                  このアプリは以下のオープンソースライブラリを使用しています。
-                </p>
-
-                <div className="space-y-3">
-                  {thirdPartyLicenses.map((lib) => (
-                    <div
-                      key={lib.name}
-                      className="border-b border-gray-200 dark:border-gray-600 pb-3 last:border-b-0"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <h4 className="font-medium text-gray-900 dark:text-white">
-                          {lib.name}
-                        </h4>
-                        <a
-                          href={lib.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 text-sm"
-                        >
-                          Repository
-                          <ExternalLink size={12} />
-                        </a>
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        <div>License: {lib.license}</div>
-                        <div>Copyright: {lib.copyright}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    完全なライセンステキストは、各ライブラリのリポジトリまたは
-                    <a
-                      href="https://github.com/lost-nd-xxx/update-bell-app/blob/main/THIRD-PARTY-LICENSES.md"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 dark:text-blue-400 hover:underline ml-1"
-                    >
-                      プロジェクトのライセンスファイル
-                      <ExternalLink size={10} className="inline ml-1" />
-                    </a>
-                    をご確認ください。
-                  </div>
-                </div>
-              </div>
-            )}
+              オープンソースライセンス
+              <ExternalLink size={14} className="ml-1" />
+            </a>
           </div>
         </div>
       </div>

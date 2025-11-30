@@ -1,14 +1,19 @@
-import { useState, useEffect } from "react";
-import { Reminder } from "../types";
-import { generateId, isReminder } from "../utils/helpers"; // isReminderをインポート
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Reminder, AppSettings } from "../types";
+import {
+  generateId,
+  isReminder,
+  calculateNextScheduledNotification,
+  debounce,
+} from "../utils/helpers";
 
-export const useReminders = () => {
+// このフックは settings と userId に依存するようになります
+export const useReminders = (settings: AppSettings, userId: string | null) => {
   const [reminders, setReminders] = useState<Reminder[]>(() => {
     const saved = localStorage.getItem("update-bell-data");
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // isReminder 型ガード関数でフィルタリング
         return Array.isArray(parsed) ? parsed.filter(isReminder) : [];
       } catch (error) {
         console.error("リマインダーデータの読み込みに失敗:", error);
@@ -23,6 +28,84 @@ export const useReminders = () => {
     localStorage.setItem("update-bell-data", JSON.stringify(reminders));
   }, [reminders]);
 
+  // ローカル通知のスケジューリング（App.tsxから移動）
+  const scheduleLocalNotification = useCallback(() => {
+    if (
+      !("serviceWorker" in navigator) ||
+      !navigator.serviceWorker.controller
+    ) {
+      return;
+    }
+    const nextNotification = calculateNextScheduledNotification(reminders);
+    if (nextNotification) {
+      navigator.serviceWorker.controller.postMessage({
+        type: "SCHEDULE_NEXT_REMINDER",
+        payload: nextNotification,
+      });
+    } else {
+      navigator.serviceWorker.controller.postMessage({
+        type: "CANCEL_ALL_REMINDERS",
+      });
+    }
+  }, [reminders]);
+
+  // debounceされたローカル通知スケジューラーの参照
+  const debouncedLocalScheduler = useRef(
+    debounce(scheduleLocalNotification, 200),
+  );
+
+  useEffect(() => {
+    debouncedLocalScheduler.current = debounce(scheduleLocalNotification, 200);
+  }, [scheduleLocalNotification]);
+
+  // プッシュ通知の予約
+  const schedulePushNotification = async (reminder: Reminder) => {
+    if (!userId) {
+      console.error(
+        "Push notification scheduling failed: User ID is not available.",
+      );
+      return;
+    }
+
+    // `calculateNextScheduledNotification` を使って次の通知時刻を計算
+    const nextNotification = calculateNextScheduledNotification([reminder]);
+    if (!nextNotification) {
+      console.log("No upcoming notification to schedule for this reminder.");
+      // TODO: サーバー側で予約済みの通知があればキャンセルするAPIを呼ぶ
+      return;
+    }
+
+    try {
+      await fetch("/api/schedule-reminder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          reminderId: reminder.id,
+          message: reminder.title,
+          scheduledTime: nextNotification.scheduleTime,
+          url: reminder.url,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to schedule push notification:", error);
+    }
+  };
+
+  // リマインダーの変更をハンドリングし、通知をスケジュールする
+  const handleReminderChange = (changedReminders: Reminder[]) => {
+    if (settings.notifications.method === "push") {
+      // プッシュ通知の場合、変更された各リマインダーについて予約APIを叩く
+      changedReminders.forEach((reminder) =>
+        schedulePushNotification(reminder),
+      );
+    } else {
+      // ローカル通知の場合、全リマインダーから次の通知を計算して予約する
+      // この呼び出しはdebounceされているので、短期間に複数回呼ばれても効率的
+      debouncedLocalScheduler.current();
+    }
+  };
+
   const addReminder = (
     reminderData: Omit<Reminder, "id" | "createdAt" | "timezone">,
   ) => {
@@ -31,25 +114,80 @@ export const useReminders = () => {
       id: generateId(),
       createdAt: new Date().toISOString(),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      isPaused: reminderData.isPaused || false, // ← 明示的に設定
+      isPaused: reminderData.isPaused || false,
     };
 
-    setReminders((prev) => [...prev, newReminder]);
+    setReminders((prev) => {
+      const newReminders = [...prev, newReminder];
+      // handleReminderChangeを呼ぶ前にstateを更新
+      handleReminderChange([newReminder]);
+      return newReminders;
+    });
+
     return newReminder;
   };
 
   const updateReminder = (id: string, updates: Partial<Reminder>) => {
+    let updatedReminder: Reminder | null = null;
     setReminders((prev) =>
-      prev.map((reminder) =>
-        reminder.id === id ? { ...reminder, ...updates } : reminder,
-      ),
+      prev.map((reminder) => {
+        if (reminder.id === id) {
+          updatedReminder = { ...reminder, ...updates };
+          return updatedReminder;
+        }
+        return reminder;
+      }),
     );
+
+    if (updatedReminder) {
+      handleReminderChange([updatedReminder]);
+    }
   };
 
   const deleteReminder = (id: string) => {
+    // ローカル通知の場合は全キャンセルしてから再スケジュール
+    if (
+      settings.notifications.method === "local" &&
+      navigator.serviceWorker.controller
+    ) {
+      navigator.serviceWorker.controller.postMessage({
+        type: "CANCEL_ALL_REMINDERS",
+      });
+    }
+    // TODO: プッシュ通知の場合は、サーバーに削除を通知するAPIを呼ぶ
+
     setReminders((prev) => prev.filter((reminder) => reminder.id !== id));
   };
 
+  const bulkUpdateReminders = (
+    updates: Array<{ id: string; data: Partial<Reminder> }>,
+  ) => {
+    const updatedReminders: Reminder[] = [];
+    setReminders((prev) =>
+      prev.map((reminder) => {
+        const update = updates.find((u) => u.id === reminder.id);
+        if (update) {
+          const newReminder = { ...reminder, ...update.data };
+          updatedReminders.push(newReminder);
+          return newReminder;
+        }
+        return reminder;
+      }),
+    );
+    if (updatedReminders.length > 0) {
+      handleReminderChange(updatedReminders);
+    }
+  };
+
+  // `reminders`が変更されたときにローカル通知を再スケジュールする
+  useEffect(() => {
+    if (settings.notifications.method === "local") {
+      debouncedLocalScheduler.current();
+    }
+    // プッシュ通知の場合は、add/update時に個別にAPIを叩くので、このuseEffectでは何もしない
+  }, [reminders, settings.notifications.method]);
+
+  // (元のフックの他の関数はそのまま)
   const duplicateReminder = (id: string): void => {
     const original = reminders.find((r) => r.id === id);
     if (original) {
@@ -68,17 +206,6 @@ export const useReminders = () => {
         title: `${original.title} (コピー)`,
       });
     }
-  };
-
-  const bulkUpdateReminders = (
-    updates: Array<{ id: string; data: Partial<Reminder> }>,
-  ) => {
-    setReminders((prev) =>
-      prev.map((reminder) => {
-        const update = updates.find((u) => u.id === reminder.id);
-        return update ? { ...reminder, ...update.data } : reminder;
-      }),
-    );
   };
 
   const getReminder = (id: string): Reminder | undefined => {
@@ -115,7 +242,6 @@ export const useReminders = () => {
     );
   };
 
-  // 統計情報を取得
   const getStats = () => {
     const total = reminders.length;
     const active = getActiveReminders().length;

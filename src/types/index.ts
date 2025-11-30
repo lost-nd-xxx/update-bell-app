@@ -43,6 +43,7 @@ export interface AppSettings {
   notifications: {
     enabled: boolean;
     permission: NotificationPermission | "unsupported";
+    method: "local" | "push";
   };
   ui: {
     showWelcome: boolean; // ウェルカム画面の表示

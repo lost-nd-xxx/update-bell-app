@@ -56,6 +56,12 @@
 - **Repository**: https://github.com/prettier/prettier
 - **npm**: https://www.npmjs.com/package/prettier
 
+## uuid
+- **License**: MIT License
+- **Copyright**: Copyright (c) 2010-2020 Robert Kieffer and other contributors
+- **Repository**: https://github.com/uuidjs/uuid
+- **npm**: https://www.npmjs.com/package/uuid
+
 ## Rounded Mplus 1c
 - **License**: SIL Open Font License 1.1
 - **Copyright**: Copyright (c) 2018-2022 The M PLUS Project Authors.

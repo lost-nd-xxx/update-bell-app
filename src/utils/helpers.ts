@@ -292,7 +292,7 @@ export const isValidUrl = (url: string): boolean => {
   try {
     const parsedUrl = new URL(url);
     // httpとhttpsプロトコルのみを許可
-    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https: ";
+    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:";
   } catch {
     return false;
   }

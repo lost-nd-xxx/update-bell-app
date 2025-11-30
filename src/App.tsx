@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { Reminder, AppState } from "./types";
 import { useReminders } from "./hooks/useReminders";
 import { useSettings } from "./hooks/useSettings";
 import { useTheme } from "./hooks/useTheme";
 import { useTimezone } from "./hooks/useTimezone";
+import { useUserId } from "./contexts/UserIdContext"; // 追加
 import Dashboard from "./components/Dashboard";
 import CreateReminder from "./components/CreateReminder";
 import Settings from "./components/Settings";
 import TimezoneChangeDialog from "./components/TimezoneChangeDialog";
 import Header from "./components/Header";
-import { calculateNextScheduledNotification, debounce } from "./utils/helpers";
 
 declare global {
   interface Window {
@@ -22,14 +22,15 @@ declare global {
 }
 
 const App: React.FC = () => {
+  const { settings, updateSettings } = useSettings();
+  const userId = useUserId(); // userId を取得
   const {
     reminders,
     addReminder,
     updateReminder,
     deleteReminder,
     bulkUpdateReminders,
-  } = useReminders();
-  const { settings, updateSettings } = useSettings();
+  } = useReminders(settings, userId); // settings と userId を渡す
   const [theme, setTheme] = useTheme();
   const { timezoneChanged, handleTimezoneChange, dismissTimezoneChange } =
     useTimezone(reminders, updateReminder);
@@ -50,44 +51,14 @@ const App: React.FC = () => {
     error: null,
   });
 
-  const scheduleNextNotificationCallback = useCallback(() => {
-    if (
-      !("serviceWorker" in navigator) ||
-      !navigator.serviceWorker.controller
-    ) {
-      return;
-    }
-    const nextNotification = calculateNextScheduledNotification(reminders);
-    if (nextNotification) {
-      navigator.serviceWorker.controller.postMessage({
-        type: "SCHEDULE_NEXT_REMINDER",
-        payload: nextNotification,
-      });
-    } else {
-      navigator.serviceWorker.controller.postMessage({
-        type: "CANCEL_ALL_REMINDERS",
-      });
-    }
-  }, [reminders]);
-
-  const debouncedScheduleRef = useRef(
-    debounce(scheduleNextNotificationCallback, 200),
-  );
+  // 通知スケジューリング関連のロジックは useReminders フックに移動したため削除
 
   useEffect(() => {
-    debouncedScheduleRef.current = debounce(
-      scheduleNextNotificationCallback,
-      200,
-    );
-  }, [scheduleNextNotificationCallback]);
-
-  useEffect(() => {
-    debouncedScheduleRef.current();
-
+    // このuseEffectは、Service Workerからの `NOTIFICATION_EXECUTED` メッセージをリッスンするために残します
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === "NOTIFICATION_EXECUTED") {
         console.log(
-          "Notification executed, rescheduling...",
+          "Notification executed, updating lastNotified...",
           event.data.payload,
         );
         updateReminder(event.data.payload.executedReminderId, {
@@ -101,7 +72,7 @@ const App: React.FC = () => {
     return () => {
       navigator.serviceWorker.removeEventListener("message", handleMessage);
     };
-  }, [reminders, updateReminder, debouncedScheduleRef]);
+  }, [updateReminder]);
 
   const handleViewChange = (
     view: AppState["currentView"],

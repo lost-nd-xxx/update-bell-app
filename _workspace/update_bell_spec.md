@@ -7,7 +7,7 @@
 
 ## プロジェクト概要
 
-ユーザーが指定した周期で、指定したURLへのリンクをプッシュ通知するPWAアプリケーション。GitHub Pagesで公開し、PC/スマホ/タブレットで利用可能。
+ユーザーが指定した周期で、指定したURLへのリンクをプッシュ通知するPWAアプリケーション。Cloudflare Pagesで公開し、PC/スマホ/タブレットで利用可能。
 
 **コンセプト**: ウェブ漫画の更新チェック、新商品の発売確認、イベント開催チェックなど、定期的に確認したいウェブページを忘れずにチェックできるリマインダーアプリ。
 
@@ -56,7 +56,7 @@
 - **PWA**: Web Manifest / Service Worker
 - **通知**: Web Notifications API
 - **アイコン**: Lucide React, および一部アイコンには "Rounded Mplus 1c" フォントを画像化して使用。
-- **デプロイ**: GitHub Actions, GitHub Pages
+- **デプロイ**: Cloudflare Pages
 
 ### 開発環境のセットアップ
 
@@ -135,7 +135,7 @@ PWA機能は、Web ManifestとService Workerによって実装されています
 
 ### デプロイ
 
-`main` ブランチへのプッシュをトリガーとして、`.github/workflows/deploy.yml` に定義されたGitHub Actionsが自動でビルドとGitHub Pagesへのデプロイを実行します。
+Gitリポジトリへのプッシュをトリガーとして、Cloudflare Pagesが自動でビルドとデプロイを実行します。
 
 ### VS Code タスク設定
 

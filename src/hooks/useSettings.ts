@@ -8,6 +8,7 @@ const defaultSettings: AppSettings = {
   notifications: {
     enabled: false,
     permission: "default",
+    method: "local",
   },
   ui: {
     showWelcome: true,
@@ -21,7 +22,19 @@ export const useSettings = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        return { ...defaultSettings, ...parsed };
+        // ネストしたオブジェクトもマージするように修正
+        return {
+          ...defaultSettings,
+          ...parsed,
+          notifications: {
+            ...defaultSettings.notifications,
+            ...(parsed.notifications || {}),
+          },
+          ui: {
+            ...defaultSettings.ui,
+            ...(parsed.ui || {}),
+          },
+        };
       } catch (error) {
         console.error("設定の読み込みに失敗:", error);
         return defaultSettings;
