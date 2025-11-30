@@ -115,9 +115,14 @@ async function executeSendNotifications(env) {
 }
 
 /**
- * HTTPリクエスト（POST）で実行されるハンドラ
+ * HTTPリクエストで実行されるハンドラ
  */
-export async function onRequestPost({ request, env }) {
+export async function onRequest({ request, env }) {
+  // Cron WorkerからのリクエストはPOSTのみを想定
+  if (request.method !== "POST") {
+    return new Response("Method Not Allowed", { status: 405 });
+  }
+
   const secret = request.headers.get("X-Cron-Secret");
   if (!env.CRON_SECRET || secret !== env.CRON_SECRET) {
     return new Response("Unauthorized", { status: 401 });
