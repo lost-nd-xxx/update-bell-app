@@ -57,7 +57,7 @@
 - **スタイリング**: Tailwind CSS 3
 - **状態管理**: React Hooks（カスタムフック活用）
 - **PWA**: Web Manifest / Service Worker
-- **通知**: Web Notifications API, Web Push API
+- **通知**: Web Notifications API, Web Push API (`web-push`ライブラリを利用)
 - **サーバーレス**: Cloudflare Functions (for Web Push)
 - **データベース**: Cloudflare KV (for Web Push)
 - **アイコン**: Lucide React, および一部アイコンには "Rounded Mplus 1c" フォントを画像化して使用。
