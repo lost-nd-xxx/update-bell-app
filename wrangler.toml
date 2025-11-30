@@ -1,7 +1,10 @@
 name = "update-bell-app"
 compatibility_date = "2025-12-01"
 
+pages_build_output_dir = "dist"
+
 [[pages.functions.cron]]
 schedule = "* * * * *"
 entrypoint = "api/send-notifications"
+
 
