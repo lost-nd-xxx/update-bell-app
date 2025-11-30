@@ -3,23 +3,16 @@
 
 import webpush from "web-push";
 
-// Cloudflare WorkersにはNode.jsのcrypto.subtleのようなAPIがないため、
-// web-pushが依存するECDH鍵交換処理をWorkers互換のAPIに置き換えるShimを用意します。
+// Cloudflare Workersの`crypto` APIを`web-push`が利用できるようにする
+// web-push@4.x系では、cryptoモジュールのShimが必要になる場合がある
+// 参考: https://developers.cloudflare.com/workers/runtime-apis/nodejs/web-push/
 
-// web-pushの内部で利用されるECDH処理を上書き
-// この処理はweb-pushライブラリのバージョンや内部実装に依存する可能性があります。
-// 公式ドキュメント: https://developers.cloudflare.com/workers/runtime-apis/nodejs/web-push/
-if (webpush.webpush) {
-  // web-push@3.x系の場合の互換性レイヤー
-  webpush.webpush.generateVAPIDKeys = () => {
-    // このShimはWorkersランタイムでVAPIDキーを生成するものではありません
-    // VAPIDキーは環境変数として提供されるべきです
-    throw new Error("VAPID key generation is not supported in Workers runtime via this shim.");
-  };
-  webpush.webpush.setVapidDetails = webpush.setVapidDetails;
-  webpush.webpush.sendNotification = webpush.sendNotification;
-}
+// 実際には、webpush.sendNotification が呼び出される前に
+// Web Crypto APIが利用可能であることを保証する必要があります。
+// しかし、Pages Functionsのnodejs_compat環境では、多くの場合自動的に処理されます。
 
 // web-pushライブラリのsendNotification関数をエクスポート
 export const sendNotification = webpush.sendNotification;
 export const setVapidDetails = webpush.setVapidDetails;
+
+// VAPIDキーの生成はWorkersランタイムでは推奨されないため、generateVAPIDKeysはエクスポートしない。
