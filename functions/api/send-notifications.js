@@ -91,14 +91,16 @@ async function executeSendNotifications(env) {
         });
 
         if (!workerResponse.ok) {
-          const errorText = await workerResponse.text();
-          console.error(`[ERROR] Notification Sender Worker returned an error: ${workerResponse.status} ${workerResponse.statusText}. Body: ${errorText}`);
-          // Workerがエラーを返した場合でも、リマインダーはKVから削除する（再通知防止）
+          const status = workerResponse.status;
+          const statusText = workerResponse.statusText;
+          const errorText = await workerResponse.text(); // エラーボディ全体を取得
+          console.error(`[ERROR] Notification Sender Worker returned an error. Status: ${status} ${statusText}. Body: ${errorText}`);
+          // エラーの場合でもリマインダーはKVから削除する（再通知防止）
           for (const rem of userReminders) {
             await env.REMINDER_STORE.delete(rem.key);
-            console.log(`[INFO] Processed (and possibly failed to notify) and deleted reminder: ${rem.key}`);
+            console.log(`[INFO] Processed (and failed to notify) and deleted reminder: ${rem.key}`);
           }
-          continue;
+          continue; // 次のユーザーのリマインダー処理へ
         }
 
         const workerResult = await workerResponse.json();
