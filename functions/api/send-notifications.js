@@ -1,106 +1,25 @@
 // functions/api/send-notifications.js
-// web-pushライブラリの代わりにWeb Push APIを直接利用して通知を送信する
-
-/**
- * VAPID署名とPushサービスへのAuthorizationヘッダーを生成するヘルパー関数
- * @param {string} aud Audience URL (e.g., push.api.network)
- * @param {string} sub Subject (mailto:email@example.com)
- * @param {string} vapidPrivateKey VAPID秘密鍵
- * @returns {Promise<string>} Authorizationヘッダーの値
- */
-async function generateAuthorizationHeader(aud, sub, vapidPrivateKey) {
-  const header = {
-    typ: "JWT",
-    alg: "ES256",
-  };
-
-  const claims = {
-    aud: aud,
-    exp: Math.floor(Date.now() / 1000) + 12 * 60 * 60, // 12時間有効
-    sub: sub,
-  };
-
-  const textEncoder = new TextEncoder();
-  const encodedHeader = textEncoder.encode(btoa(JSON.stringify(header)).replace(/=/g, ""));
-  const encodedClaims = textEncoder.encode(btoa(JSON.stringify(claims)).replace(/=/g, ""));
-
-  const signatureBase = `${encodedHeader.toString().replace(/,/g, "")}.${encodedClaims.toString().replace(/,/g, "")}`;
-
-  // VAPID秘密鍵をRawのUint8Arrayに変換
-  const rawPrivateKey = base64UrlToUint8Array(vapidPrivateKey);
-
-  // Raw秘密鍵をPKCS8形式に変換 (ECDSA P-256の場合の固定ヘッダとフッタ)
-  // 参考: web-pushライブラリの内部実装やRFC
-  const pkcs8Bytes = new Uint8Array(38 + rawPrivateKey.length);
-  pkcs8Bytes.set([
-    0x30, 0x77, 0x02, 0x01, 0x01, 0x04, 0x20, // PKCS8 header up to private key length
-  ]);
-  pkcs8Bytes.set(rawPrivateKey, 7); // Private key
-  pkcs8Bytes.set([
-    0xA0, 0x07, 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x0A, // OID for P-256
-  ], 7 + rawPrivateKey.length);
-
-  // ECDSA秘密鍵をインポート
-  const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8", // フォーマットは 'pkcs8' に戻す
-    pkcs8Bytes, // 変換したPKCS8バイト列を使用
-    { name: "ECDSA", namedCurve: "P-256" },
-    true,
-    ["sign"]
-  );
-
-  // 署名を生成
-  const signature = await crypto.subtle.sign(
-    { name: "ECDSA", hash: "SHA-256" },
-    cryptoKey,
-    textEncoder.encode(signatureBase)
-  );
-
-  const base64UrlSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/=/g, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
-
-  return `WebPush ${base64UrlSignature}`;
-}
-
-/**
- * Base64URL文字列をUint8Arrayに変換するヘルパー関数
- * (web-pushライブラリのurlBase64ToUint8Arrayを参考)
- * @param {string} base64Url
- * @returns {Uint8Array}
- */
-function base64UrlToUint8Array(base64Url) {
-  const padding = "=".repeat((4 - (base64Url.length % 4)) % 4);
-  const base64 = (base64Url + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
+// 通知送信のロジックをupdate-bell-app-notification-sender Workerに委譲する
 
 /**
  * 共通の通知送信ロジック
  * @param {*} env Cloudflare環境変数
  */
 async function executeSendNotifications(env) {
-  console.log(`[DEBUG] --- Notification Logic Start (Time: ${new Date().toISOString()}) ---`);
+  console.log(`[DEBUG] --- Pages Function Notification Logic Start (Time: ${new Date().toISOString()}) ---`);
   const now = Date.now();
 
-  const vapidKeys = {
-    publicKey: env.VITE_VAPID_PUBLIC_KEY,
-    privateKey: env.VAPID_PRIVATE_KEY,
-  };
+  // Notification Sender WorkerのURL (Cloudflare WorkersのURLは name.workers.dev 形式)
+  const NOTIFICATION_SENDER_WORKER_URL = `https://update-bell-app-notification-sender.lost-nd-xxx.workers.dev`;
+  // ここでlost-nd-xxx をユーザーのアカウント名に置き換えるように指示する必要がある。
 
-  if (!vapidKeys.publicKey || !vapidKeys.privateKey) {
-    console.error("[ERROR] VAPID keys are not set in environment variables.");
-    return new Response("VAPID keys missing.", { status: 500 });
+  // Notification Sender Workerとの認証用シークレット
+  const NOTIFICATION_SENDER_SECRET = env.NOTIFICATION_SENDER_SECRET;
+
+  if (!NOTIFICATION_SENDER_SECRET) {
+    console.error("[ERROR] NOTIFICATION_SENDER_SECRET is not set in environment variables for Pages Function.");
+    return new Response("Notification sender secret missing.", { status: 500 });
   }
-  console.log("[DEBUG] VAPID keys loaded successfully.");
-
 
   try {
     const listResponse = await env.REMINDER_STORE.list({ prefix: "reminder:" });
@@ -124,101 +43,121 @@ async function executeSendNotifications(env) {
       return new Response("No pending reminders.", { status: 200 });
     }
 
-    const notificationPromises = pendingReminders.map(async (reminder) => {
-      console.log(`[DEBUG] Processing reminder: ${reminder.key}`);
-      const { userId, message, url } = reminder.data;
+    const allExpiredEndpoints = [];
+
+    // リマインダーをユーザーIDでグループ化し、通知Senderに一度に渡す
+    const remindersByUser = pendingReminders.reduce((acc, reminder) => {
+      const userId = reminder.data.userId;
+      if (!acc[userId]) {
+        acc[userId] = [];
+      }
+      acc[userId].push(reminder);
+      return acc;
+    }, {});
+
+    for (const userId in remindersByUser) {
+      const userReminders = remindersByUser[userId];
       const subscriptionKey = `user:${userId}:subscriptions`;
-      
       const subscriptions = (await env.REMINDER_STORE.get(subscriptionKey, "json")) || [];
       console.log(`[DEBUG] Found ${subscriptions.length} subscriptions for user ${userId}.`);
 
       if (subscriptions.length === 0) {
-        console.warn(`[WARN] No subscriptions found for user ${userId}. Deleting reminder.`);
-        await env.REMINDER_STORE.delete(reminder.key);
-        return [];
+        console.warn(`[WARN] No subscriptions found for user ${userId}. Deleting ${userReminders.length} reminders.`);
+        for (const rem of userReminders) {
+          await env.REMINDER_STORE.delete(rem.key);
+        }
+        continue;
       }
 
-      const payload = JSON.stringify({
-        title: "おしらせベル",
-        body: message,
-        url: url,
-      });
+      // 通知ペイロードはリマインダーごとに生成
+      const notificationsToSend = userReminders.map(rem => ({
+        payload: {
+          title: "おしらせベル",
+          body: rem.data.message,
+          url: rem.data.url,
+        },
+        reminderKey: rem.key, // 処理後に削除するためにキーを保持
+      }));
 
-      const promises = subscriptions.map(async (sub) => {
-        try {
-          const authorizationHeader = await generateAuthorizationHeader(
-            sub.endpoint.split("/")[2], // Pushサービスのホスト名がaudienceとなる
-            "mailto:shimayoshiba@gmail.com", // VAPIDのsubject
-            vapidKeys.privateKey
-          );
+      // Notification Sender Workerを呼び出す
+      try {
+        console.log(`[DEBUG] Calling Notification Sender Worker for user ${userId}...`);
+        const workerResponse = await fetch(NOTIFICATION_SENDER_WORKER_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Notification-Sender-Secret": NOTIFICATION_SENDER_SECRET, // シークレットヘッダー
+          },
+          body: JSON.stringify({
+            subscriptions: subscriptions,
+            payloads: notificationsToSend.map(n => n.payload) // すべてのペイロードを一度に渡す
+          }),
+        });
 
-          const response = await fetch(sub.endpoint, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": authorizationHeader,
-              "Encryption": `salt=${btoa(String.fromCharCode(...new Uint8Array(crypto.getRandomValues(new Uint8Array(16))))).replace(/=/g, "")}`, // Saltを生成
-              "Crypto-Key": `p256ecdsa=${vapidKeys.publicKey};dh=${btoa(String.fromCharCode(...new Uint8Array(crypto.getRandomValues(new Uint8Array(65))))).replace(/=/g, "")}`, // DHキーと公開鍵
-            },
-            body: payload, // ペイロードは暗号化なしで送信（仕様上は暗号化必須だが、一部サービスでは対応）
-          });
-
-          if (response.ok) {
-            console.log(`[DEBUG] Notification sent successfully to user ${userId}. Status: ${response.status}`);
-            return response;
-          } else {
-            console.error(`[ERROR] Failed to send notification to ${userId}: ${response.status} ${response.statusText}`, await response.text());
-            if (response.status === 410) {
-              console.log(`[INFO] Subscription for ${userId} has expired. Deleting.`);
-              return { expired: true, userId, endpoint: sub.endpoint };
-            }
-            return { error: true, message: `Status: ${response.status}, Text: ${await response.text()}` };
-          }
-        } catch (error) {
-          console.error(`[ERROR] Uncaught error sending notification to ${userId}:`, error);
-          return { error: true, message: error.message };
+        if (!workerResponse.ok) {
+          const errorText = await workerResponse.text();
+          console.error(`[ERROR] Notification Sender Worker returned an error: ${workerResponse.status} ${workerResponse.statusText}. Body: ${errorText}`);
+          continue; // このユーザーのリマインダーはスキップし、次のユーザーへ
         }
-      });
 
-      await Promise.allSettled(promises);
-      console.log(`[INFO] Processed and deleted reminder: ${reminder.key}`);
-      await env.REMINDER_STORE.delete(reminder.key);
-      
-      return promises;
-    });
-
-    const allResults = await Promise.allSettled(notificationPromises.flat());
-    const subscriptionsToRemove = allResults
-      .filter((p) => p.status === "fulfilled" && p.value?.expired)
-      .map((p) => p.value);
-
-    if (subscriptionsToRemove.length > 0) {
-      const subsByUser = subscriptionsToRemove.reduce((acc, sub) => {
-        acc[sub.userId] = acc[sub.userId] || [];
-        acc[sub.userId].push(sub.endpoint);
-        return acc;
-      }, {});
-
-      for (const userId in subsByUser) {
-        const subKey = `user:${userId}:subscriptions`;
-        const currentSubs = (await env.REMINDER_STORE.get(subKey, "json")) || [];
-        const endpointsToRemove = new Set(subsByUser[userId]);
-        const filteredSubs = currentSubs.filter((s) => !endpointsToRemove.has(s.endpoint));
+        const workerResult = await workerResponse.json();
+        if (workerResult.expiredEndpoints && workerResult.expiredEndpoints.length > 0) {
+          allExpiredEndpoints.push(...workerResult.expiredEndpoints);
+          console.log(`[INFO] Notification Sender Worker reported ${workerResult.expiredEndpoints.length} expired endpoints for user ${userId}.`);
+        }
         
-        if (filteredSubs.length > 0) {
-          await env.REMINDER_STORE.put(subKey, JSON.stringify(filteredSubs));
-        } else {
-          await env.REMINDER_STORE.delete(subKey);
+        // 処理されたリマインダーをKVから削除
+        for (const notif of notificationsToSend) {
+          await env.REMINDER_STORE.delete(notif.reminderKey);
+          console.log(`[INFO] Processed and deleted reminder: ${notif.reminderKey}`);
         }
-        console.log(`Cleaned up ${endpointsToRemove.size} expired subscription(s) for user ${userId}.`);
+
+      } catch (error) {
+        console.error(`[ERROR] Error calling Notification Sender Worker for user ${userId}:`, error);
+        continue;
       }
     }
+
+    // 期限切れの購読情報をクリーンアップ (Pages Functions側で処理)
+    if (allExpiredEndpoints.length > 0) {
+      console.log(`[DEBUG] Cleaning up ${allExpiredEndpoints.length} expired endpoints across users.`);
+      // ユーザーIDごとにグループ化し、KVから削除
+      // この部分は既存のロジックを流用可能
+      const subsByUser = allExpiredEndpoints.reduce((acc, endpoint) => {
+        // endpointからuserIdを逆引きする必要があるが、それはここではできない。
+        // workerからuserId情報も受け取るようにするか、Pages Functionでサブスクリプションを管理する際にuserIdを付与する。
+        // ここでは便宜上、サブスクリプションが期限切れになったユーザーの他のサブスクリプションも確認する形にする。
+        // より正確にするには workerResult.expiredEndpoints に { userId, endpoint } の形で含める必要がある
+        // TODO: Notification Sender WorkerからのexpiredEndpointsにuserIdを含めてもらう
+
+        // 現状は、Pages Function側で全サブスクリプションを再取得し、expiredEndpointsと突き合わせる
+        // これはKVアクセスが増えるため効率が悪い
+      }, {});
+
+      // ここでは簡易的に、期限切れがあったユーザーのサブスクリプション全体を再評価する
+      const uniqueUserIdsWithExpiredSubs = [...new Set(pendingReminders.map(r => r.data.userId))]; // 処理したユーザーから取得
+      for (const userId of uniqueUserIdsWithExpiredSubs) {
+        const subKey = `user:${userId}:subscriptions`;
+        const currentSubs = (await env.REMINDER_STORE.get(subKey, "json")) || [];
+        const filteredSubs = currentSubs.filter(s => !allExpiredEndpoints.includes(s.endpoint)); // 期限切れのエンドポイントを除外
+
+        if (filteredSubs.length < currentSubs.length) { // 実際に削除されたものがある場合のみ更新
+          if (filteredSubs.length > 0) {
+            await env.REMINDER_STORE.put(subKey, JSON.stringify(filteredSubs));
+          } else {
+            await env.REMINDER_STORE.delete(subKey);
+          }
+          console.log(`[INFO] Cleaned up expired subscription(s) for user ${userId}. New count: ${filteredSubs.length}`);
+        }
+      }
+    }
+
   } catch (error) {
-    console.error("[ERROR] Uncaught error in notification sender:", error);
-    return new Response("Internal Server Error in notification sender.", { status: 500 });
+    console.error("[ERROR] Uncaught error in Pages Function notification sender:", error);
+    return new Response("Internal Server Error in Pages Function notification sender.", { status: 500 });
   }
 
-  console.log(`[DEBUG] --- Notification Logic End ---`);
+  console.log(`[DEBUG] --- Pages Function Notification Logic End ---`);
   return new Response("Notification task completed successfully.", { status: 200 });
 }
 
