@@ -5,3 +5,7 @@ compatibility_flags = [ "nodejs_compat" ]
 
 [vars]
 VAPID_PUBLIC_KEY = "BH282dXgVsQ2OA9j6guwx0emhXDg2mjtiePsGduQ5r6hD1VcThcxtBAuL2P3dXUUNzObwGsl0i9qG5smXe11c7M"
+
+[[kv_namespaces]]
+binding = "REMINDER_STORE"
+id = "1e91cb1ccc1a45d49f1424accc6ecd4d"
