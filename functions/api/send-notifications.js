@@ -62,16 +62,22 @@ async function executeSendNotifications(env) {
         url: url,
       });
 
-      const promises = subscriptions.map((sub) =>
-        return sendNotification(sub, payload).catch((error) => {
-          if (error.statusCode === 410) {
-            console.log(`Subscription for ${userId} has expired. Deleting.`);
-            return { expired: true, userId, endpoint: sub.endpoint };
-          }
-          console.error(`Failed to send notification to ${userId}:`, error.body || error.message);
-          return { error: true, message: error.body || error.message };
-        })
-      );
+      const promises = subscriptions.map((sub) => {
+        console.log(`[DEBUG] Sending notification to endpoint for user ${userId}`);
+        return sendNotification(sub, payload)
+          .then(response => {
+            console.log(`[DEBUG] Notification sent successfully to user ${userId}. Status: ${response.statusCode}`);
+            return response;
+          })
+          .catch((error) => {
+            console.error(`[ERROR] Failed to send notification to ${userId}:`, error.body || error.message);
+            if (error.statusCode === 410) {
+              console.log(`[INFO] Subscription for ${userId} has expired. Deleting.`);
+              return { expired: true, userId, endpoint: sub.endpoint };
+            }
+            return { error: true, message: error.body || error.message };
+          });
+      });
 
       // 正常に処理された（エラーにならなかった）リマインダーを削除
       await Promise.allSettled(promises);
