@@ -1,6 +1,4 @@
-name = "update-bell-app-cron"
-main = "functions/api/send-notifications.js"
-compatibility_date = "2023-01-01"
+pages_build_output_dir = "dist"
 
 [triggers]
 crons = ["* * * * *"]
