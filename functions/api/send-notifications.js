@@ -27,12 +27,23 @@ async function generateAuthorizationHeader(aud, sub, vapidPrivateKey) {
   const signatureBase = `${encodedHeader.toString().replace(/,/g, "")}.${encodedClaims.toString().replace(/,/g, "")}`;
 
   // VAPID秘密鍵をRawのUint8Arrayに変換
-  const privateKeyBuffer = base64UrlToUint8Array(vapidPrivateKey);
+  const rawPrivateKey = base64UrlToUint8Array(vapidPrivateKey);
+
+  // Raw秘密鍵をPKCS8形式に変換 (ECDSA P-256の場合の固定ヘッダとフッタ)
+  // 参考: web-pushライブラリの内部実装やRFC
+  const pkcs8Bytes = new Uint8Array(38 + rawPrivateKey.length);
+  pkcs8Bytes.set([
+    0x30, 0x77, 0x02, 0x01, 0x01, 0x04, 0x20, // PKCS8 header up to private key length
+  ]);
+  pkcs8Bytes.set(rawPrivateKey, 7); // Private key
+  pkcs8Bytes.set([
+    0xA0, 0x07, 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x0A, // OID for P-256
+  ], 7 + rawPrivateKey.length);
 
   // ECDSA秘密鍵をインポート
   const cryptoKey = await crypto.subtle.importKey(
-    "raw", // フォーマットを 'raw' に変更
-    privateKeyBuffer,
+    "pkcs8", // フォーマットは 'pkcs8' に戻す
+    pkcs8Bytes, // 変換したPKCS8バイト列を使用
     { name: "ECDSA", namedCurve: "P-256" },
     true,
     ["sign"]
