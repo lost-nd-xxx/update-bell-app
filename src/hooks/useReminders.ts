@@ -6,6 +6,7 @@ import {
   calculateNextScheduledNotification,
   debounce,
 } from "../utils/helpers";
+import { usePushNotifications } from "./usePushNotifications"; // 追加
 
 // このフックは settings と userId に依存するようになります
 export const useReminders = (settings: AppSettings, userId: string | null) => {
@@ -22,6 +23,10 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
     }
     return [];
   });
+
+  // usePushNotificationsから現在の購読情報を取得
+  const { subscription } = usePushNotifications();
+
 
   // リマインダーをlocalStorageに保存
   useEffect(() => {
@@ -59,7 +64,7 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
   }, [scheduleLocalNotification]);
 
   // プッシュ通知の予約
-  const schedulePushNotification = async (reminder: Reminder) => {
+  const schedulePushNotification = async (reminder: Reminder, currentSubscription: PushSubscription | null) => {
     if (!userId) {
       console.error(
         "Push notification scheduling failed: User ID is not available.",
@@ -89,7 +94,7 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
             url: reminder.url,
             // 必要に応じて他のリマインダープロパティも追加
             status: reminder.status, // 例えば現在のステータスも送る
-            subscription: reminder.subscription, // サブスクリプション情報も送る
+            subscription: currentSubscription, // ここで現在の購読情報を追加
           }
         }),
       });
@@ -103,7 +108,7 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
     if (settings.notifications.method === "push") {
       // プッシュ通知の場合、変更された各リマインダーについて予約APIを叩く
       changedReminders.forEach((reminder) =>
-        schedulePushNotification(reminder),
+        schedulePushNotification(reminder, subscription),
       );
     } else {
       // ローカル通知の場合、全リマインダーから次の通知を計算して予約する
