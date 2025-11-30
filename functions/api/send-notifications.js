@@ -77,7 +77,7 @@ async function executeSendNotifications(env) {
 
       // Notification Sender Workerを呼び出す
       try {
-        console.log(`[DEBUG] Calling Notification Sender Worker for user ${userId}...`);
+        console.log(`[DEBUG] Calling Notification Sender Worker for user ${userId} at ${NOTIFICATION_SENDER_WORKER_URL}...`);
         const workerResponse = await fetch(NOTIFICATION_SENDER_WORKER_URL, {
           method: "POST",
           headers: {
@@ -102,6 +102,7 @@ async function executeSendNotifications(env) {
           }
           continue; // 次のユーザーのリマインダー処理へ
         }
+
 
         const workerResult = await workerResponse.json();
         if (workerResult.expiredEndpoints && workerResult.expiredEndpoints.length > 0) {
