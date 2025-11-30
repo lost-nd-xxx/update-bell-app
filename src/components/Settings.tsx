@@ -7,7 +7,6 @@ import {
   Download,
   Upload,
   Trash2,
-  Info,
   CheckCircle,
   AlertCircle,
   XCircle,
@@ -653,16 +652,16 @@ const Settings: React.FC<SettingsProps> = ({
               </div>
             </div>
 
-            <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded">
-              <div className="text-sm text-black dark:text-white">
+            <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 rounded">
+              <div className="text-sm text-red-900 dark:text-red-200">
                 <p className="flex flex-row gap-2 items-center">
-                  <Info size={16} className="text-blue-500" />
-                  <strong>将来の機能変更について</strong>
+                  <AlertTriangle size={16} className="text-red-500" />
+                  <strong>機密情報の入力に関して</strong>
                 </p>
-                <p className="mt-1 text-gray-600 dark:text-gray-400">
-                  より確実な通知のため、将来的に外部プッシュ通知サービスの追加導入を予定しています。
+                <p className="mt-1 text-red-700 dark:text-red-300">
+                  本アプリの管理者は、デバッグ等の目的でリマインダーの内容を閲覧する可能性があります。
                   <br />
-                  その際、現在のオフライン動作機能は廃止される可能性があります。
+                  他人に知られて困るような個人情報や機密情報は入力しないでください。
                 </p>
               </div>
             </div>
@@ -767,6 +766,20 @@ const Settings: React.FC<SettingsProps> = ({
                 className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               >
                 GitHub <ExternalLink size={12} />
+              </a>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">
+                プライバシーポリシー
+              </span>
+              <a
+                href="docs/PRIVACY_POLICY.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                内容を確認 <ExternalLink size={12} />
               </a>
             </div>
 

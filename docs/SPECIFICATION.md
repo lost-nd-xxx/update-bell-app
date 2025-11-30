@@ -1,7 +1,6 @@
 # おしらせベル アプリケーション仕様書
 
-**最終更新**: 2025-11-23
-**バージョン**: 1.0.0
+**最終更新**: 2025-11-30
 
 ---
 
@@ -19,10 +18,12 @@
 
 - **リマインダー管理**: 作成・編集・削除・一時停止・複製機能
 - **柔軟な周期設定**: 毎日・数日ごと・毎週・特定曜日複数選択・毎月（第n曜日）
-- **プッシュ通知**: 指定時刻にブラウザ通知（Service Worker）
+- **ハイブリッド通知**:
+  - **ローカル通知**: Service Workerを利用した、デバイス完結型の基本的な通知。
+  - **プッシュ通知**: Cloudflareサーバーを経由する、高信頼性なWeb Push通知。
 - **タグ機能**: 分類・検索・フィルター対応
 - **テーマ切り替え**: ライト/ダーク/システム準拠
-- **PWA対応**: オフライン動作・インストール可能・ホーム画面追加
+- **PWA対応**: オフライン動作（一部機能）・インストール可能・ホーム画面追加
 - **データ管理**: JSON エクスポート/インポート（重複処理含む）
 - **タイムゾーン管理**: 移動時の自動検出・調整ダイアログ
 
@@ -34,7 +35,9 @@
 
 ### データ管理仕様
 
-- **ストレージ**: ブラウザのLocalStorage（ユーザー登録不要）
+- **ストレージ**:
+  - **ブラウザ LocalStorage**: リマインダーの基本設定やUI設定を保存。
+  - **Cloudflare KV**: プッシュ通知を選択したユーザーのリマインダー情報と購読情報をサーバーサイドに保存。
 - **データ形式**: JSON（エクスポート/インポート対応）
 - **状態管理**: カスタムフック（`useReminders`, `useSettings`, `useTheme`, `useTimezone`）
 - **バックアップ**: UIからの手動エクスポートを推奨
@@ -54,7 +57,9 @@
 - **スタイリング**: Tailwind CSS 3
 - **状態管理**: React Hooks（カスタムフック活用）
 - **PWA**: Web Manifest / Service Worker
-- **通知**: Web Notifications API
+- **通知**: Web Notifications API, Web Push API
+- **サーバーレス**: Cloudflare Functions (for Web Push)
+- **データベース**: Cloudflare KV (for Web Push)
 - **アイコン**: Lucide React, および一部アイコンには "Rounded Mplus 1c" フォントを画像化して使用。
 - **デプロイ**: Cloudflare Pages
 
@@ -104,33 +109,37 @@ npm run dev
 
 PWA機能は、Web ManifestとService Workerによって実装されています。
 
-- **Service Worker**: `public/sw.js`が本番環境でのみアプリによって登録されます。現在の実装は通知機能に特化しており、オフライン用のキャッシュ機能は含まれていません。
+- **Service Worker**: `public/sw.js`が本番環境でのみアプリによって登録されます。
+- **通知機能**:
+  - **ローカル通知**: アプリから受け取ったスケジュールに基づき、Service Workerが`setTimeout`を利用してローカル通知を管理します。
+  - **プッシュ通知**: サーバー（Cloudflare Functions）から送信されたPushイベントをService Workerが受け取り、Web Notifications APIを利用して通知を表示します。
 - **マニフェスト**: アプリ名、アイコン、ショートカットなどが `public/manifest.json` に定義されています。
-- **通知機能**: アプリから受け取ったスケジュールに基づき、Service WorkerがWeb Notifications APIを利用して通知を送信します。
 - **開発時の注意**: 開発環境ではService Workerの登録は無効化されます。
 
 ### プロジェクト構造
 
 ```
 .
+├── functions/           # Cloudflare Functions (サーバーレスAPI)
 ├── public/              # 静的ファイル (アイコン, sw.js, manifest.json)
-├── src/                 # ソースコード
-│   ├── components/      # Reactコンポーネント
-│   ├── hooks/           # カスタムフック
-│   ├── types/           # TypeScript型定義
-│   ├── utils/           # ユーティリティ関数
-│   ├── App.tsx          # メインアプリコンポーネント
-│   ├── main.tsx         # エントリーポイント
-│   └── index.css        # グローバルスタイル
-├── _workspace/          # 開発・仕様管理用ディレクトリ
-├── .github/             # GitHub Actions ワークフロー
-├── .vscode/             # VS Code設定
-├── package.json         # 依存関係・スクリプト定義
-├── vite.config.ts       # Vite・PWA設定
-├── tsconfig.json        # TypeScript設定
+├── src/                 # Reactアプリケーションのソースコード
+├── docs/                # ドキュメント (仕様書, プライバシーポリシー)
+├── scripts/             # ビルド用スクリプト (アイコン変換など)
+├── .vscode/             # VS Codeの推奨設定
+├── .gitignore           # Gitの追跡除外ファイル
+├── .prettierrc          # Prettierのコードフォーマット設定
+├── eslint.config.js     # ESLintのコード品質設定
+├── index.html           # アプリケーションのHTMLエントリーポイント
+├── LICENSE              # プロジェクトのライセンス
+├── package.json         # 依存関係とスクリプトの定義
+├── package-lock.json    # 依存関係のバージョンロックファイル
 ├── postcss.config.cjs   # PostCSS設定
+├── README.md            # プロジェクトの概要説明
 ├── tailwind.config.cjs  # Tailwind CSS設定
-└── index.html           # HTMLエントリーポイント
+├── THIRD-PARTY-LICENSES.md # サードパーティライセンス情報
+├── tsconfig.json        # TypeScriptの基本設定
+├── tsconfig.node.json   # TypeScriptのNode.js環境用設定
+└── vite.config.ts       # Viteのビルド・PWA設定
 ```
 
 ### デプロイ
@@ -148,8 +157,7 @@ VS Codeで `Ctrl+Shift+P` → `Tasks: Run Task` から各種チェックやビ�
 
 ---
 
-## 将来拡張ロードマップ
+## 今後のタスク
 
-### 優先度：高
-
-- **外部プッシュ通知**: より確実な通知のため（Web Push API等）
+- **データ自動削除機能**: 長期間利用されていないユーザーデータをサーバーから自動的に削除し、パフォーマンスとプライバシーを向上させる。
+- **UI/UXの継続的な改善**: より直感的で使いやすいインターフェースの追求。
