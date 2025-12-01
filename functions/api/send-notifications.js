@@ -16,11 +16,10 @@ async function executeSendNotifications(env) {
   // Notification Sender WorkerのURL (HTTP呼び出し用)
   const NOTIFICATION_SENDER_WORKER_URL = `https://update-bell-app-notification-sender.vercel.app/api`; // あなたのWorker URLに置き換える
 
-  // NOTIFICATION_SENDER_SECRETは不要になったため削除
   // const NOTIFICATION_SENDER_SECRET = env.NOTIFICATION_SENDER_SECRET;
   // if (!NOTIFICATION_SENDER_SECRET) {
   //   console.error("[ERROR] NOTIFICATION_SENDER_SECRET is not set in environment variables for Pages Function.");
-  //   return new Response("Notification sender missing.", { status: 500 });
+  //   return new Response("Notification sender secret missing.", { status: 500 });
   // }
 
   try {
