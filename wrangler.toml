@@ -10,9 +10,3 @@ VITE_VAPID_PUBLIC_KEY = "BH282dXgVsQ2OA9j6guwx0emhXDg2mjtiePsGduQ5r6hD1VcThcxtBA
 [[kv_namespaces]]
 binding = "REMINDER_STORE"
 id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" # ここは変更しないでください
-
-# Notification Sender Workerへのサービスバインディングを追加
-[[unsafe.bindings]]
-name = "NOTIFICATION_SENDER_WORKER" # Pages Functionsからアクセスする際に env.NOTIFICATION_SENDER_WORKER で参照
-type = "worker"
-worker = "update-bell-app-notification-sender" # 呼び出すWorkerの名前
