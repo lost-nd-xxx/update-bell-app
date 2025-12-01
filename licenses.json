@@ -1,0 +1,54 @@
+{
+  "js-tokens@4.0.0": {
+    "licenses": "MIT",
+    "repository": "https://github.com/lydell/js-tokens",
+    "publisher": "Simon Lydell",
+    "path": "D:\\git_project\\update-bell-app\\node_modules\\js-tokens",
+    "licenseFile": "D:\\git_project\\update-bell-app\\node_modules\\js-tokens\\LICENSE"
+  },
+  "loose-envify@1.4.0": {
+    "licenses": "MIT",
+    "repository": "https://github.com/zertosh/loose-envify",
+    "publisher": "Andres Suarez",
+    "email": "zertosh@gmail.com",
+    "path": "D:\\git_project\\update-bell-app\\node_modules\\loose-envify",
+    "licenseFile": "D:\\git_project\\update-bell-app\\node_modules\\loose-envify\\LICENSE"
+  },
+  "lucide-react@0.263.1": {
+    "licenses": "ISC",
+    "repository": "https://github.com/lucide-icons/lucide",
+    "publisher": "Eric Fennis",
+    "path": "D:\\git_project\\update-bell-app\\node_modules\\lucide-react",
+    "licenseFile": "D:\\git_project\\update-bell-app\\node_modules\\lucide-react\\LICENSE"
+  },
+  "react-dom@18.3.1": {
+    "licenses": "MIT",
+    "repository": "https://github.com/facebook/react",
+    "path": "D:\\git_project\\update-bell-app\\node_modules\\react-dom",
+    "licenseFile": "D:\\git_project\\update-bell-app\\node_modules\\react-dom\\LICENSE"
+  },
+  "react@18.3.1": {
+    "licenses": "MIT",
+    "repository": "https://github.com/facebook/react",
+    "path": "D:\\git_project\\update-bell-app\\node_modules\\react",
+    "licenseFile": "D:\\git_project\\update-bell-app\\node_modules\\react\\LICENSE"
+  },
+  "scheduler@0.23.2": {
+    "licenses": "MIT",
+    "repository": "https://github.com/facebook/react",
+    "path": "D:\\git_project\\update-bell-app\\node_modules\\scheduler",
+    "licenseFile": "D:\\git_project\\update-bell-app\\node_modules\\scheduler\\LICENSE"
+  },
+  "update-bell-app@1.1.0": {
+    "licenses": "MIT",
+    "publisher": "lost_nd_xxx",
+    "path": "D:\\git_project\\update-bell-app",
+    "licenseFile": "D:\\git_project\\update-bell-app\\LICENSE"
+  },
+  "uuid@13.0.0": {
+    "licenses": "MIT",
+    "repository": "https://github.com/uuidjs/uuid",
+    "path": "D:\\git_project\\update-bell-app\\node_modules\\uuid",
+    "licenseFile": "D:\\git_project\\update-bell-app\\node_modules\\uuid\\LICENSE.md"
+  }
+}

@@ -15,12 +15,10 @@ const iconSizes = [16, 32, 72, 96, 128, 144, 152, 180, 192, 384, 512];
 
 // SVGファイルパス（_workspaceフォルダ内）
 const svgFiles = {
-  // 大きいサイズ用（文字入り、256px以上）
+  // 大きいサイズ用
   large: "_workspace/icon-large.svg",
-  // 中サイズ用（文字なし標準、72-192px）
-  medium: "_workspace/icon-medium.svg",
-  // 極小サイズ用（最もシンプル、32px以下）
-  tiny: "_workspace/icon-tiny.svg",
+  // 極小サイズ用
+  small: "_workspace/icon-small.svg"
 };
 
 // 出力ディレクトリ
@@ -55,13 +53,10 @@ const checkSvgFiles = () => {
 
 // サイズに応じた最適なSVGファイルを選択
 const selectSvgFile = (size) => {
-  if (size >= 256) {
-    return svgFiles.large; // 256px以上: 文字入り
-  }
   if (size >= 72) {
-    return svgFiles.medium; // 72px-255px: 文字なし標準
+    return svgFiles.large; // 72px以上
   }
-  return svgFiles.tiny; // 71px以下: 極小用
+  return svgFiles.small; // 71px以下
 };
 
 // PNGアイコンを生成
@@ -99,7 +94,7 @@ const generateIcon = async (size) => {
 // マスキング可能アイコンを生成
 const generateMaskableIcon = async (size) => {
   const outputPath = path.join(outputDir, `icon-maskable-${size}x${size}.png`);
-  const svgPath = svgFiles.medium; // medium SVGを使用
+  const svgPath = svgFiles.large;
 
   try {
     log(
@@ -137,9 +132,8 @@ const generateFavicon = async () => {
   try {
     log("🔄 ファビコン準備中...");
 
-    // 32x32と16x16のPNGファビコンをコピー
+    // 32x32のPNGファビコンをコピー
     const favicon32 = path.join(outputDir, "icon-32x32.png");
-    const favicon16 = path.join(outputDir, "icon-16x16.png");
     const faviconOut = path.join(outputDir, "favicon.png");
 
     // 32x32をfavicon.pngとしてコピー

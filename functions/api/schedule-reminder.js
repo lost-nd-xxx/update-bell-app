@@ -20,9 +20,14 @@ export async function onRequestPost({ request, env }) {
     const reminderKey = `reminder:${userId}:${reminder.reminderId}`;
     const userSubscriptionKey = `user:${userId}:subscriptions`;
 
-    // リマインダーをKVに保存
-    await env.REMINDER_STORE.put(reminderKey, JSON.stringify(reminder));
-    console.log(`[INFO] schedule-reminder: Reminder ${reminderKey} saved to KV.`);
+    // リマインダーをKVに保存 (metadataを追加)
+    await env.REMINDER_STORE.put(reminderKey, JSON.stringify(reminder), {
+      metadata: { 
+        scheduledTime: reminder.scheduledTime, 
+        status: reminder.status 
+      },
+    });
+    console.log(`[INFO] schedule-reminder: Reminder ${reminderKey} saved to KV with metadata.`);
 
     // ユーザーのサブスクリプションを更新（既存のサブスクリプションに追加）
     // リマインダー保存時にサブスクリプション情報も更新されることを想定

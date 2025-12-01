@@ -26,32 +26,27 @@ async function executeSendNotifications(env) {
     const listResponse = await env.REMINDER_STORE.list({ prefix: "reminder:" });
     console.log(`[DEBUG] Found ${listResponse.keys.length} total reminder keys in KV.`);
 
+    // list()の結果に含まれるmetadataを使って、まず処理対象のキーを絞り込む
+    const pendingReminderKeys = listResponse.keys.filter(keyInfo => {
+      const isPending = keyInfo.metadata?.status === "pending";
+      const isScheduledBeforeNow = keyInfo.metadata?.scheduledTime <= now;
+      const isWithinPastThreshold = keyInfo.metadata?.scheduledTime > pastThreshold;
+      return isPending && isScheduledBeforeNow && isWithinPastThreshold;
+    });
+
+    console.log(`[DEBUG] Found ${pendingReminderKeys.length} pending reminder keys to process based on metadata.`);
+
+    if (pendingReminderKeys.length === 0) {
+      console.log("[DEBUG] No pending reminders to process. Exiting.");
+      return new Response("No pending reminders.", { status: 200 });
+    }
+
     const pendingReminders = [];
-    for (const keyInfo of listResponse.keys) {
-      console.log(`[DEBUG] Checking reminder key: ${keyInfo.name}`);
+    for (const keyInfo of pendingReminderKeys) { // 絞り込んだキーのみをgetする
+      console.log(`[DEBUG] Getting reminder data for key: ${keyInfo.name}`);
       const reminderData = await env.REMINDER_STORE.get(keyInfo.name, "json");
-      
-      if (!reminderData) {
-        console.log(`[DEBUG] Reminder data not found for key: ${keyInfo.name}`);
-        continue;
-      }
-      
-      console.log(`[DEBUG] Reminder data for ${keyInfo.name}: Status=${reminderData.status}, ScheduledTime=${new Date(reminderData.scheduledTime).toISOString()} (${reminderData.scheduledTime})`);
-
-      const isPending = reminderData.status === "pending";
-      const isScheduledBeforeNow = reminderData.scheduledTime <= now;
-      const isWithinPastThreshold = reminderData.scheduledTime > pastThreshold;
-
-      console.log(`[DEBUG] Conditions for ${keyInfo.name}: isPending=${isPending}, isScheduledBeforeNow=${isScheduledBeforeNow}, isWithinPastThreshold=${isWithinPastThreshold}`);
-
-      if (
-        isPending &&
-        isScheduledBeforeNow &&
-        isWithinPastThreshold
-      ) {
+      if (reminderData) {
         pendingReminders.push({ key: keyInfo.name, data: reminderData });
-      } else {
-        console.log(`[DEBUG] Reminder ${keyInfo.name} did not meet all conditions.`)
       }
     }
 
