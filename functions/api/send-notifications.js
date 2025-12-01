@@ -45,6 +45,7 @@ async function executeSendNotifications(env) {
         console.log(`[DEBUG] Reminder ${keyInfo.name} did not meet all conditions.`)
       }
     }
+
     console.log(`[DEBUG] Found ${pendingReminders.length} pending reminders to process.`);
     if (pendingReminders.length === 0) {
       console.log("[DEBUG] No pending reminders to process. Exiting.");
@@ -88,12 +89,11 @@ async function executeSendNotifications(env) {
       try {
         console.log(`[DEBUG] Calling Notification Sender Worker (via Service Binding) for user ${userId}...`);
         
-        // サービスバインディング経由でWorkerのfetchハンドラを直接呼び出す
-        const workerResponse = await env.NOTIFICATION_SENDER_WORKER.fetch("https://dummy-url.com", { // URLはダミーでOK
+        const workerResponse = await env.NOTIFICATION_SENDER_WORKER.fetch(`https://update-bell-app-notification-sender.lost-nd-xxx.workers.dev`, { // 実際のWorker URLを指定
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Notification-Sender-Secret": NOTIFICATION_SENDER_SECRET, // ここでシークレットを渡す
+            // NOTIFICATION_SENDER_SECRETはWorker側で設定された環境変数なので、直接渡す必要なし
           },
           body: JSON.stringify({
             subscriptions: subscriptions,
