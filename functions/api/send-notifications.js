@@ -93,7 +93,7 @@ async function executeSendNotifications(env) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            // X-Notification-Sender-Secretは不要
+            "X-Notification-Sender-Secret": NOTIFICATION_SENDER_SECRET, // ここでシークレットを渡す
           },
           body: JSON.stringify({
             subscriptions: subscriptions,
