@@ -142,20 +142,21 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
   };
 
   const updateReminder = (id: string, updates: Partial<Reminder>) => {
-    let updatedReminder: Reminder | null = null;
-    setReminders((prev) =>
-      prev.map((reminder) => {
+    setReminders((prev) => {
+      let updatedReminder: Reminder | null = null;
+      const newReminders = prev.map((reminder) => {
         if (reminder.id === id) {
           updatedReminder = { ...reminder, ...updates };
           return updatedReminder;
         }
         return reminder;
-      }),
-    );
+      });
 
-    if (updatedReminder) {
-      handleReminderChange([updatedReminder]);
-    }
+      if (updatedReminder) {
+        handleReminderChange([updatedReminder]);
+      }
+      return newReminders;
+    });
   };
 
   const deleteReminder = async (id: string) => {
