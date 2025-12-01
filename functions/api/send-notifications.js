@@ -1,5 +1,5 @@
 // functions/api/send-notifications.js
-// 通知送信のロジックをupdate-bell-app-notification-sender Workerに委譲する
+// 通知送信のロジックをupdate-bell-app-notification-sender Workerに委譲する (サービスバインディング経由)
 
 /**
  * 共通の通知送信ロジック
@@ -9,16 +9,11 @@ async function executeSendNotifications(env) {
   console.log(`[DEBUG] --- Pages Function Notification Logic Start (Time: ${new Date().toISOString()}) ---`);
   const now = Date.now();
 
-  // Notification Sender WorkerのURL
-  const NOTIFICATION_SENDER_WORKER_URL = `https://update-bell-app-notification-sender.lost-nd-xxx.workers.dev`;
+  // サービスバインディング経由でWorkerを呼び出すため、HTTP URLは不要
+  // env.NOTIFICATION_SENDER_WORKER がサービスバインディングでWorkerオブジェクトを指す
 
-  // Notification Sender Workerとの認証用シークレット
-  const NOTIFICATION_SENDER_SECRET = env.NOTIFICATION_SENDER_SECRET;
+  // NOTIFICATION_SENDER_SECRET も不要になる（内部呼び出しのため）
 
-  if (!NOTIFICATION_SENDER_SECRET) {
-    console.error("[ERROR] NOTIFICATION_SENDER_SECRET is not set in environment variables for Pages Function.");
-    return new Response("Notification sender secret missing.", { status: 500 });
-  }
 
   try {
     const listResponse = await env.REMINDER_STORE.list({ prefix: "reminder:" });
@@ -75,105 +70,57 @@ async function executeSendNotifications(env) {
         url: rem.data.url,
       }));
 
-            // Notification Sender Workerを呼び出す
+      // Notification Sender Workerをサービスバインディング経由で呼び出す
+      try {
+        console.log(`[DEBUG] Calling Notification Sender Worker (via Service Binding) for user ${userId}...`);
+        
+        // サービスバインディング経由でWorkerのfetchハンドラを直接呼び出す
+        const workerResponse = await env.NOTIFICATION_SENDER_WORKER.fetch("https://dummy-url.com", { // URLはダミーでOK
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            // X-Notification-Sender-Secretは不要
+          },
+          body: JSON.stringify({
+            subscriptions: subscriptions,
+            payloads: payloadsToSend
+          }),
+        });
 
-            try {
+        if (!workerResponse.ok) {
+          const status = workerResponse.status;
+          const statusText = workerResponse.statusText;
+          const errorText = await workerResponse.text(); // エラーボディ全体を取得
+          console.error(`[ERROR] Notification Sender Worker returned an error (via Service Binding). Status: ${status} ${statusText}. Body: ${errorText}`);
+          // エラーの場合でもリマインダーはKVから削除する（再通知防止）
+          for (const rem of userReminders) {
+            await env.REMINDER_STORE.delete(rem.key);
+            console.log(`[INFO] Processed (and failed to notify) and deleted reminder: ${rem.key}`);
+          }
+          continue;
+        }
 
-              console.log(`[DEBUG] Calling Notification Sender Worker for user ${userId} at ${NOTIFICATION_SENDER_WORKER_URL}...`);
+        const workerResult = await workerResponse.json();
+        if (workerResult.expiredEndpoints && workerResult.expiredEndpoints.length > 0) {
+          allExpiredEndpoints.push(...workerResult.expiredEndpoints.map(endpoint => ({ userId, endpoint })));
+          console.log(`[INFO] Notification Sender Worker reported ${workerResult.expiredEndpoints.length} expired endpoints for user ${userId}.`);
+        }
+        
+        // 処理されたリマインダーをKVから削除
+        for (const rem of userReminders) {
+          await env.REMINDER_STORE.delete(rem.key);
+          console.log(`[INFO] Processed and deleted reminder: ${rem.key}`);
+        }
 
-              
-
-              const workerResponse = await fetch(NOTIFICATION_SENDER_WORKER_URL, {
-
-                method: "POST",
-
-                headers: {
-
-                  "Content-Type": "application/json",
-
-                  "X-Notification-Sender-Secret": NOTIFICATION_SENDER_SECRET, // シークレットヘッダー
-
-                },
-
-                body: JSON.stringify({
-
-                  subscriptions: subscriptions,
-
-                  payloads: payloadsToSend // 複数のペイロードをそのまま渡す
-
-                }),
-
-              });
-
-      
-
-              if (!workerResponse.ok) {
-
-                const status = workerResponse.status;
-
-                const statusText = workerResponse.statusText;
-
-                const errorText = await workerResponse.text(); // エラーボディ全体を取得
-
-                console.error(`[ERROR] Notification Sender Worker returned an error. Status: ${status} ${statusText}. Body: ${errorText}`);
-
-                // エラーの場合でもリマインダーはKVから削除する（再通知防止）
-
-                for (const rem of userReminders) {
-
-                  await env.REMINDER_STORE.delete(rem.key);
-
-                  console.log(`[INFO] Processed (and failed to notify) and deleted reminder: ${rem.key}`);
-
-                }
-
-                continue; // 次のユーザーのリマインダー処理へ
-
-              }
-
-      
-
-              const workerResult = await workerResponse.json();
-
-              if (workerResult.expiredEndpoints && workerResult.expiredEndpoints.length > 0) {
-
-                allExpiredEndpoints.push(...workerResult.expiredEndpoints.map(endpoint => ({ userId, endpoint })));
-
-                console.log(`[INFO] Notification Sender Worker reported ${workerResult.expiredEndpoints.length} expired endpoints for user ${userId}.`);
-
-              }
-
-              
-
-              // 処理されたリマインダーをKVから削除
-
-              for (const rem of userReminders) {
-
-                await env.REMINDER_STORE.delete(rem.key);
-
-                console.log(`[INFO] Processed and deleted reminder: ${rem.key}`);
-
-              }
-
-      
-
-            } catch (error) {
-
-              console.error(`[ERROR] Error during fetch to Notification Sender Worker for user ${userId}:`, error.message, error.stack);
-
-              // fetch自体が失敗した場合もリマインダーはKVから削除する
-
-              for (const rem of userReminders) {
-
-                await env.REMINDER_STORE.delete(rem.key);
-
-                console.log(`[INFO] Processed (and failed to notify) and deleted reminder: ${rem.key}`);
-
-              }
-
-              continue;
-
-            }
+      } catch (error) {
+        console.error(`[ERROR] Error calling Notification Sender Worker (via Service Binding) for user ${userId}:`, error.message, error.stack);
+        // fetch自体が失敗した場合もリマインダーはKVから削除する
+        for (const rem of userReminders) {
+          await env.REMINDER_STORE.delete(rem.key);
+          console.log(`[INFO] Processed (and possibly failed to notify) and deleted reminder: ${rem.key}`);
+        }
+        continue;
+      }
     }
 
     // 期限切れの購読情報をクリーンアップ (Pages Functions側で処理)

@@ -1,11 +1,18 @@
 name = "update-bell-app"
 compatibility_date = "2025-11-30"
 pages_build_output_dir = "dist"
-compatibility_flags = [ "nodejs_compat" ]
+
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
 VITE_VAPID_PUBLIC_KEY = "BH282dXgVsQ2OA9j6guwx0emhXDg2mjtiePsGduQ5r6hD1VcThcxtBAuL2P3dXUUNzObwGsl0i9qG5smXe11c7M"
 
 [[kv_namespaces]]
 binding = "REMINDER_STORE"
-id = "1e91cb1ccc1a45d49f1424accc6ecd4d"
+id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" # ここは変更しないでください
+
+# Notification Sender Workerへのサービスバインディングを追加
+[[unsafe.bindings]]
+name = "NOTIFICATION_SENDER_WORKER" # Pages Functionsからアクセスする際に env.NOTIFICATION_SENDER_WORKER で参照
+type = "worker"
+worker = "update-bell-app-notification-sender" # 呼び出すWorkerの名前
