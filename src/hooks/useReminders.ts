@@ -27,7 +27,6 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
   // usePushNotificationsから現在の購読情報を取得
   const { subscription } = usePushNotifications();
 
-
   // リマインダーをlocalStorageに保存
   useEffect(() => {
     localStorage.setItem("update-bell-data", JSON.stringify(reminders));
@@ -64,7 +63,10 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
   }, [scheduleLocalNotification]);
 
   // プッシュ通知の予約
-  const schedulePushNotification = async (reminder: Reminder, currentSubscription: PushSubscription | null) => {
+  const schedulePushNotification = async (
+    reminder: Reminder,
+    currentSubscription: PushSubscription | null,
+  ) => {
     if (!userId) {
       console.error(
         "Push notification scheduling failed: User ID is not available.",
@@ -86,7 +88,8 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId, // 最上位のuserId
-          reminder: { // reminderキーの下にリマインダーオブジェクトをネスト
+          reminder: {
+            // reminderキーの下にリマインダーオブジェクトをネスト
             userId, // リマインダーオブジェクト内のuserId (冗長だが現在のFunctionsコードに合わせる)
             reminderId: reminder.id,
             message: reminder.title,
@@ -95,7 +98,7 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
             // 必要に応じて他のリマインダープロパティも追加
             status: reminder.status || "pending", // statusがundefinedの場合はpendingをデフォルトとする
             subscription: currentSubscription, // ここで現在の購読情報を追加
-          }
+          },
         }),
       });
     } catch (error) {
@@ -155,7 +158,8 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
     }
   };
 
-  const deleteReminder = async (id: string) => { // async を追加
+  const deleteReminder = async (id: string) => {
+    // async を追加
     // ローカル通知の場合は全キャンセルしてから再スケジュール
     if (
       settings.notifications.method === "local" &&
@@ -165,7 +169,7 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
         type: "CANCEL_ALL_REMINDERS",
       });
     }
-    
+
     // プッシュ通知の場合は、サーバーに削除を通知するAPIを呼ぶ
     if (settings.notifications.method === "push" && userId) {
       try {
@@ -174,9 +178,14 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId, reminderId: id }),
         });
-        console.log(`[Frontend] Successfully requested server to delete reminder ${id}`);
+        console.log(
+          `[Frontend] Successfully requested server to delete reminder ${id}`,
+        );
       } catch (error) {
-        console.error(`[Frontend] Failed to request server to delete reminder ${id}:`, error);
+        console.error(
+          `[Frontend] Failed to request server to delete reminder ${id}:`,
+          error,
+        );
       }
     }
 

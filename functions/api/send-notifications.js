@@ -21,7 +21,7 @@ async function executeSendNotifications(env) {
   // if (!NOTIFICATION_SENDER_SECRET) {
   //   console.error("[ERROR] NOTIFICATION_SENDER_SECRET is not set in environment variables for Pages Function.");
   //   return new Response("Notification sender missing.", { status: 500 });
-  }
+  // }
 
   try {
     const listResponse = await env.REMINDER_STORE.list({ prefix: "reminder:" });
