@@ -13,15 +13,14 @@ async function executeSendNotifications(env) {
   console.log(`[DEBUG] Current Time (now): ${new Date(now).toISOString()} (${now})`);
   console.log(`[DEBUG] Past Threshold Time: ${new Date(pastThreshold).toISOString()} (${pastThreshold})`);
 
-  // VercelにデプロイされたNotification Sender WorkerのURL
-  const NOTIFICATION_SENDER_WORKER_URL = `https://update-bell-app-notification-sender.vercel.app/api`; // ★URLを修正
+  // Notification Sender WorkerのURL (HTTP呼び出し用)
+  const NOTIFICATION_SENDER_WORKER_URL = `https://update-bell-app-notification-sender.vercel.app/api`; // あなたのWorker URLに置き換える
 
-  // Notification Sender Workerとの認証用シークレット
-  const NOTIFICATION_SENDER_SECRET = env.NOTIFICATION_SENDER_SECRET;
-
-  if (!NOTIFICATION_SENDER_SECRET) {
-    console.error("[ERROR] NOTIFICATION_SENDER_SECRET is not set in environment variables for Pages Function.");
-    return new Response("Notification sender secret missing.", { status: 500 });
+  // NOTIFICATION_SENDER_SECRETは不要になったため削除
+  // const NOTIFICATION_SENDER_SECRET = env.NOTIFICATION_SENDER_SECRET;
+  // if (!NOTIFICATION_SENDER_SECRET) {
+  //   console.error("[ERROR] NOTIFICATION_SENDER_SECRET is not set in environment variables for Pages Function.");
+  //   return new Response("Notification sender missing.", { status: 500 });
   }
 
   try {

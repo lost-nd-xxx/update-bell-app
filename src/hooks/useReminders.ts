@@ -155,7 +155,7 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
     }
   };
 
-  const deleteReminder = (id: string) => {
+  const deleteReminder = async (id: string) => { // async を追加
     // ローカル通知の場合は全キャンセルしてから再スケジュール
     if (
       settings.notifications.method === "local" &&
@@ -165,7 +165,20 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
         type: "CANCEL_ALL_REMINDERS",
       });
     }
-    // TODO: プッシュ通知の場合は、サーバーに削除を通知するAPIを呼ぶ
+    
+    // プッシュ通知の場合は、サーバーに削除を通知するAPIを呼ぶ
+    if (settings.notifications.method === "push" && userId) {
+      try {
+        await fetch("/api/delete-reminder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId, reminderId: id }),
+        });
+        console.log(`[Frontend] Successfully requested server to delete reminder ${id}`);
+      } catch (error) {
+        console.error(`[Frontend] Failed to request server to delete reminder ${id}:`, error);
+      }
+    }
 
     setReminders((prev) => prev.filter((reminder) => reminder.id !== id));
   };
