@@ -102,7 +102,7 @@ async function executeSendNotifications(env) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Notification-Sender-Secret": NOTIFICATION_SENDER_SECRET, // シークレットヘッダーを再度追加
+            // "X-Notification-Sender-Secret" ヘッダーは不要
           },
           body: JSON.stringify({
             subscriptions: subscriptions,
