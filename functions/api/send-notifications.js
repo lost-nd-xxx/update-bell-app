@@ -1,5 +1,5 @@
 // functions/api/send-notifications.js
-// 通知送信のロジックをupdate-bell-app-notification-sender Workerに委譲する (サービスバインディング経由)
+// 通知送信のロジックをVercelにデプロイした notification-sender Worker に委譲する (HTTP呼び出し経由)
 
 /**
  * 共通の通知送信ロジック
@@ -12,6 +12,17 @@ async function executeSendNotifications(env) {
 
   console.log(`[DEBUG] Current Time (now): ${new Date(now).toISOString()} (${now})`);
   console.log(`[DEBUG] Past Threshold Time: ${new Date(pastThreshold).toISOString()} (${pastThreshold})`);
+
+  // VercelにデプロイされたNotification Sender WorkerのURL
+  const NOTIFICATION_SENDER_WORKER_URL = `https://update-bell-app-notification-sender.vercel.app/api`; // ★URLを修正
+
+  // Notification Sender Workerとの認証用シークレット
+  const NOTIFICATION_SENDER_SECRET = env.NOTIFICATION_SENDER_SECRET;
+
+  if (!NOTIFICATION_SENDER_SECRET) {
+    console.error("[ERROR] NOTIFICATION_SENDER_SECRET is not set in environment variables for Pages Function.");
+    return new Response("Notification sender secret missing.", { status: 500 });
+  }
 
   try {
     const listResponse = await env.REMINDER_STORE.list({ prefix: "reminder:" });
@@ -85,15 +96,15 @@ async function executeSendNotifications(env) {
         url: rem.data.url,
       }));
 
-      // Notification Sender Workerをサービスバインディング経由で呼び出す
+      // Notification Sender WorkerをHTTP呼び出し経由で呼び出す
       try {
-        console.log(`[DEBUG] Calling Notification Sender Worker (via Service Binding) for user ${userId}...`);
+        console.log(`[DEBUG] Calling Notification Sender Worker (via HTTP to Vercel) for user ${userId} at ${NOTIFICATION_SENDER_WORKER_URL}...`);
         
-        const workerResponse = await env.NOTIFICATION_SENDER_WORKER.fetch(`https://update-bell-app-notification-sender.lost-nd-xxx.workers.dev`, { // 実際のWorker URLを指定
+        const workerResponse = await fetch(NOTIFICATION_SENDER_WORKER_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            // NOTIFICATION_SENDER_SECRETはWorker側で設定された環境変数なので、直接渡す必要なし
+            "X-Notification-Sender-Secret": NOTIFICATION_SENDER_SECRET, // シークレットヘッダーを再度追加
           },
           body: JSON.stringify({
             subscriptions: subscriptions,
@@ -105,13 +116,13 @@ async function executeSendNotifications(env) {
           const status = workerResponse.status;
           const statusText = workerResponse.statusText;
           const errorText = await workerResponse.text(); // エラーボディ全体を取得
-          console.error(`[ERROR] Notification Sender Worker returned an error (via Service Binding). Status: ${status} ${statusText}. Body: ${errorText}`);
+          console.error(`[ERROR] Notification Sender Worker returned an error (via HTTP to Vercel). Status: ${status} ${statusText}. Body: ${errorText}`);
           // エラーの場合でもリマインダーはKVから削除する（再通知防止）
           for (const rem of userReminders) {
             await env.REMINDER_STORE.delete(rem.key);
             console.log(`[INFO] Processed (and failed to notify) and deleted reminder: ${rem.key}`);
           }
-          continue;
+          continue; // 次のユーザーのリマインダー処理へ
         }
 
         const workerResult = await workerResponse.json();
@@ -127,7 +138,7 @@ async function executeSendNotifications(env) {
         }
 
       } catch (error) {
-        console.error(`[ERROR] Error calling Notification Sender Worker (via Service Binding) for user ${userId}:`, error.message, error.stack);
+        console.error(`[ERROR] Error calling Notification Sender Worker (via HTTP to Vercel) for user ${userId}:`, error.message, error.stack);
         // fetch自体が失敗した場合もリマインダーはKVから削除する
         for (const rem of userReminders) {
           await env.REMINDER_STORE.delete(rem.key);

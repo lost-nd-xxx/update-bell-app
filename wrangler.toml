@@ -10,8 +10,3 @@ VITE_VAPID_PUBLIC_KEY = "BH282dXgVsQ2OA9j6guwx0emhXDg2mjtiePsGduQ5r6hD1VcThcxtBA
 [[kv_namespaces]]
 binding = "REMINDER_STORE"
 id = "1e91cb1ccc1a45d49f1424accc6ecd4d"
-
-[[services]]
-binding = "NOTIFICATION_SENDER_WORKER"
-service = "update-bell-app-notification-sender"
-environment = "production"
