@@ -7,8 +7,11 @@
  */
 async function executeSendNotifications(env) {
   console.log(`[DEBUG] --- Pages Function Notification Logic Start (Time: ${new Date().toISOString()}) ---`);
-    const now = Date.now();
+  const now = Date.now();
   const pastThreshold = now - (5 * 60 * 1000); // 過去5分間のリマインダーも対象とする
+
+  console.log(`[DEBUG] Current Time (now): ${new Date(now).toISOString()} (${now})`);
+  console.log(`[DEBUG] Past Threshold Time: ${new Date(pastThreshold).toISOString()} (${pastThreshold})`);
 
   try {
     const listResponse = await env.REMINDER_STORE.list({ prefix: "reminder:" });
@@ -16,17 +19,32 @@ async function executeSendNotifications(env) {
 
     const pendingReminders = [];
     for (const keyInfo of listResponse.keys) {
+      console.log(`[DEBUG] Checking reminder key: ${keyInfo.name}`);
       const reminderData = await env.REMINDER_STORE.get(keyInfo.name, "json");
+      
+      if (!reminderData) {
+        console.log(`[DEBUG] Reminder data not found for key: ${keyInfo.name}`);
+        continue;
+      }
+      
+      console.log(`[DEBUG] Reminder data for ${keyInfo.name}: Status=${reminderData.status}, ScheduledTime=${new Date(reminderData.scheduledTime).toISOString()} (${reminderData.scheduledTime})`);
+
+      const isPending = reminderData.status === "pending";
+      const isScheduledBeforeNow = reminderData.scheduledTime <= now;
+      const isWithinPastThreshold = reminderData.scheduledTime > pastThreshold;
+
+      console.log(`[DEBUG] Conditions for ${keyInfo.name}: isPending=${isPending}, isScheduledBeforeNow=${isScheduledBeforeNow}, isWithinPastThreshold=${isWithinPastThreshold}`);
+
       if (
-        reminderData &&
-        reminderData.status === "pending" &&
-        reminderData.scheduledTime <= now && // 現在時刻までのリマインダー
-        reminderData.scheduledTime > pastThreshold // ただし、過去5分以内にスケジュールされたもの
+        isPending &&
+        isScheduledBeforeNow &&
+        isWithinPastThreshold
       ) {
         pendingReminders.push({ key: keyInfo.name, data: reminderData });
+      } else {
+        console.log(`[DEBUG] Reminder ${keyInfo.name} did not meet all conditions.`)
       }
     }
-
     console.log(`[DEBUG] Found ${pendingReminders.length} pending reminders to process.`);
     if (pendingReminders.length === 0) {
       console.log("[DEBUG] No pending reminders to process. Exiting.");
