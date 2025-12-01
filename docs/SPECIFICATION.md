@@ -49,6 +49,21 @@
 このプロジェクトは当初 Claude AI によってほぼ全体が実装され、その後 Gemini CLI によって改修・メンテナンスが行われています。
 人間の開発者は主に仕様策定、ビルド、デバッグを担当しています。
 
+### アーキテクチャ概要
+
+このアプリケーションは、CloudflareとVercelのサービスを組み合わせて構築されています。
+
+- **Cloudflare**:
+  - **Pages**: フロントエンド（React PWA）のホスティング
+  - **Pages Functions**: リマインダーの保存・削除APIを提供
+  - **Workers (Cron)**: 毎分定時にAPIを呼び出すCronジョブを実行
+  - **KV**: リマインダーとPush購読情報のデータストア
+
+- **Vercel**:
+  - **Serverless Functions**: Web Push通知の送信処理を実行。Node.jsのフル機能を利用し、`web-push`ライブラリを使用。
+
+この分散アーキテクチャは、Cloudflareの`nodejs_compat`環境では`web-push`ライブラリの依存関係を解決できなかった技術的制約を回避するために採用されました。
+
 ### 技術スタック
 
 - **フレームワーク**: React 18
@@ -58,10 +73,10 @@
 - **状態管理**: React Hooks（カスタムフック活用）
 - **PWA**: Web Manifest / Service Worker
 - **通知**: Web Notifications API, Web Push API (`web-push`ライブラリを利用)
-- **サーバーレス**: Cloudflare Functions (for Web Push)
+- **サーバーレス**: Cloudflare Functions, Vercel Serverless Functions
 - **データベース**: Cloudflare KV (for Web Push)
 - **アイコン**: Lucide React, および一部アイコンには "Rounded Mplus 1c" フォントを画像化して使用。
-- **デプロイ**: Cloudflare Pages
+- **デプロイ**: Cloudflare Pages, Vercel
 
 ### 開発環境のセットアップ
 
