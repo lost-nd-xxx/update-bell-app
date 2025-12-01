@@ -7,27 +7,23 @@
  */
 async function executeSendNotifications(env) {
   console.log(`[DEBUG] --- Pages Function Notification Logic Start (Time: ${new Date().toISOString()}) ---`);
-  const now = Date.now();
-
-  // サービスバインディング経由でWorkerを呼び出すため、HTTP URLは不要
-  // env.NOTIFICATION_SENDER_WORKER がサービスバインディングでWorkerオブジェクトを指す
-
-  // NOTIFICATION_SENDER_SECRET も不要になる（内部呼び出しのため）
-
+    const now = Date.now();
+  const pastThreshold = now - (5 * 60 * 1000); // 過去5分間のリマインダーも対象とする
 
   try {
     const listResponse = await env.REMINDER_STORE.list({ prefix: "reminder:" });
     console.log(`[DEBUG] Found ${listResponse.keys.length} total reminder keys in KV.`);
 
     const pendingReminders = [];
-    for (const key of listResponse.keys) {
-      const reminderData = await env.REMINDER_STORE.get(key.name, "json");
+    for (const keyInfo of listResponse.keys) {
+      const reminderData = await env.REMINDER_STORE.get(keyInfo.name, "json");
       if (
         reminderData &&
         reminderData.status === "pending" &&
-        reminderData.scheduledTime <= now
+        reminderData.scheduledTime <= now && // 現在時刻までのリマインダー
+        reminderData.scheduledTime > pastThreshold // ただし、過去5分以内にスケジュールされたもの
       ) {
-        pendingReminders.push({ key: key.name, data: reminderData });
+        pendingReminders.push({ key: keyInfo.name, data: reminderData });
       }
     }
 
