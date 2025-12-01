@@ -93,7 +93,7 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
             scheduledTime: nextNotification.scheduleTime,
             url: reminder.url,
             // 必要に応じて他のリマインダープロパティも追加
-            status: reminder.status, // 例えば現在のステータスも送る
+            status: reminder.status || "pending", // statusがundefinedの場合はpendingをデフォルトとする
             subscription: currentSubscription, // ここで現在の購読情報を追加
           }
         }),
