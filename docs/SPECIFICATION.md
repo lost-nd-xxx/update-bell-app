@@ -51,15 +51,17 @@
 
 ### アーキテクチャ概要
 
-このアプリケーションは、Vercelのサービスを基盤に構築されています。
+このアプリケーションは、VercelとGitHub Actionsを組み合わせて構築されています。
 
 - **Vercel**:
   - **Hosting**: フロントエンド（React PWA）のホスティング
-  - **Serverless Functions**: リマインダーの保存・削除API、Web Push通知の送信処理、Cronジョブの実行を提供。Node.jsのフル機能を利用し、`web-push`ライブラリを使用。
-  - **Vercel Cron**: 毎分定時に通知処理APIを呼び出すCronジョブを実行。
+  - **Serverless Functions**: リマインダーの保存・削除API、Web Push通知の送信処理を提供。Node.jsのフル機能を利用し、`web-push`ライブラリを使用。
   - **Vercel KV**: リマインダーとPush購読情報のデータストア。
 
-Cloudflareの`nodejs_compat`環境では`web-push`ライブラリの依存関係を解決できなかった技術的制約がありましたが、現在はVercel上で全てのバックエンド機能が動作しています。
+- **GitHub Actions**:
+  - **Cronジョブ**: 5分ごとにVercel上の通知処理APIを呼び出し、リマインダー通知をトリガーします。
+
+Cloudflareの`nodejs_compat`環境では`web-push`ライブラリの依存関係を解決できなかった技術的制約がありましたが、現在はVercel上で全てのバックエンド機能が動作し、GitHub ActionsがCronジョブを担っています。
 
 ### 技術スタック
 
@@ -157,7 +159,7 @@ PWA機能は、Web ManifestとService Workerによって実装されています
 
 ### デプロイ
 
-Gitリポジトリへのプッシュをトリガーとして、Vercelが自動でビルドとデプロイを実行します。
+Gitリポジリへのプッシュをトリガーとして、Vercelが自動でビルドとデプロイを実行します。また、GitHub Actionsが設定されたCronジョブを定期的にトリガーします。
 
 ### VS Code タスク設定
 

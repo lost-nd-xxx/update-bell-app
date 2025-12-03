@@ -1,0 +1,17 @@
+name: Trigger Notification Cron Job
+
+on:
+  schedule:
+    # 30分ごとに実行（プロジェクト公開後、5分設定などに戻す）
+    - cron: '*/30 * * * *'
+  workflow_dispatch: # 手動実行も可能にする
+
+jobs:
+  trigger_cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Vercel Cron API
+        run: |
+          curl --request POST \
+            --url '${{ secrets.VERCEL_URL }}/api/cron/send-notifications' \
+            --header 'Authorization: Bearer ${{ secrets.CRON_SECRET }}'
