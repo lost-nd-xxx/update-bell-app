@@ -12,6 +12,6 @@ jobs:
     steps:
       - name: Call Vercel Cron API
         run: |
-          curl --request POST \
+          curl -v --fail --request POST \
             --url '${{ secrets.VERCEL_URL }}/api/cron/send-notifications' \
             --header 'Authorization: Bearer ${{ secrets.CRON_SECRET }}'
