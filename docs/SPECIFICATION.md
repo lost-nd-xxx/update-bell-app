@@ -59,7 +59,8 @@
   - **Vercel KV**: リマインダーとPush購読情報のデータストア。
 
 - **GitHub Actions**:
-  Cronジョブ: 5分ごとにVercel上の通知処理APIを呼び出し、リマインダー通知をトリガーします。（実行はベストエフォートであり、遅延する可能性があります）
+  - **Cronジョブ**: 定期的にVercel上の通知処理APIを呼び出し、リマインダー通知をトリガーします。
+    （GitHub Actionsのスケジュールは5分間隔に設定されていますが、実行はベストエフォートであり、プラットフォームの負荷状況によっては遅延や実行の欠落が発生する可能性があります。詳細は[GitHubの公式ドキュメント](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)をご確認ください。）
 
 Cloudflareの`nodejs_compat`環境では`web-push`ライブラリの依存関係を解決できなかった技術的制約がありましたが、現在はVercel上で全てのバックエンド機能が動作し、GitHub ActionsがCronジョブを担っています。
 

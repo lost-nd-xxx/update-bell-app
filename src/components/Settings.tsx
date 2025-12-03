@@ -392,7 +392,7 @@ const Settings: React.FC<SettingsProps> = ({
                         プッシュ通知 (高信頼性)
                       </span>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        アプリを閉じていても届く（5分以上の遅延が生じる場合があります）
+                        アプリを閉じていても届く（遅延が生じる場合があります）
                         {settings.notifications.permission !== "granted" &&
                           " (最初に通知を許可してください)"}
                       </p>
@@ -654,19 +654,34 @@ const Settings: React.FC<SettingsProps> = ({
                 <p className="mt-1 text-gray-600 dark:text-gray-400">
                   選択した通知方法によって制約が異なります。
                   <br />
-                  <strong className="mt-2 block">ローカル通知 (シンプル) の場合:</strong>
+                  <strong className="mt-2 block">
+                    ローカル通知 (シンプル) の場合:
+                  </strong>
                   <ul className="list-disc list-inside ml-2">
-                    <li>通知を受け取るには、アプリ（PWA）がバックグラウンドで動作している必要があります。</li>
-                    <li>アプリを完全に終了した場合や、端末の省電力モードが強く働いている場合は、通知が届きません。</li>
+                    <li>
+                      通知を受け取るには、アプリ（PWA）がバックグラウンドで動作している必要があります。
+                    </li>
+                    <li>
+                      アプリを完全に終了した場合や、端末の省電力モードが強く働いている場合は、通知が届きません。
+                    </li>
                   </ul>
-                  <strong className="mt-2 block">プッシュ通知 (高信頼性) の場合:</strong>
+                  <strong className="mt-2 block">
+                    プッシュ通知 (高信頼性) の場合:
+                  </strong>
                   <ul className="list-disc list-inside ml-2">
-                    <li>アプリを閉じていても通知が届きますが、OSの省電力設定などの影響を受ける場合があります。</li>
-                    <li>GitHub Actionsの実行タイミングにより、通知には5分以上の遅延が生じる可能性があります。</li>
+                    <li>
+                      アプリを閉じていても通知が届きますが、OSの省電力設定などの影響を受ける場合があります。
+                    </li>
+                    <li>
+                      GitHub
+                      Actionsの実行タイミングにより、通知には数十分から数時間の遅延が生じる可能性があります。
+                    </li>
                   </ul>
                   <strong className="mt-2 block">推奨事項:</strong>
                   <ul className="list-disc list-inside ml-2">
-                    <li>いずれの通知方法でも、PWAとしてインストールしてご利用いただくことを強く推奨します。</li>
+                    <li>
+                      いずれの通知方法でも、PWAとしてインストールしてご利用いただくことを強く推奨します。
+                    </li>
                   </ul>
                 </p>
               </div>
