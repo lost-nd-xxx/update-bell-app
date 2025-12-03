@@ -20,7 +20,7 @@
 - **柔軟な周期設定**: 毎日・数日ごと・毎週・特定曜日複数選択・毎月（第n曜日）
 - **ハイブリッド通知**:
   - **ローカル通知**: Service Workerを利用した、デバイス完結型の基本的な通知。
-  - **プッシュ通知**: Cloudflareサーバーを経由する、高信頼性なWeb Push通知。
+  - **プッシュ通知**: Vercelサーバーを経由する、高信頼性なWeb Push通知。
 - **タグ機能**: 分類・検索・フィルター対応
 - **テーマ切り替え**: ライト/ダーク/システム準拠
 - **PWA対応**: オフライン動作（一部機能）・インストール可能・ホーム画面追加
@@ -117,7 +117,7 @@ npm run dev
 - `npm run check:all`: type-check、lint、formatを実行
 - `npm run check:fix`: type-check、lint:fix、formatを実行
 - `npm run icons`: svgからアイコンを生成
-- `npm run icons:clean`: svgからアイコンを生成（古いものを削除）
+- `npm run licenses`: ライセンスファイルの作成と更新
 
 ### PWA・Service Worker仕様
 
@@ -153,7 +153,6 @@ PWA機能は、Web ManifestとService Workerによって実装されています
 ├── THIRD-PARTY-LICENSES.md # サードパーティライセンス情報
 ├── tsconfig.json        # TypeScriptの基本設定
 ├── tsconfig.node.json   # TypeScriptのNode.js環境用設定
-├── vercel.json          # Vercelの設定ファイル
 └── vite.config.ts       # Viteのビルド・PWA設定
 ```
 
