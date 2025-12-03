@@ -2,7 +2,7 @@ name: Trigger Notification Cron Job
 
 on:
   schedule:
-    # 30分ごとに実行（プロジェクト公開後、5分設定などに戻す）
+    # 5分ごとに実行（非公開リポジトリの場合、30分ごとなどにする）
     - cron: '*/5 * * * *'
   workflow_dispatch: # 手動実行も可能にする
 
