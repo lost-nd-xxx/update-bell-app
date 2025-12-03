@@ -85,3 +85,7 @@ Thumbs.db
 # - LICENSE（法的要件）
 # - THIRD-PARTY-LICENSES.md（法的要件）
 # - README.md
+
+# =====
+.vercel
+.env*.local
