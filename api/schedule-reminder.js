@@ -1,6 +1,39 @@
 // update-bell-app/api/schedule-reminder.js
 import { kv } from "@vercel/kv";
 
+// --- 型ガード関数 (ここから) ---
+const isScheduleType = (type) => {
+  return (
+    typeof type === "string" &&
+    ["daily", "weekly", "monthly", "interval", "specific_days"].includes(type)
+  );
+};
+
+const isDateFilterType = (type) => {
+  return (
+    typeof type === "string" && ["all", "weekdays", "weekends"].includes(type)
+  );
+};
+
+const isSchedule = (obj) => {
+  if (typeof obj !== "object" || obj === null) return false;
+  const o = obj;
+
+  return (
+    isScheduleType(o.type) &&
+    typeof o.interval === "number" &&
+    typeof o.hour === "number" &&
+    typeof o.minute === "number" &&
+    (o.dateFilter === undefined || isDateFilterType(o.dateFilter)) &&
+    (o.selectedDays === undefined ||
+      (Array.isArray(o.selectedDays) &&
+        o.selectedDays.every((day) => typeof day === "number"))) &&
+    (o.dayOfWeek === undefined || typeof o.dayOfWeek === "number") &&
+    (o.weekOfMonth === undefined || typeof o.weekOfMonth === "number")
+  );
+};
+// --- 型ガード関数 (ここまで) ---
+
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     return response.status(405).send("Method Not Allowed");
@@ -9,18 +42,21 @@ export default async function handler(request, response) {
   try {
     const { reminder, userId } = request.body;
 
+    // バリデーション
     if (
       !reminder ||
       !userId ||
       !reminder.reminderId ||
-      !reminder.scheduledTime
+      !reminder.scheduledTime ||
+      !reminder.schedule || // scheduleの存在チェック
+      !isSchedule(reminder.schedule) // scheduleの構造チェック
     ) {
       console.error(
-        "[ERROR] schedule-reminder: Missing required data (reminder, userId, reminderId, or scheduledTime).",
+        "[ERROR] schedule-reminder: Invalid or missing data.",
+        request.body,
       );
       return response.status(400).json({
-        error:
-          "Missing required data (reminder, userId, reminderId, or scheduledTime).",
+        error: "Invalid or missing data provided.",
       });
     }
 
