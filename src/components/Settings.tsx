@@ -652,13 +652,22 @@ const Settings: React.FC<SettingsProps> = ({
                   <strong>通知機能の制約について</strong>
                 </p>
                 <p className="mt-1 text-gray-600 dark:text-gray-400">
-                  このアプリが通知を送るには、WebブラウザまたはPWAがバックグラウンドで動作している必要があります。
+                  選択した通知方法によって制約が異なります。
                   <br />
-                  アプリを終了した場合や、端末の省電力モードが強く働いている場合は、通知を受信できないことがあります。
-                  <br />
-                  **プッシュ通知は、サーバーの都合により最大で5分程度の遅延が発生する可能性があります。**
-                  <br />
-                  確実に通知を受信するためには、PWAとしてインストールし、アプリを終了せずバックグラウンドに待機させてご利用ください。
+                  <strong className="mt-2 block">ローカル通知 (シンプル) の場合:</strong>
+                  <ul className="list-disc list-inside ml-2">
+                    <li>通知を受け取るには、アプリ（PWA）がバックグラウンドで動作している必要があります。</li>
+                    <li>アプリを完全に終了した場合や、端末の省電力モードが強く働いている場合は、通知が届きません。</li>
+                  </ul>
+                  <strong className="mt-2 block">プッシュ通知 (高信頼性) の場合:</strong>
+                  <ul className="list-disc list-inside ml-2">
+                    <li>アプリを閉じていても通知が届きますが、OSの省電力設定などの影響を受ける場合があります。</li>
+                    <li>サーバーでの処理とGitHub Actionsの実行タイミングにより、最大5分程度の遅延が生じる可能性があります。</li>
+                  </ul>
+                  <strong className="mt-2 block">推奨事項:</strong>
+                  <ul className="list-disc list-inside ml-2">
+                    <li>いずれの通知方法でも、PWAとしてインストールしてご利用いただくことを強く推奨します。</li>
+                  </ul>
                 </p>
               </div>
             </div>
