@@ -5,7 +5,7 @@ import { useReminders } from "./hooks/useReminders";
 import { useSettings } from "./hooks/useSettings";
 import { useTheme } from "./hooks/useTheme";
 import { useTimezone } from "./hooks/useTimezone";
-import { useUserId } from "./contexts/UserIdContext"; // 追加
+import { useUserId } from "./contexts/UserIdContext";
 import Dashboard from "./components/Dashboard";
 import CreateReminder from "./components/CreateReminder";
 import Settings from "./components/Settings";
@@ -23,14 +23,14 @@ declare global {
 
 const App: React.FC = () => {
   const { settings, updateSettings } = useSettings();
-  const userId = useUserId(); // userId を取得
+  const userId = useUserId();
   const {
     reminders,
     addReminder,
     updateReminder,
     deleteReminder,
     bulkUpdateReminders,
-  } = useReminders(settings, userId); // settings と userId を渡す
+  } = useReminders(settings, userId);
   const [theme, setTheme] = useTheme();
   const { timezoneChanged, handleTimezoneChange, dismissTimezoneChange } =
     useTimezone(reminders, updateReminder);

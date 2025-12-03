@@ -6,9 +6,8 @@ import {
   calculateNextScheduledNotification,
   debounce,
 } from "../utils/helpers";
-import { usePushNotifications } from "./usePushNotifications"; // 追加
+import { usePushNotifications } from "./usePushNotifications";
 
-// このフックは settings と userId に依存するようになります
 export const useReminders = (settings: AppSettings, userId: string | null) => {
   const [reminders, setReminders] = useState<Reminder[]>(() => {
     const saved = localStorage.getItem("update-bell-data");
@@ -77,7 +76,6 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
     // `calculateNextScheduledNotification` を使って次の通知時刻を計算
     const nextNotification = calculateNextScheduledNotification([reminder]);
     if (!nextNotification) {
-      console.log("No upcoming notification to schedule for this reminder.");
       // TODO: サーバー側で予約済みの通知があればキャンセルするAPIを呼ぶ
       return;
     }
@@ -89,15 +87,13 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
         body: JSON.stringify({
           userId, // 最上位のuserId
           reminder: {
-            // reminderキーの下にリマインダーオブジェクトをネスト
             userId, // リマインダーオブジェクト内のuserId (冗長だが現在のFunctionsコードに合わせる)
             reminderId: reminder.id,
             message: reminder.title,
             scheduledTime: nextNotification.scheduleTime,
             url: reminder.url,
-            // 必要に応じて他のリマインダープロパティも追加
             status: reminder.status || "pending", // statusがundefinedの場合はpendingをデフォルトとする
-            subscription: currentSubscription, // ここで現在の購読情報を追加
+            subscription: currentSubscription,
           },
         }),
       });

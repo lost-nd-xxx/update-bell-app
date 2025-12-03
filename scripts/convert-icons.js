@@ -18,7 +18,7 @@ const svgFiles = {
   // 大きいサイズ用
   large: "_workspace/icon-large.svg",
   // 極小サイズ用
-  small: "_workspace/icon-small.svg"
+  small: "_workspace/icon-small.svg",
 };
 
 // 出力ディレクトリ

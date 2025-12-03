@@ -1,12 +1,12 @@
 # おしらせベル アプリケーション仕様書
 
-**最終更新**: 2025-11-30
+**最終更新**: 2025-12-03
 
 ---
 
 ## プロジェクト概要
 
-ユーザーが指定した周期で、指定したURLへのリンクをプッシュ通知するPWAアプリケーション。Cloudflare Pagesで公開し、PC/スマホ/タブレットで利用可能。
+ユーザーが指定した周期で、指定したURLへのリンクをプッシュ通知するPWAアプリケーション。Vercelで公開し、PC/スマホ/タブレットで利用可能。
 
 **コンセプト**: ウェブ漫画の更新チェック、新商品の発売確認、イベント開催チェックなど、定期的に確認したいウェブページを忘れずにチェックできるリマインダーアプリ。
 
@@ -37,7 +37,7 @@
 
 - **ストレージ**:
   - **ブラウザ LocalStorage**: リマインダーの基本設定やUI設定を保存。
-  - **Cloudflare KV**: プッシュ通知を選択したユーザーのリマインダー情報と購読情報をサーバーサイドに保存。
+  - **Vercel KV**: プッシュ通知を選択したユーザーのリマインダー情報と購読情報をサーバーサイドに保存。
 - **データ形式**: JSON（エクスポート/インポート対応）
 - **状態管理**: カスタムフック（`useReminders`, `useSettings`, `useTheme`, `useTimezone`）
 - **バックアップ**: UIからの手動エクスポートを推奨
@@ -51,38 +51,35 @@
 
 ### アーキテクチャ概要
 
-このアプリケーションは、CloudflareとVercelのサービスを組み合わせて構築されています。
-
-- **Cloudflare**:
-  - **Pages**: フロントエンド（React PWA）のホスティング
-  - **Pages Functions**: リマインダーの保存・削除APIを提供
-  - **Workers (Cron)**: 毎分定時にAPIを呼び出すCronジョブを実行
-  - **KV**: リマインダーとPush購読情報のデータストア
+このアプリケーションは、Vercelのサービスを基盤に構築されています。
 
 - **Vercel**:
-  - **Serverless Functions**: Web Push通知の送信処理を実行。Node.jsのフル機能を利用し、`web-push`ライブラリを使用。
+  - **Hosting**: フロントエンド（React PWA）のホスティング
+  - **Serverless Functions**: リマインダーの保存・削除API、Web Push通知の送信処理、Cronジョブの実行を提供。Node.jsのフル機能を利用し、`web-push`ライブラリを使用。
+  - **Vercel Cron**: 毎分定時に通知処理APIを呼び出すCronジョブを実行。
+  - **Vercel KV**: リマインダーとPush購読情報のデータストア。
 
-この分散アーキテクチャは、Cloudflareの`nodejs_compat`環境では`web-push`ライブラリの依存関係を解決できなかった技術的制約を回避するために採用されました。
+Cloudflareの`nodejs_compat`環境では`web-push`ライブラリの依存関係を解決できなかった技術的制約がありましたが、現在はVercel上で全てのバックエンド機能が動作しています。
 
 ### 技術スタック
 
-- **フレームワーク**: React 18
-- **言語**: TypeScript
-- **ビルドツール**: Vite 5
-- **スタイリング**: Tailwind CSS 3
-- **状態管理**: React Hooks（カスタムフック活用）
-- **PWA**: Web Manifest / Service Worker
-- **通知**: Web Notifications API, Web Push API (`web-push`ライブラリを利用)
-- **サーバーレス**: Cloudflare Functions, Vercel Serverless Functions
-- **データベース**: Cloudflare KV (for Web Push)
-- **アイコン**: Lucide React, および一部アイコンには "Rounded Mplus 1c" フォントを画像化して使用。
-- **デプロイ**: Cloudflare Pages, Vercel
+- フレームワーク: React 18
+- 言語: TypeScript
+- ビルドツール: Vite 5
+- スタイリング: Tailwind CSS 3
+- 状態管理: React Hooks（カスタムフック活用）
+- PWA: Web Manifest / Service Worker
+- 通知: Web Notifications API, Web Push API (`web-push`ライブラリを利用)
+- サーバーレス: Vercel Serverless Functions
+- データベース: Vercel KV
+- アイコン: Lucide React
+- デプロイ: Vercel
 
 ### 開発環境のセットアップ
 
 #### 必要な環境
 
-- Node.js 18.0.0 以上
+- Node.js 24.x
 - npm
 - mkcert（HTTPSでのローカル開発に必要）
 
@@ -127,7 +124,7 @@ PWA機能は、Web ManifestとService Workerによって実装されています
 - **Service Worker**: `public/sw.js`が本番環境でのみアプリによって登録されます。
 - **通知機能**:
   - **ローカル通知**: アプリから受け取ったスケジュールに基づき、Service Workerが`setTimeout`を利用してローカル通知を管理します。
-  - **プッシュ通知**: サーバー（Cloudflare Functions）から送信されたPushイベントをService Workerが受け取り、Web Notifications APIを利用して通知を表示します。
+  - **プッシュ通知**: サーバー（Vercel Serverless Functions）から送信されたPushイベントをService Workerが受け取り、Web Notifications APIを利用して通知を表示します。
 - **マニフェスト**: アプリ名、アイコン、ショートカットなどが `public/manifest.json` に定義されています。
 - **開発時の注意**: 開発環境ではService Workerの登録は無効化されます。
 
@@ -135,7 +132,7 @@ PWA機能は、Web ManifestとService Workerによって実装されています
 
 ```
 .
-├── functions/           # Cloudflare Functions (サーバーレスAPI)
+├── api/                 # Vercel Serverless Functions (API)
 ├── public/              # 静的ファイル (アイコン, sw.js, manifest.json)
 ├── src/                 # Reactアプリケーションのソースコード
 ├── docs/                # ドキュメント (仕様書, プライバシーポリシー)
@@ -154,12 +151,13 @@ PWA機能は、Web ManifestとService Workerによって実装されています
 ├── THIRD-PARTY-LICENSES.md # サードパーティライセンス情報
 ├── tsconfig.json        # TypeScriptの基本設定
 ├── tsconfig.node.json   # TypeScriptのNode.js環境用設定
+├── vercel.json          # Vercelの設定ファイル
 └── vite.config.ts       # Viteのビルド・PWA設定
 ```
 
 ### デプロイ
 
-Gitリポジトリへのプッシュをトリガーとして、Cloudflare Pagesが自動でビルドとデプロイを実行します。
+Gitリポジトリへのプッシュをトリガーとして、Vercelが自動でビルドとデプロイを実行します。
 
 ### VS Code タスク設定
 

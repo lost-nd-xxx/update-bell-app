@@ -1,10 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import fs from "fs"; // 追加
-import path from "path"; // 追加
+import fs from "fs";
 import pkg from "./package.json" with { type: "json" };
 
-export default defineConfig(({ command, mode }) => {
+export default defineConfig(({ mode }) => {
   const isProduction = mode === "production";
   const isDevelopment = mode === "development";
 
@@ -23,7 +22,6 @@ export default defineConfig(({ command, mode }) => {
     // ビルド設定
     build: {
       target: "esnext",
-      minify: "terser",
       sourcemap: isProduction ? false : true,
 
       rollupOptions: {
@@ -73,8 +71,6 @@ export default defineConfig(({ command, mode }) => {
       __IS_PRODUCTION__: JSON.stringify(isProduction),
       "process.env.APP_VERSION": JSON.stringify(pkg.version),
     },
-    esbuild: {
-      // jsxInject: `import React from 'react'`, // 'React'の二重宣言エラーを解決するため削除
-    },
+    esbuild: {},
   };
 });

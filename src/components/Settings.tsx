@@ -822,7 +822,7 @@ const Settings: React.FC<SettingsProps> = ({
 
           <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
             <a
-              href="THIRD-PARTY-LICENSES.md" // または GitHub リポジトリへのURL
+              href="THIRD-PARTY-LICENSES.md"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300 rounded-lg p-2 border-2 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"

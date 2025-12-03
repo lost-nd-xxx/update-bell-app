@@ -16,7 +16,7 @@ interface DashboardProps {
   onCreateNew: () => void;
   notificationPermission?: string;
   onNavigateToSettings?: () => void;
-  onClearAllTags: () => void; // Add this line
+  onClearAllTags: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({

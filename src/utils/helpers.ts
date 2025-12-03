@@ -5,23 +5,6 @@ export const generateId = (): string => {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 };
 
-// 日付フォーマット関連
-export const formatDate = (
-  date: Date | string,
-  options?: Intl.DateTimeFormatOptions,
-): string => {
-  const dateObj = typeof date === "string" ? new Date(date) : date;
-  const defaultOptions: Intl.DateTimeFormatOptions = {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  };
-
-  return dateObj.toLocaleString("ja-JP", { ...defaultOptions, ...options });
-};
-
 export const formatTime = (hour: number, minute: number): string => {
   return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
 };

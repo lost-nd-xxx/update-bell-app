@@ -11,7 +11,8 @@ const hideLoadingScreen = () => {
       if (loadingScreen) {
         loadingScreen.style.display = "none";
       }
-    }, 300); // transition duration
+    }, 300);
+
     return true;
   }
   return false;

@@ -1,13 +1,11 @@
 {
   "recommendations": [
     "dbaeumer.vscode-eslint",
-    "esbenp.prettier-vscode", 
+    "esbenp.prettier-vscode",
     "ms-vscode.vscode-typescript-next",
     "pmneo.tsimporter",
     "bradlc.vscode-tailwindcss",
     "ms-vscode.vscode-json"
   ],
-  "unwantedRecommendations": [
-    "ms-vscode.vscode-typescript-tslint-plugin"
-  ]
+  "unwantedRecommendations": ["ms-vscode.vscode-typescript-tslint-plugin"]
 }
