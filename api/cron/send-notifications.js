@@ -112,6 +112,8 @@ export default async function handler(request, response) {
     }, {});
 
     // 4. ユーザーごとに通知を送信
+    const updateTx = kv.multi(); // updateTxの定義をここに移動
+    
     for (const userId in remindersByUser) {
       const userReminders = remindersByUser[userId];
       const subscriptionKey = `user:${userId}:subscriptions`;
