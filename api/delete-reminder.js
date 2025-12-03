@@ -1,9 +1,5 @@
 // update-bell-app/api/delete-reminder.js
-import { createClient } from "@vercel/kv";
-
-const kv = createClient({
-  url: process.env.REDIS_URL,
-});
+import { kv } from "@vercel/kv";
 
 export default async function handler(request, response) {
   if (request.method !== "POST") {

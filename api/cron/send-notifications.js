@@ -1,9 +1,5 @@
 // update-bell-app/api/cron/send-notifications.js
-import { createClient } from "@vercel/kv";
-
-const kv = createClient({
-  url: process.env.REDIS_URL,
-});
+import { kv } from "@vercel/kv";
 
 /**
  * Vercel環境ではVERCEL_URL、ローカルではlocalhostをベースにしたAPIエンドポイントを返す
