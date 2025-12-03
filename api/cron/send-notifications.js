@@ -160,11 +160,14 @@ export default async function handler(request, response) {
       const updateTx = kv.multi();
       const now = Date.now();
 
-      for (const rem of userReminders) {
-        const updatedReminderData = {
-          ...rem.data,
-          lastNotified: new Date(now).toISOString(),
-        };
+            for (const rem of userReminders) {
+              // schedule プロパティが存在しない場合はスキップ (古いデータへの対応)
+              if (!rem.data.schedule) {
+                console.warn(`[CRON] Reminder ${rem.key} has no schedule property. Skipping.`);
+                continue; // 次のリマインダーへ
+              }
+
+              const updatedReminderData = { ...rem.data, lastNotified: new Date(now).toISOString() };
 
         // 次回の通知時刻を計算
         // calculateNextNotificationTime関数はhelpers.tsからimportする必要がありますが、
