@@ -41,6 +41,13 @@ export default defineConfig(({ mode }) => {
       host: "localhost",
       open: true,
       cors: true,
+      proxy: {
+        "/api": {
+          target: "https://update-bell-app.vercel.app", // ここをあなたのVercelデプロイURLに
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api/, "/api"),
+        },
+      },
       ...(hasMkcertCerts && {
         https: {
           key: fs.readFileSync(keyPath),
@@ -54,7 +61,7 @@ export default defineConfig(({ mode }) => {
     },
     // プレビュー設定
     preview: {
-      port: 4173,
+      port: 5173,
       host: "localhost",
       open: true,
       ...(hasMkcertCerts && {

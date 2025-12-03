@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { Plus } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Plus, X } from "lucide-react";
 import { Reminder, AppState } from "./types";
+import { getErrorMessage } from "./utils/helpers";
 import { useReminders } from "./hooks/useReminders";
 import { useSettings } from "./hooks/useSettings";
 import { useTheme } from "./hooks/useTheme";
@@ -21,16 +22,46 @@ declare global {
   }
 }
 
+// メッセージ内の改行を <br /> に変換してレンダリングするヘルパーコンポーネント
+const RenderMessage: React.FC<{ message: string; onDismiss: () => void }> = ({ message, onDismiss }) => {
+  const htmlContent = message.split('\n').join('<br />');
+  return (
+    <div className="flex items-start justify-between w-full" onClick={onDismiss}>
+      <span className="flex-grow" dangerouslySetInnerHTML={{ __html: htmlContent }} />
+      <button onClick={onDismiss} className="ml-4 flex-shrink-0 text-white opacity-75 hover:opacity-100 focus:outline-none rounded-full border border-white/50">
+        <X size={16} />
+      </button>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const { settings, updateSettings } = useSettings();
   const userId = useUserId();
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const setError = useCallback((message: string | null) => {
+    setAppState((prev) => ({ ...prev, error: message }));
+    setSuccessMessage(null); // エラー発生時は成功メッセージをクリア
+  }, []);
+
+  const memoizedSetSuccessMessage = useCallback(
+    (message: string | null) => {
+      setSuccessMessage(message);
+      setAppState((prev) => ({ ...prev, error: null })); // 成功時はエラーメッセージをクリア
+      if (message) {
+        setTimeout(() => setSuccessMessage(null), 5000); // 5秒後にメッセージをクリア
+      }
+    },
+    [setSuccessMessage],
+  );
+
   const {
     reminders,
     addReminder,
     updateReminder,
     deleteReminder,
     bulkUpdateReminders,
-  } = useReminders(settings, userId);
+  } = useReminders(settings, userId, setError, memoizedSetSuccessMessage);
   const [theme, setTheme] = useTheme();
   const { timezoneChanged, handleTimezoneChange, dismissTimezoneChange } =
     useTimezone(reminders, updateReminder);
@@ -95,6 +126,7 @@ const App: React.FC = () => {
     // async を追加
     reminderData: Omit<Reminder, "id" | "createdAt" | "timezone">,
   ) => {
+    console.log("handleReminderSave called", reminderData);
     try {
       if (appState.editingReminder) {
         await updateReminder(appState.editingReminder.id, reminderData);
@@ -102,8 +134,11 @@ const App: React.FC = () => {
         await addReminder(reminderData);
       }
       setAppState((prev) => ({ ...prev, error: null })); // 成功時はエラーをクリア
+      memoizedSetSuccessMessage("リマインダーを保存しました。"); // 成功メッセージを表示
       handleViewChange("dashboard");
+      console.log("handleReminderSave success");
     } catch (error) {
+      console.error("handleReminderSave caught error:", error); // エラーオブジェクト全体をログに出力
       setAppState((prev) => ({ ...prev, error: (error as Error).message })); // エラーメッセージを設定
     }
   };
@@ -131,6 +166,7 @@ const App: React.FC = () => {
   };
 
   const handleImportReminders = (importedReminders: Reminder[]) => {
+    const importErrors: string[] = [];
     try {
       const newReminders: Reminder[] = [];
       const updates: Array<{ id: string; data: Partial<Reminder> }> = [];
@@ -162,25 +198,44 @@ const App: React.FC = () => {
       if (updates.length > 0) {
         try {
           bulkUpdateReminders(updates);
-          setAppState((prev) => ({ ...prev, error: null })); // 成功時はエラーをクリア
         } catch (error) {
-          setAppState((prev) => ({ ...prev, error: (error as Error).message }));
+          importErrors.push(
+            `既存リマインダーの更新に失敗: ${getErrorMessage(error)}`,
+          );
         }
       }
 
-      newReminders.forEach(async (reminder) => {
-        // async を追加
+      newReminders.forEach((reminder) => {
         const { ...reminderData } = reminder;
         try {
-          await addReminder(reminderData);
-          setAppState((prev) => ({ ...prev, error: null })); // 成功時はエラーをクリア
+          addReminder(reminderData);
         } catch (error) {
-          setAppState((prev) => ({ ...prev, error: (error as Error).message }));
+          importErrors.push(
+            `新規リマインダーの追加に失敗: ${getErrorMessage(error)}`,
+          );
         }
       });
+
+      if (importErrors.length > 0) {
+        setError(
+          `リマインダーのインポートに一部失敗しました:\n* ${importErrors.join("\n* ")}`,
+        );
+        memoizedSetSuccessMessage(null); // エラー発生時は成功メッセージをクリア
+      } else if (updates.length > 0 || newReminders.length > 0) {
+        memoizedSetSuccessMessage(
+          `${updates.length}件更新、${newReminders.length}件追加でインポートしました。`,
+        );
+        setError(null); // 成功時はエラーをクリア
+      } else {
+        memoizedSetSuccessMessage(
+          "インポートするリマインダーはありませんでした。",
+        );
+        setError(null); // 成功時はエラーをクリア
+      }
     } catch (error) {
       console.error("リマインダーインポートに失敗:", error);
-      throw error;
+      setError(`リマインダーインポートに失敗: ${getErrorMessage(error)}`);
+      memoizedSetSuccessMessage(null); // エラー発生時は成功メッセージをクリア
     }
   };
 
@@ -208,8 +263,14 @@ const App: React.FC = () => {
       )}
 
       {appState.error && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50">
-          {appState.error}
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-[9999] flex items-center">
+          <RenderMessage message={appState.error} onDismiss={() => setError(null)} />
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-[9999] flex items-center">
+          <RenderMessage message={successMessage} onDismiss={() => memoizedSetSuccessMessage(null)} />
         </div>
       )}
 
@@ -227,6 +288,7 @@ const App: React.FC = () => {
                 await deleteReminder(id);
                 setAppState((prev) => ({ ...prev, error: null })); // 成功時はエラーをクリア
               } catch (error) {
+                console.error(error); // エラーオブジェクト全体をログに出力
                 setAppState((prev) => ({
                   ...prev,
                   error: (error as Error).message,
@@ -264,6 +326,8 @@ const App: React.FC = () => {
             onBack={() => handleViewChange("dashboard")}
             onImportReminders={handleImportReminders}
             onImportTheme={handleImportTheme}
+            setError={setError}
+            setSuccessMessage={memoizedSetSuccessMessage}
           />
         )}
       </main>

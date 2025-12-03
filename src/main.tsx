@@ -21,12 +21,7 @@ const hideLoadingScreen = () => {
 hideLoadingScreen();
 
 // 環境判定
-const isDevelopment =
-  location.hostname === "localhost" ||
-  location.hostname === "127.0.0.1" ||
-  location.port === "3000";
-const isProduction = !isDevelopment;
-const shouldRegisterSW = isProduction; // 開発中はSWを登録しない
+const shouldRegisterSW = true; // 開発・本番問わずSWを登録する
 
 // Service Worker登録
 const registerManualServiceWorker = () => {

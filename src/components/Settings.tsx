@@ -8,7 +8,6 @@ import {
   Upload,
   Trash2,
   CheckCircle,
-  AlertCircle,
   XCircle,
   AlertTriangle,
   ExternalLink,
@@ -33,6 +32,8 @@ interface SettingsProps {
   onBack: () => void;
   onImportReminders?: (reminders: Reminder[]) => void;
   onImportTheme?: (theme: "light" | "dark" | "system") => void;
+  setError: (message: string | null) => void; // 追加
+  setSuccessMessage: (message: string | null) => void; // 追加
 }
 
 interface ExtendedNavigator extends Navigator {
@@ -48,14 +49,9 @@ const Settings: React.FC<SettingsProps> = ({
   onBack,
   onImportReminders,
   onImportTheme,
+  setError,
+  setSuccessMessage,
 }) => {
-  const [importStatus, setImportStatus] = useState<string>("");
-  const [importType, setImportType] = useState<"success" | "error" | "">("");
-  const [notificationTestStatus, setNotificationTestStatus] =
-    useState<string>("");
-  const [notificationTestType, setNotificationTestType] = useState<
-    "success" | "error" | ""
-  >("");
   const [isImporting, setIsImporting] = useState(false);
 
   const {
@@ -74,34 +70,20 @@ const Settings: React.FC<SettingsProps> = ({
     return Array.from(tags).sort();
   }, [reminders]);
 
+  // pushError をグローバルエラーに伝える
+  React.useEffect(() => {
+    if (pushError) {
+      setError(pushError);
+    } else {
+      setError(null); // エラーが解消されたらクリア
+    }
+  }, [pushError, setError]);
+
   const stats = {
     total: reminders.length,
     active: reminders.filter((r) => !r.isPaused).length,
     paused: reminders.filter((r) => r.isPaused).length,
     tags: allTags.length,
-  };
-
-  const displayStatusMessage = (
-    message: string,
-    type: "success" | "error",
-    target: "import" | "notification",
-  ) => {
-    if (target === "import") {
-      setImportStatus(message);
-      setImportType(type);
-    } else {
-      setNotificationTestStatus(message);
-      setNotificationTestType(type);
-    }
-    setTimeout(() => {
-      if (target === "import") {
-        setImportStatus("");
-        setImportType("");
-      } else {
-        setNotificationTestStatus("");
-        setNotificationTestType("");
-      }
-    }, 5000);
   };
 
   const exportData = () => {
@@ -128,7 +110,7 @@ const Settings: React.FC<SettingsProps> = ({
       new Date().toISOString().split("T")[0]
     }.json`;
     downloadFile(JSON.stringify(data, null, 2), filename);
-    displayStatusMessage("データをエクスポートしました", "success", "import");
+    setSuccessMessage("データをエクスポートしました");
   };
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,8 +118,8 @@ const Settings: React.FC<SettingsProps> = ({
     if (!file) return;
 
     setIsImporting(true);
-    setImportStatus("");
-    setImportType("");
+    setError(null); // エラーをクリア
+    setSuccessMessage(null); // 成功メッセージをクリア
 
     try {
       const content = await readFile(file);
@@ -164,13 +146,9 @@ const Settings: React.FC<SettingsProps> = ({
       if (invalidCount > 0) {
         message += ` (${invalidCount}個の無効なデータは除外されました)`;
       }
-      displayStatusMessage(message, "success", "import");
+      setSuccessMessage(message);
     } catch (error) {
-      displayStatusMessage(
-        `インポートに失敗: ${getErrorMessage(error)}`,
-        "error",
-        "import",
-      );
+      setError(`インポートに失敗: ${getErrorMessage(error)}`);
     } finally {
       setIsImporting(false);
       event.target.value = "";
@@ -179,7 +157,7 @@ const Settings: React.FC<SettingsProps> = ({
 
   const requestNotificationPermission = async () => {
     if (!("Notification" in window)) {
-      alert("このブラウザは通知をサポートしていません");
+      setError("このブラウザは通知をサポートしていません");
       return;
     }
     try {
@@ -191,26 +169,30 @@ const Settings: React.FC<SettingsProps> = ({
           enabled: permission === "granted",
         },
       });
+      setError(null); // 成功時はエラーをクリア
+      if (permission === "granted") {
+        setSuccessMessage("通知の許可が得られました。");
+      }
     } catch (error) {
-      console.error("通知許可の取得に失敗:", error);
+      setError("通知許可の取得に失敗しました: " + getErrorMessage(error));
     }
   };
 
   const sendTestNotification = () => {
     if (navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({
-        type: "TEST_NOTIFICATION",
-      });
-      displayStatusMessage(
-        "テスト通知を送信しました。5秒後に届きます。アプリを閉じてお待ちください。",
-        "success",
-        "notification",
-      );
+      try {
+        navigator.serviceWorker.controller.postMessage({
+          type: "TEST_NOTIFICATION",
+        });
+        setSuccessMessage(
+          "テスト通知を送信しました。アプリを閉じてお待ちください。",
+        );
+      } catch (error) {
+        setError("テスト通知の送信に失敗しました: " + getErrorMessage(error));
+      }
     } else {
-      displayStatusMessage(
+      setError(
         "Service Workerが有効ではありません。ページを再読み込みしてください。",
-        "error",
-        "notification",
       );
     }
   };
@@ -435,11 +417,6 @@ const Settings: React.FC<SettingsProps> = ({
                         </button>
                       </div>
                     )}
-                    {pushError && (
-                      <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                        {pushError}
-                      </p>
-                    )}
                   </div>
                 )}
             </div>
@@ -464,32 +441,6 @@ const Settings: React.FC<SettingsProps> = ({
                 </button>
               )}
             </div>
-
-            {notificationTestStatus && (
-              <div
-                className={`mt-4 p-3 rounded-lg border ${notificationTestType === "success" ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"}`}
-              >
-                <div className="flex items-center gap-2">
-                  {notificationTestType === "success" ? (
-                    <CheckCircle
-                      className="text-green-600 dark:text-green-400 flex-shrink-0"
-                      size={16}
-                    />
-                  ) : (
-                    <AlertCircle
-                      className="text-red-600 dark:text-red-400 flex-shrink-0"
-                      size={16}
-                    />
-                  )}
-
-                  <div
-                    className={`text-sm ${notificationTestType === "success" ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}
-                  >
-                    {notificationTestStatus}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -596,30 +547,6 @@ const Settings: React.FC<SettingsProps> = ({
                 </button>
               </div>
             </div>
-            {importStatus && (
-              <div
-                className={`mt-4 p-3 rounded-lg border ${importType === "success" ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"}`}
-              >
-                <div className="flex items-center gap-2">
-                  {importType === "success" ? (
-                    <CheckCircle
-                      className="text-green-600 dark:text-green-400"
-                      size={16}
-                    />
-                  ) : (
-                    <AlertCircle
-                      className="text-red-600 dark:text-red-400"
-                      size={16}
-                    />
-                  )}
-                  <div
-                    className={`text-sm ${importType === "success" ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}
-                  >
-                    {importStatus}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -653,8 +580,9 @@ const Settings: React.FC<SettingsProps> = ({
                 </p>
                 <p className="mt-1 text-gray-600 dark:text-gray-400">
                   選択した通知方法によって制約が異なります。
-                  <br />
-                  <strong className="mt-2 block">
+                </p>
+                <div className="mt-2 text-gray-600 dark:text-gray-400">
+                  <strong className="block">
                     ローカル通知 (シンプル) の場合:
                   </strong>
                   <ul className="list-disc list-inside ml-2">
@@ -683,7 +611,7 @@ const Settings: React.FC<SettingsProps> = ({
                       いずれの通知方法でも、PWAとしてインストールしてご利用いただくことを強く推奨します。
                     </li>
                   </ul>
-                </p>
+                </div>
               </div>
             </div>
 

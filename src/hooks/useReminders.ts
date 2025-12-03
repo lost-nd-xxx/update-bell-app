@@ -5,10 +5,16 @@ import {
   isReminder,
   calculateNextScheduledNotification,
   debounce,
+  getErrorMessage,
 } from "../utils/helpers";
 import { usePushNotifications } from "./usePushNotifications";
 
-export const useReminders = (settings: AppSettings, userId: string | null) => {
+export const useReminders = (
+  settings: AppSettings,
+  userId: string | null,
+  setError: (message: string | null) => void,
+  setSuccessMessage: (message: string | null) => void, // 追加
+) => {
   const [reminders, setReminders] = useState<Reminder[]>(() => {
     const saved = localStorage.getItem("update-bell-data");
     if (saved) {
@@ -54,33 +60,44 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
 
   // debounceされたローカル通知スケジューラーの参照
   const debouncedLocalScheduler = useRef(
-    debounce(scheduleLocalNotification, 200),
-  );
-
-  useEffect(() => {
-    debouncedLocalScheduler.current = debounce(scheduleLocalNotification, 200);
-  }, [scheduleLocalNotification]);
+    debounce((..._args: unknown[]) => {
+      // _args に修正
+      scheduleLocalNotification();
+    }, 200),
+  ).current;
 
   // プッシュ通知の予約
   const schedulePushNotification = async (
     reminder: Reminder,
     currentSubscription: PushSubscription | null,
   ) => {
+    console.log(
+      "schedulePushNotification called for reminder:",
+      reminder.id,
+      "userId:",
+      userId,
+    );
     if (!userId) {
-      console.error(
-        "Push notification scheduling failed: User ID is not available.",
+      console.log("schedulePushNotification: userId is null, throwing error.");
+      throw new Error(
+        "プッシュ通知のスケジュールに失敗: ユーザーIDが利用できません。",
       );
-      return;
     }
 
     // `calculateNextScheduledNotification` を使って次の通知時刻を計算
     const nextNotification = calculateNextScheduledNotification([reminder]);
     if (!nextNotification) {
+      console.log(
+        "schedulePushNotification: No next notification time calculated, returning.",
+      );
       // TODO: サーバー側で予約済みの通知があればキャンセルするAPIを呼ぶ
       return;
     }
 
     try {
+      console.log(
+        "schedulePushNotification: Making fetch call to /api/schedule-reminder",
+      );
       const response = await fetch("/api/schedule-reminder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,35 +115,35 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
           },
         }),
       });
+      console.log(
+        "schedulePushNotification: Fetch response received, status:",
+        response.status,
+      );
 
       if (!response.ok) {
         const errorData = await response
           .json()
-          .catch(() => ({ error: "サーバーとの通信に失敗しました" }));
-        throw new Error(errorData.error || "リマインダーの保存に失敗しました");
+          .catch(() => ({ message: "不明なエラー" }));
+        console.log(
+          "schedulePushNotification: Response not ok, throwing error.",
+        );
+        throw new Error(
+          `リマインダーの保存に失敗しました (Status: ${response.status}): ${errorData.message || errorData.error}`,
+        );
       }
+      console.log("schedulePushNotification: Fetch call successful.");
     } catch (error) {
-      console.error("Failed to schedule push notification:", error);
-    }
-  };
-
-  // リマインダーの変更をハンドリングし、通知をスケジュールする
-  const handleReminderChange = (changedReminders: Reminder[]) => {
-    if (settings.notifications.method === "push") {
-      // プッシュ通知の場合、変更された各リマインダーについて予約APIを叩く
-      changedReminders.forEach((reminder) =>
-        schedulePushNotification(reminder, subscription),
+      console.error("schedulePushNotification caught error:", error);
+      throw new Error(
+        `リマインダーの保存に失敗しました: ${(error as Error).message}`,
       );
-    } else {
-      // ローカル通知の場合、全リマインダーから次の通知を計算して予約する
-      // この呼び出しはdebounceされているので、短期間に複数回呼ばれても効率的
-      debouncedLocalScheduler.current();
     }
   };
 
   const addReminder = (
     reminderData: Omit<Reminder, "id" | "createdAt" | "timezone">,
   ) => {
+    console.log("addReminder called with:", reminderData);
     const newReminder: Reminder = {
       ...reminderData,
       id: generateId(),
@@ -135,17 +152,13 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
       isPaused: reminderData.isPaused || false,
     };
 
-    setReminders((prev) => {
-      const newReminders = [...prev, newReminder];
-      // handleReminderChangeを呼ぶ前にstateを更新
-      handleReminderChange([newReminder]);
-      return newReminders;
-    });
-
+    setReminders((prev) => [...prev, newReminder]);
+    console.log("addReminder finished, new reminder:", newReminder);
     return newReminder;
   };
 
   const updateReminder = (id: string, updates: Partial<Reminder>) => {
+    console.log("updateReminder called for id:", id, "with updates:", updates);
     setReminders((prev) => {
       let updatedReminder: Reminder | null = null;
       const newReminders = prev.map((reminder) => {
@@ -155,15 +168,16 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
         }
         return reminder;
       });
-
-      if (updatedReminder) {
-        handleReminderChange([updatedReminder]);
-      }
+      console.log(
+        "updateReminder finished, updated reminder:",
+        updatedReminder,
+      );
       return newReminders;
     });
   };
 
   const deleteReminder = async (id: string) => {
+    console.log("deleteReminder called for id:", id);
     // async を追加
     // ローカル通知の場合は全キャンセルしてから再スケジュール
     if (
@@ -187,25 +201,30 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
         if (!response.ok) {
           const errorData = await response
             .json()
-            .catch(() => ({ error: "サーバーとの通信に失敗しました" }));
+            .catch(() => ({ message: "不明なエラー" }));
           throw new Error(
-            errorData.error || "リマインダーの削除に失敗しました",
+            `リマインダーの削除に失敗しました (Status: ${response.status}): ${errorData.message || errorData.error}`,
           );
         }
+        console.log("deleteReminder: Server request successful for id:", id);
       } catch (error) {
         console.error(
           `[Frontend] Failed to request server to delete reminder ${id}:`,
           error,
         );
+        setError(`リマインダーの削除に失敗しました: ${getErrorMessage(error)}`);
       }
     }
 
     setReminders((prev) => prev.filter((reminder) => reminder.id !== id));
+    console.log("deleteReminder finished, reminders updated.");
   };
 
   const bulkUpdateReminders = (
+    // async を追加
     updates: Array<{ id: string; data: Partial<Reminder> }>,
   ) => {
+    console.log("bulkUpdateReminders called with updates:", updates);
     const updatedReminders: Reminder[] = [];
     setReminders((prev) =>
       prev.map((reminder) => {
@@ -218,18 +237,91 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
         return reminder;
       }),
     );
-    if (updatedReminders.length > 0) {
-      handleReminderChange(updatedReminders);
-    }
+    console.log(
+      "bulkUpdateReminders finished, updated reminders count:",
+      updatedReminders.length,
+    );
   };
 
-  // `reminders`が変更されたときにローカル通知を再スケジュールする
+  // --- 通知スケジューリングロジックをuseEffectに移動 ---
+  const debouncedHandleReminderChange = useRef(
+    debounce(async (...args: unknown[]) => {
+      // async を追加
+      console.log("debouncedHandleReminderChange fired");
+      const remindersToProcess = args[0] as Reminder[]; // 型アサーション
+
+      // プッシュ通知の場合、変更された各リマインダーについて予約APIを叩く
+      if (settings.notifications.method === "push") {
+        const errors: string[] = [];
+        const successfulReminders: string[] = [];
+        for (const reminder of remindersToProcess) {
+          console.log(
+            "Scheduling push notification for reminder:",
+            reminder.id,
+            "title:",
+            reminder.title,
+          );
+          try {
+            await schedulePushNotification(reminder, subscription);
+            successfulReminders.push(reminder.title);
+            console.log(
+              "schedulePushNotification successful for reminder:",
+              reminder.id,
+            );
+          } catch (error) {
+            console.error(
+              "Failed to schedule push notification in useEffect:",
+              error,
+            );
+            errors.push(
+              `${reminder.title} のスケジュールに失敗: ${getErrorMessage(error)}`,
+            );
+          }
+        }
+
+        if (errors.length > 0) {
+          let errorMessage = `プッシュ通知のスケジュールに一部失敗しました:\n* ${errors.join("\n* ")}`;
+          if (successfulReminders.length > 0) {
+            errorMessage += `\n(${successfulReminders.length}件のリマインダーは正常にスケジュールされました。)`;
+          }
+          setError(errorMessage);
+        } else if (successfulReminders.length > 0) {
+          // 全て成功した場合
+          setSuccessMessage(
+            `${successfulReminders.length}件のプッシュ通知をスケジュールしました。`,
+          );
+          setError(null); // エラーはクリア
+        } else {
+          // エラーも成功もなかった場合 (例: remindersToProcessが空、またはすべてearly returnされた)
+          setError(null);
+          setSuccessMessage(null);
+        }
+      }
+    }, 500), // デバウンス時間
+  ).current;
+
   useEffect(() => {
+    console.log(
+      "useReminders useEffect triggered with settings.notifications.method:",
+      settings.notifications.method,
+      "reminders count:",
+      reminders.length,
+    );
     if (settings.notifications.method === "local") {
-      debouncedLocalScheduler.current();
+      // ローカル通知の場合、全リマインダーから次の通知を計算して予約する
+      debouncedLocalScheduler();
+    } else if (settings.notifications.method === "push") {
+      // プッシュ通知の場合、remindersが変更されたら、debouncedHandleReminderChangeを呼ぶ
+      // 全てのリマインダーについてAPIを叩き直すことになるが、現状これがシンプル
+      debouncedHandleReminderChange(reminders);
     }
-    // プッシュ通知の場合は、add/update時に個別にAPIを叩くので、このuseEffectでは何もしない
-  }, [reminders, settings.notifications.method]);
+  }, [
+    reminders,
+    settings.notifications.method,
+    debouncedLocalScheduler,
+    debouncedHandleReminderChange,
+  ]);
+  // --- ここまで通知スケジューリングロジックをuseEffectに移動 ---
 
   // (元のフックの他の関数はそのまま)
   const duplicateReminder = (id: string): void => {
