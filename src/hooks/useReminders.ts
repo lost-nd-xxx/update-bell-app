@@ -87,13 +87,14 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
         body: JSON.stringify({
           userId, // 最上位のuserId
           reminder: {
-            userId, // リマインダーオブジェクト内のuserId (冗長だが現在のFunctionsコードに合わせる)
+            userId,
             reminderId: reminder.id,
             message: reminder.title,
             scheduledTime: nextNotification.scheduleTime,
             url: reminder.url,
-            status: reminder.status || "pending", // statusがundefinedの場合はpendingをデフォルトとする
+            status: reminder.status || "pending",
             subscription: currentSubscription,
+            schedule: reminder.schedule, // ここに schedule プロパティを追加
           },
         }),
       });
