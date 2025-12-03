@@ -15,5 +15,4 @@ jobs:
           curl -v --fail --request POST \
             --url '${{ secrets.VERCEL_URL }}/api/cron/send-notifications' \
             --header 'Authorization: Bearer ${{ secrets.CRON_SECRET }}'
-      - name: Intentionally fail for debug
-        run: exit 1
+
