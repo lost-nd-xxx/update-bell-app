@@ -81,11 +81,11 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
     }
 
     try {
-      await fetch("/api/schedule-reminder", {
+      const response = await fetch("/api/schedule-reminder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId, // 最上位のuserId
+          userId,
           reminder: {
             userId,
             reminderId: reminder.id,
@@ -94,10 +94,17 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
             url: reminder.url,
             status: reminder.status || "pending",
             subscription: currentSubscription,
-            schedule: reminder.schedule, // ここに schedule プロパティを追加
+            schedule: reminder.schedule,
           },
         }),
       });
+
+      if (!response.ok) {
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "サーバーとの通信に失敗しました" }));
+        throw new Error(errorData.error || "リマインダーの保存に失敗しました");
+      }
     } catch (error) {
       console.error("Failed to schedule push notification:", error);
     }
@@ -171,14 +178,20 @@ export const useReminders = (settings: AppSettings, userId: string | null) => {
     // プッシュ通知の場合は、サーバーに削除を通知するAPIを呼ぶ
     if (settings.notifications.method === "push" && userId) {
       try {
-        await fetch("/api/delete-reminder", {
+        const response = await fetch("/api/delete-reminder", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId, reminderId: id }),
         });
-        console.log(
-          `[Frontend] Successfully requested server to delete reminder ${id}`,
-        );
+
+        if (!response.ok) {
+          const errorData = await response
+            .json()
+            .catch(() => ({ error: "サーバーとの通信に失敗しました" }));
+          throw new Error(
+            errorData.error || "リマインダーの削除に失敗しました",
+          );
+        }
       } catch (error) {
         console.error(
           `[Frontend] Failed to request server to delete reminder ${id}:`,

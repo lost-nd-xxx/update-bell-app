@@ -91,15 +91,21 @@ const App: React.FC = () => {
     }
   };
 
-  const handleReminderSave = (
+  const handleReminderSave = async (
+    // async を追加
     reminderData: Omit<Reminder, "id" | "createdAt" | "timezone">,
   ) => {
-    if (appState.editingReminder) {
-      updateReminder(appState.editingReminder.id, reminderData);
-    } else {
-      addReminder(reminderData);
+    try {
+      if (appState.editingReminder) {
+        await updateReminder(appState.editingReminder.id, reminderData);
+      } else {
+        await addReminder(reminderData);
+      }
+      setAppState((prev) => ({ ...prev, error: null })); // 成功時はエラーをクリア
+      handleViewChange("dashboard");
+    } catch (error) {
+      setAppState((prev) => ({ ...prev, error: (error as Error).message })); // エラーメッセージを設定
     }
-    handleViewChange("dashboard");
   };
 
   const handleFilterChange = (filter: Partial<AppState["filter"]>) => {
@@ -154,12 +160,23 @@ const App: React.FC = () => {
       });
 
       if (updates.length > 0) {
-        bulkUpdateReminders(updates);
+        try {
+          bulkUpdateReminders(updates);
+          setAppState((prev) => ({ ...prev, error: null })); // 成功時はエラーをクリア
+        } catch (error) {
+          setAppState((prev) => ({ ...prev, error: (error as Error).message }));
+        }
       }
 
-      newReminders.forEach((reminder) => {
+      newReminders.forEach(async (reminder) => {
+        // async を追加
         const { ...reminderData } = reminder;
-        addReminder(reminderData);
+        try {
+          await addReminder(reminderData);
+          setAppState((prev) => ({ ...prev, error: null })); // 成功時はエラーをクリア
+        } catch (error) {
+          setAppState((prev) => ({ ...prev, error: (error as Error).message }));
+        }
       });
     } catch (error) {
       console.error("リマインダーインポートに失敗:", error);
@@ -190,6 +207,12 @@ const App: React.FC = () => {
         />
       )}
 
+      {appState.error && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+          {appState.error}
+        </div>
+      )}
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {appState.currentView === "dashboard" && (
           <Dashboard
@@ -199,7 +222,17 @@ const App: React.FC = () => {
             onFilterChange={handleFilterChange}
             onSortChange={handleSortChange}
             onEdit={(reminder) => handleViewChange("create", reminder)}
-            onDelete={deleteReminder}
+            onDelete={async (id) => {
+              try {
+                await deleteReminder(id);
+                setAppState((prev) => ({ ...prev, error: null })); // 成功時はエラーをクリア
+              } catch (error) {
+                setAppState((prev) => ({
+                  ...prev,
+                  error: (error as Error).message,
+                })); // エラーメッセージを設定
+              }
+            }}
             onTogglePause={(id, isPaused) =>
               updateReminder(id, {
                 isPaused,

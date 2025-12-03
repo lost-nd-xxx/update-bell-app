@@ -158,25 +158,33 @@ export default async function handler(request, response) {
 
       // 処理済みのリマインダーをKVとSorted Setから更新/再登録
       const now = Date.now();
-      
+
       for (const rem of userReminders) {
         // schedule プロパティが存在しない場合はスキップ (古いデータへの対応)
         if (!rem.data.schedule) {
-          console.warn(`[CRON] Reminder ${rem.key} has no schedule property. Skipping.`);
+          console.warn(
+            `[CRON] Reminder ${rem.key} has no schedule property. Skipping.`,
+          );
           continue; // 次のリマインダーへ
         }
 
-        const updatedReminderData = { ...rem.data, lastNotified: new Date(now).toISOString() };
-        
+        const updatedReminderData = {
+          ...rem.data,
+          lastNotified: new Date(now).toISOString(),
+        };
+
         // 次回の通知時刻を計算
         // calculateNextNotificationTime関数はhelpers.tsからimportする必要がありますが、
         // ここでは簡易的にAPI内で定義します。実際は共通関数としてimportすべきです。
         // TODO: helpers.tsからimportするように変更する
-        const calculateNextNotificationTime = (schedule, baseDate = new Date()) => {
+        const calculateNextNotificationTime = (
+          schedule,
+          baseDate = new Date(),
+        ) => {
           const hour = schedule.hour;
           const minute = schedule.minute;
           let nextDate = new Date(baseDate);
-          
+
           // ここはhelpers.tsのcalculateNextNotificationTimeロジックの簡略版
           // 実際にはhelpers.tsの関数をそのまま使用すべき
           nextDate.setHours(hour, minute, 0, 0);
@@ -186,18 +194,26 @@ export default async function handler(request, response) {
           return nextDate;
         };
 
-        const nextScheduleTime = calculateNextNotificationTime(rem.data.schedule, new Date(now));
+        const nextScheduleTime = calculateNextNotificationTime(
+          rem.data.schedule,
+          new Date(now),
+        );
 
         updateTx.set(rem.key, updatedReminderData); // lastNotifiedを更新して保存
         updateTx.zrem(sortedSetKey, rem.key); // 古いSorted Setエントリを削除
-        updateTx.zadd(sortedSetKey, { score: nextScheduleTime.getTime(), member: rem.key }); // 新しい時刻で再追加
-        console.log(`[CRON] Reminder ${rem.key} updated and re-scheduled for ${nextScheduleTime.toISOString()}`);
+        updateTx.zadd(sortedSetKey, {
+          score: nextScheduleTime.getTime(),
+          member: rem.key,
+        }); // 新しい時刻で再追加
+        console.log(
+          `[CRON] Reminder ${rem.key} updated and re-scheduled for ${nextScheduleTime.toISOString()}`,
+        );
       }
     }
 
     // トランザクションを実行
     await Promise.all([updateTx.exec(), deleteTx.exec()]);
-    console.log('[CRON] Update and delete transactions executed.');
+    console.log("[CRON] Update and delete transactions executed.");
 
     // 5. 期限切れの購読情報をクリーンアップ
     if (allExpiredEndpoints.length > 0) {
