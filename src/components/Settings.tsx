@@ -392,7 +392,7 @@ const Settings: React.FC<SettingsProps> = ({
                         プッシュ通知 (高信頼性)
                       </span>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        アプリを閉じていても届く
+                        アプリを閉じていても届く（5分以上の遅延が生じる場合があります）
                         {settings.notifications.permission !== "granted" &&
                           " (最初に通知を許可してください)"}
                       </p>
@@ -662,7 +662,7 @@ const Settings: React.FC<SettingsProps> = ({
                   <strong className="mt-2 block">プッシュ通知 (高信頼性) の場合:</strong>
                   <ul className="list-disc list-inside ml-2">
                     <li>アプリを閉じていても通知が届きますが、OSの省電力設定などの影響を受ける場合があります。</li>
-                    <li>サーバーでの処理とGitHub Actionsの実行タイミングにより、最大5分程度の遅延が生じる可能性があります。</li>
+                    <li>GitHub Actionsの実行タイミングにより、通知には5分以上の遅延が生じる可能性があります。</li>
                   </ul>
                   <strong className="mt-2 block">推奨事項:</strong>
                   <ul className="list-disc list-inside ml-2">
