@@ -205,8 +205,10 @@ export default async function handler(request, response) {
           `[CRON] Reminder ${rem.key} updated and re-scheduled for ${nextScheduleTime.toISOString()}`,
         );
       }
-      await updateTx.exec();
-    }
+                  // updateTx にコマンドが追加されている場合のみ実行
+                  if (updateTx.queue.length > 0) {
+                    await updateTx.exec();
+                  }    }
 
     // 5. 期限切れの購読情報をクリーンアップ
     if (allExpiredEndpoints.length > 0) {
