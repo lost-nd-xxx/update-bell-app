@@ -156,39 +156,54 @@ export default async function handler(request, response) {
         );
       }
 
-                  // 処理済みのリマインダーをKVとSorted Setから更新/再登録
-                  const updateTx = kv.multi();
-                  const now = Date.now();
-                  
-                  for (const rem of userReminders) {
-                    const updatedReminderData = { ...rem.data, lastNotified: new Date(now).toISOString() };
-                    
-                    // 次回の通知時刻を計算
-                    // calculateNextNotificationTime関数はhelpers.tsからimportする必要がありますが、
-                    // ここでは簡易的にAPI内で定義します。実際は共通関数としてimportすべきです。
-                    // TODO: helpers.tsからimportするように変更する
-                    const calculateNextNotificationTime = (schedule, baseDate = new Date()) => {
-                      const hour = schedule.hour;
-                      const minute = schedule.minute;
-                      let nextDate = new Date(baseDate);
-                      
-                      // ここはhelpers.tsのcalculateNextNotificationTimeロジックの簡略版
-                      // 実際にはhelpers.tsの関数をそのまま使用すべき
-                      nextDate.setHours(hour, minute, 0, 0);
-                      if (nextDate.getTime() <= baseDate.getTime()) {
-                        nextDate.setDate(nextDate.getDate() + 1); // 翌日に設定（最も単純な繰り返し）
-                      }
-                      return nextDate;
-                    };
-      
-                    const nextScheduleTime = calculateNextNotificationTime(rem.data.schedule, new Date(now));
-      
-                    updateTx.set(rem.key, updatedReminderData); // lastNotifiedを更新して保存
-                    updateTx.zrem(sortedSetKey, rem.key); // 古いSorted Setエントリを削除
-                    updateTx.zadd(sortedSetKey, { score: nextScheduleTime.getTime(), member: rem.key }); // 新しい時刻で再追加
-                    console.log(`[CRON] Reminder ${rem.key} updated and re-scheduled for ${nextScheduleTime.toISOString()}`);
-                  }
-                  await updateTx.exec();    }
+      // 処理済みのリマインダーをKVとSorted Setから更新/再登録
+      const updateTx = kv.multi();
+      const now = Date.now();
+
+      for (const rem of userReminders) {
+        const updatedReminderData = {
+          ...rem.data,
+          lastNotified: new Date(now).toISOString(),
+        };
+
+        // 次回の通知時刻を計算
+        // calculateNextNotificationTime関数はhelpers.tsからimportする必要がありますが、
+        // ここでは簡易的にAPI内で定義します。実際は共通関数としてimportすべきです。
+        // TODO: helpers.tsからimportするように変更する
+        const calculateNextNotificationTime = (
+          schedule,
+          baseDate = new Date(),
+        ) => {
+          const hour = schedule.hour;
+          const minute = schedule.minute;
+          let nextDate = new Date(baseDate);
+
+          // ここはhelpers.tsのcalculateNextNotificationTimeロジックの簡略版
+          // 実際にはhelpers.tsの関数をそのまま使用すべき
+          nextDate.setHours(hour, minute, 0, 0);
+          if (nextDate.getTime() <= baseDate.getTime()) {
+            nextDate.setDate(nextDate.getDate() + 1); // 翌日に設定（最も単純な繰り返し）
+          }
+          return nextDate;
+        };
+
+        const nextScheduleTime = calculateNextNotificationTime(
+          rem.data.schedule,
+          new Date(now),
+        );
+
+        updateTx.set(rem.key, updatedReminderData); // lastNotifiedを更新して保存
+        updateTx.zrem(sortedSetKey, rem.key); // 古いSorted Setエントリを削除
+        updateTx.zadd(sortedSetKey, {
+          score: nextScheduleTime.getTime(),
+          member: rem.key,
+        }); // 新しい時刻で再追加
+        console.log(
+          `[CRON] Reminder ${rem.key} updated and re-scheduled for ${nextScheduleTime.toISOString()}`,
+        );
+      }
+      await updateTx.exec();
+    }
 
     // 5. 期限切れの購読情報をクリーンアップ
     if (allExpiredEndpoints.length > 0) {
