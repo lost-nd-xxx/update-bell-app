@@ -34,6 +34,10 @@ export const useReminders = (
 
   // usePushNotificationsから現在の購読情報を取得
   const { subscription } = usePushNotifications(addToast);
+  const userIdRef = useRef(userId);
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
 
   // リマインダーをlocalStorageに保存
   useEffect(() => {
@@ -74,15 +78,16 @@ export const useReminders = (
     reminder: Reminder,
     currentSubscription: PushSubscription | null,
   ) => {
+    const currentUserId = userIdRef.current;
     console.log(
       "schedulePushNotification called for reminder:",
       reminder.id,
       "userId:",
-      userId,
+      currentUserId,
     );
-    if (!userId) {
+    if (!currentUserId) {
       console.log("schedulePushNotification: userId is null, throwing error.");
-      throw new Error("ユーザーIDが利用できません。"); // 変更
+      throw new Error("ユーザーIDが利用できません。");
     }
 
     // `calculateNextScheduledNotification` を使って次の通知時刻を計算
@@ -103,9 +108,9 @@ export const useReminders = (
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId,
+          userId: currentUserId,
           reminder: {
-            userId,
+            userId: currentUserId,
             reminderId: reminder.id,
             message: reminder.title,
             scheduledTime: nextNotification.scheduleTime,
@@ -189,14 +194,14 @@ export const useReminders = (
         type: "CANCEL_ALL_REMINDERS",
       });
     }
-
+    const currentUserId = userIdRef.current;
     // プッシュ通知の場合は、サーバーに削除を通知するAPIを呼ぶ
-    if (settings.notifications.method === "push" && userId) {
+    if (settings.notifications.method === "push" && currentUserId) {
       try {
         const response = await fetch("/api/delete-reminder", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, reminderId: id }),
+          body: JSON.stringify({ userId: currentUserId, reminderId: id }),
         });
 
         if (!response.ok) {
@@ -249,68 +254,61 @@ export const useReminders = (
 
   // --- 通知スケジューリングロジックをuseEffectに移動 ---
   const debouncedHandleReminderChange = useRef(
-    debounce(
-      async (remindersToProcess: Reminder[], currentUserId: string | null) => {
-        console.log("debouncedHandleReminderChange fired");
+    debounce(async (remindersToProcess: Reminder[]) => {
+      console.log("debouncedHandleReminderChange fired");
 
-        if (settings.notifications.method === "push") {
-          if (!currentUserId) {
+      const currentUserId = userIdRef.current;
+      if (settings.notifications.method === "push") {
+        if (!currentUserId) {
+          console.log(
+            "debouncedHandleReminderChange: userId is null, skipping.",
+          );
+          return;
+        }
+        const errors: string[] = [];
+        const successfulReminders: string[] = [];
+        for (const reminder of remindersToProcess) {
+          console.log(
+            "Scheduling push notification for reminder:",
+            reminder.id,
+            "title:",
+            reminder.title,
+          );
+          try {
+            await schedulePushNotification(reminder, subscription);
+            successfulReminders.push(reminder.title);
             console.log(
-              "debouncedHandleReminderChange: userId is null, skipping.",
-            );
-            return;
-          }
-          const errors: string[] = [];
-          const successfulReminders: string[] = [];
-          for (const reminder of remindersToProcess) {
-            console.log(
-              "Scheduling push notification for reminder:",
+              "schedulePushNotification successful for reminder:",
               reminder.id,
-              "title:",
-              reminder.title,
             );
-            try {
-              // schedulePushNotificationはクロージャ内の古いuserIdを参照してしまうため、
-              // ここで最新のuserIdを渡してあげる必要がある。
-              // ただし、schedulePushNotificationのシグネチャを変更すると影響範囲が広いため、
-              // ここではuserId propに依存する useReminders フック全体が、
-              // userIdの変更時に再評価されることを期待する。
-              await schedulePushNotification(reminder, subscription);
-              successfulReminders.push(reminder.title);
-              console.log(
-                "schedulePushNotification successful for reminder:",
-                reminder.id,
-              );
-            } catch (error) {
-              console.error(
-                "Failed to schedule push notification in useEffect:",
-                error,
-              );
-              errors.push(`${reminder.title}: ${getErrorMessage(error)}`);
-            }
+          } catch (error) {
+            console.error(
+              "Failed to schedule push notification in useEffect:",
+              error,
+            );
+            errors.push(`${reminder.title}: ${getErrorMessage(error)}`);
           }
+        }
 
-          if (errors.length > 0) {
-            errors.forEach((err) => {
-              addToast(`${err}`, "error", 20000);
-            });
+        if (errors.length > 0) {
+          errors.forEach((err) => {
+            addToast(`${err}`, "error", 20000);
+          });
 
-            if (successfulReminders.length > 0) {
-              addToast(
-                `${successfulReminders.length}件のプッシュ通知をスケジュールしました。`,
-                "success",
-              );
-            }
-          } else if (successfulReminders.length > 0) {
+          if (successfulReminders.length > 0) {
             addToast(
               `${successfulReminders.length}件のプッシュ通知をスケジュールしました。`,
               "success",
             );
           }
+        } else if (successfulReminders.length > 0) {
+          addToast(
+            `${successfulReminders.length}件のプッシュ通知をスケジュールしました。`,
+            "success",
+          );
         }
-      },
-      500,
-    ),
+      }
+    }, 500),
   ).current;
 
   useEffect(() => {
@@ -323,15 +321,13 @@ export const useReminders = (
     if (settings.notifications.method === "local") {
       debouncedLocalScheduler();
     } else if (settings.notifications.method === "push") {
-      // userIdの有無に関わらず呼び出すが、中の処理はuserIdがなければスキップされる
-      debouncedHandleReminderChange(reminders, userId);
+      debouncedHandleReminderChange(reminders);
     }
   }, [
     reminders,
     settings.notifications.method,
     debouncedLocalScheduler,
     debouncedHandleReminderChange,
-    userId,
   ]);
   // --- ここまで通知スケジューリングロジックをuseEffectに移動 ---
 
