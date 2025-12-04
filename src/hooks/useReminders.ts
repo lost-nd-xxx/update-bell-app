@@ -255,6 +255,13 @@ export const useReminders = (
 
       // プッシュ通知の場合、変更された各リマインダーについて予約APIを叩く
       if (settings.notifications.method === "push") {
+        if (!userId) {
+          // ★ ガード節を追加
+          console.log(
+            "debouncedHandleReminderChange: userId is null, skipping.",
+          );
+          return;
+        }
         const errors: string[] = [];
         const successfulReminders: string[] = [];
         for (const reminder of remindersToProcess) {
