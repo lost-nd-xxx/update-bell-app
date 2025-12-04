@@ -117,9 +117,43 @@ self.addEventListener("notificationclick", (event) => {
   debugLog("通知がクリックされました", event.notification.data);
   event.notification.close();
 
-  const url = event.notification.data?.url;
-  if (url) {
-    event.waitUntil(clients.openWindow(url));
+  const data = event.notification.data;
+  const urlToOpen = data?.url;
+  const trackingUrl = data?.trackingUrl;
+  const userId = data?.userId;
+
+  const promises = [];
+
+  // ユーザーを目的のURLに遷移させる
+  if (urlToOpen) {
+    promises.push(clients.openWindow(urlToOpen));
+  }
+
+  // アクセスを追跡するリクエストをバックグラウンドで送信
+  if (trackingUrl && userId) {
+    const trackingRequest = fetch(trackingUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ userId }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          debugLog("トラッキングリクエストに失敗しました", response);
+        } else {
+          debugLog("トラッキングリクエストに成功しました");
+        }
+      })
+      .catch((error) => {
+        debugLog("トラッキングリクエストでネットワークエラー", error);
+      });
+
+    promises.push(trackingRequest);
+  }
+
+  if (promises.length > 0) {
+    event.waitUntil(Promise.all(promises));
   }
 });
 
@@ -148,6 +182,8 @@ self.addEventListener("push", (event) => {
     tag: pushData.tag || "general-notification",
     data: {
       url: pushData.url, // URLをdataに含めることで、notificationclickで利用
+      trackingUrl: pushData.trackingUrl, // アクセス追跡用URL
+      userId: pushData.userId, // 追跡APIで使うユーザーID
     },
   };
 

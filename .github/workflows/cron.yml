@@ -1,18 +1,33 @@
-name: Trigger Notification Cron Job
+name: Vercel Cron Jobs
 
 on:
   schedule:
-    # 5分ごとに実行（非公開リポジトリの場合、30分ごとなどにする）
+    # 5分ごとに通知送信ジョブを実行
     - cron: '*/5 * * * *'
+    # 毎週日曜の 00:00 (UTC) に非アクティブユーザー削除ジョブを実行
+    - cron: '0 0 * * 0'
   workflow_dispatch: # 手動実行も可能にする
 
 jobs:
-  trigger_cron:
+  trigger_notification_cron:
+    # 5分ごとのスケジュールの場合のみ実行
+    if: github.event.schedule == '*/5 * * * *'
     runs-on: ubuntu-latest
     steps:
-      - name: Call Vercel Cron API
+      - name: Call Send Notifications Cron API
         run: |
           curl -v --fail --request POST \
             --url '${{ secrets.VERCEL_URL }}/api/cron/send-notifications' \
+            --header 'Authorization: Bearer ${{ secrets.CRON_SECRET }}'
+
+  trigger_delete_inactive_users_cron:
+    # 毎週日曜の 00:00 (UTC) のスケジュールの場合のみ実行
+    if: github.event.schedule == '0 0 * * 0'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Delete Inactive Users Cron API
+        run: |
+          curl -v --fail --request POST \
+            --url '${{ secrets.VERCEL_URL }}/api/cron/delete-inactive-users' \
             --header 'Authorization: Bearer ${{ secrets.CRON_SECRET }}'
 

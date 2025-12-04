@@ -622,6 +622,29 @@ const Settings: React.FC<SettingsProps> = ({
                 </p>
               </div>
             </div>
+
+            <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 rounded">
+              <div className="text-sm text-yellow-900 dark:text-yellow-200">
+                <p className="flex flex-row gap-2 items-center">
+                  <AlertTriangle size={16} className="text-yellow-500" />
+                  <strong>データ自動削除について</strong>
+                </p>
+                <p className="mt-1 text-yellow-700 dark:text-yellow-300">
+                  最後に通知をクリックしてから半年間ご利用がない場合、リマインダーやプッシュ通知購読情報などのサーバーデータは自動的に削除されます。
+                  詳細は
+                  <a
+                    href="https://github.com/lost-nd-xxx/update-bell-app/blob/main/docs/MANUAL.md"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    利用者向け説明書
+                  </a>
+                  <ExternalLink size={12} className="inline-block ml-1" />
+                  をご確認ください。
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 

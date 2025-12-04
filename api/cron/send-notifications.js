@@ -137,6 +137,8 @@ export default async function handler(request, response) {
         title: "おしらせベル",
         body: rem.data.message,
         url: rem.data.url,
+        trackingUrl: "/api/track-access", // アクセス追跡用URL
+        userId: userId, // Service Workerが使うためのユーザーID
       }));
 
       try {
