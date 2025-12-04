@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { AppSettings } from "../types";
+import { ToastType } from "../components/ToastMessage"; // 追加
+import { getErrorMessage } from "../utils/helpers"; // 追加
 
 const defaultSettings: AppSettings = {
   theme: "system",
@@ -15,7 +17,9 @@ const defaultSettings: AppSettings = {
   },
 };
 
-export const useSettings = () => {
+export const useSettings = (
+  addToast: (message: string, type?: ToastType, duration?: number) => void, // 追加
+) => {
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem("update-bell-settings");
     if (saved) {
@@ -35,7 +39,10 @@ export const useSettings = () => {
           },
         };
       } catch (error) {
-        console.error("設定の読み込みに失敗:", error);
+        addToast(
+          `設定の読み込みに失敗しました: ${getErrorMessage(error)}`,
+          "error",
+        ); // 変更
         return defaultSettings;
       }
     }
@@ -112,7 +119,10 @@ export const useSettings = () => {
       }));
       return permission === "granted";
     } catch (error) {
-      console.error("通知許可の取得に失敗:", error);
+      addToast(
+        `通知許可の取得に失敗しました: ${getErrorMessage(error)}`,
+        "error",
+      );
       return false;
     }
   };

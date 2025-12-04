@@ -22,6 +22,7 @@ import {
   isReminder,
 } from "../utils/helpers";
 import { usePushNotifications } from "../hooks/usePushNotifications";
+import { ToastType } from "../components/ToastMessage"; // 変更
 
 interface SettingsProps {
   theme: "light" | "dark" | "system";
@@ -32,8 +33,7 @@ interface SettingsProps {
   onBack: () => void;
   onImportReminders?: (reminders: Reminder[]) => void;
   onImportTheme?: (theme: "light" | "dark" | "system") => void;
-  setError: (message: string | null) => void; // 追加
-  setSuccessMessage: (message: string | null) => void; // 追加
+  addToast: (message: string, type?: ToastType, duration?: number) => void; // 変更
 }
 
 interface ExtendedNavigator extends Navigator {
@@ -49,8 +49,7 @@ const Settings: React.FC<SettingsProps> = ({
   onBack,
   onImportReminders,
   onImportTheme,
-  setError,
-  setSuccessMessage,
+  addToast, // 変更
 }) => {
   const [isImporting, setIsImporting] = useState(false);
 
@@ -59,8 +58,7 @@ const Settings: React.FC<SettingsProps> = ({
     unsubscribeFromPushNotifications,
     isSubscribing,
     subscription,
-    error: pushError,
-  } = usePushNotifications();
+  } = usePushNotifications(addToast);
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -69,15 +67,6 @@ const Settings: React.FC<SettingsProps> = ({
     });
     return Array.from(tags).sort();
   }, [reminders]);
-
-  // pushError をグローバルエラーに伝える
-  React.useEffect(() => {
-    if (pushError) {
-      setError(pushError);
-    } else {
-      setError(null); // エラーが解消されたらクリア
-    }
-  }, [pushError, setError]);
 
   const stats = {
     total: reminders.length,
@@ -110,7 +99,7 @@ const Settings: React.FC<SettingsProps> = ({
       new Date().toISOString().split("T")[0]
     }.json`;
     downloadFile(JSON.stringify(data, null, 2), filename);
-    setSuccessMessage("データをエクスポートしました");
+    addToast("データをエクスポートしました", "success");
   };
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,8 +107,6 @@ const Settings: React.FC<SettingsProps> = ({
     if (!file) return;
 
     setIsImporting(true);
-    setError(null); // エラーをクリア
-    setSuccessMessage(null); // 成功メッセージをクリア
 
     try {
       const content = await readFile(file);
@@ -146,9 +133,9 @@ const Settings: React.FC<SettingsProps> = ({
       if (invalidCount > 0) {
         message += ` (${invalidCount}個の無効なデータは除外されました)`;
       }
-      setSuccessMessage(message);
+      addToast(message, "success");
     } catch (error) {
-      setError(`インポートに失敗: ${getErrorMessage(error)}`);
+      addToast(`インポートに失敗: ${getErrorMessage(error)}`, "error");
     } finally {
       setIsImporting(false);
       event.target.value = "";
@@ -157,7 +144,7 @@ const Settings: React.FC<SettingsProps> = ({
 
   const requestNotificationPermission = async () => {
     if (!("Notification" in window)) {
-      setError("このブラウザは通知をサポートしていません");
+      addToast("このブラウザは通知をサポートしていません", "error");
       return;
     }
     try {
@@ -169,12 +156,14 @@ const Settings: React.FC<SettingsProps> = ({
           enabled: permission === "granted",
         },
       });
-      setError(null); // 成功時はエラーをクリア
       if (permission === "granted") {
-        setSuccessMessage("通知の許可が得られました。");
+        addToast("通知の許可が得られました。", "success");
       }
     } catch (error) {
-      setError("通知許可の取得に失敗しました: " + getErrorMessage(error));
+      addToast(
+        "通知許可の取得に失敗しました: " + getErrorMessage(error),
+        "error",
+      );
     }
   };
 
@@ -184,15 +173,20 @@ const Settings: React.FC<SettingsProps> = ({
         navigator.serviceWorker.controller.postMessage({
           type: "TEST_NOTIFICATION",
         });
-        setSuccessMessage(
+        addToast(
           "テスト通知を送信しました。アプリを閉じてお待ちください。",
+          "info",
         );
       } catch (error) {
-        setError("テスト通知の送信に失敗しました: " + getErrorMessage(error));
+        addToast(
+          "テスト通知の送信に失敗しました: " + getErrorMessage(error),
+          "error",
+        );
       }
     } else {
-      setError(
+      addToast(
         "Service Workerが有効ではありません。ページを再読み込みしてください。",
+        "error",
       );
     }
   };
@@ -387,14 +381,14 @@ const Settings: React.FC<SettingsProps> = ({
                   <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                     {subscription ? (
                       <div>
-                        <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+                        <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300 pb-2">
                           <CheckCircle size={16} />
                           <span>このブラウザのプッシュ通知は有効です。</span>
                         </div>
                         <button
                           onClick={unsubscribeFromPushNotifications}
                           disabled={isSubscribing}
-                          className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline disabled:opacity-50"
+                          className="w-full sm:w-auto justify-center inline-flex items-center px-4 py-2 border-2 border-red-500 bg-red-50 dark:bg-red-900/20 text-sm font-medium rounded-lg text-red-700 dark:text-red-300 disabled:opacity-50"
                         >
                           {isSubscribing
                             ? "処理中..."

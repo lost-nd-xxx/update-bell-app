@@ -566,7 +566,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
             <button
               type="button"
               onClick={addTag}
-              className="btn btn-secondary text-white rounded-full border border-gray-500/20 p-1"
+              className="btn btn-secondary text-black dark:text-white rounded-full border border-gray-500/20 p-1"
               disabled={!tagInput.trim()}
             >
               <Plus size={16} />

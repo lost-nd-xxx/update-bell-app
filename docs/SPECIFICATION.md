@@ -30,6 +30,7 @@
 ### ユーザー体験設計
 
 - **ダッシュボード**: リマインダー一覧、検索・フィルター、各種操作
+- **トースト通知**: 操作の成功、エラー、情報メッセージを画面右下に一時的に表示。複数メッセージはスタックされ、クリックまたは時間経過で消える。
 - **モバイル対応**: レスポンシブデザイン、PWAによるネイティブアプリ風体験
 - **テーマ対応**: ライト/ダーク/システム準拠の3モード
 
@@ -39,7 +40,7 @@
   - **ブラウザ LocalStorage**: リマインダーの基本設定やUI設定を保存。
   - **Vercel KV**: プッシュ通知を選択したユーザーのリマインダー情報と購読情報をサーバーサイドに保存。
 - **データ形式**: JSON（エクスポート/インポート対応）
-- **状態管理**: カスタムフック（`useReminders`, `useSettings`, `useTheme`, `useTimezone`）
+- **状態管理**: カスタムフック（`useReminders`, `useSettings`, `useTheme`, `useTimezone`, `useToast`）
 - **バックアップ**: UIからの手動エクスポートを推奨
 
 ---
@@ -138,6 +139,11 @@ PWA機能は、Web ManifestとService Workerによって実装されています
 ├── api/                 # Vercel Serverless Functions (API)
 ├── public/              # 静的ファイル (アイコン, sw.js, manifest.json)
 ├── src/                 # Reactアプリケーションのソースコード
+│   ├── components/      # 再利用可能なUIコンポーネント
+│   ├── contexts/        # グローバルな状態を管理するReact Context
+│   ├── hooks/           # ビジネスロジックや状態管理をカプセル化するカスタムフック
+│   ├── types/           # アプリケーション全体で使用するTypeScriptの型定義
+│   └── utils/           # ヘルパー関数や補助的な機能
 ├── docs/                # ドキュメント (仕様書, プライバシーポリシー)
 ├── scripts/             # ビルド用スクリプト (アイコン変換など)
 ├── .vscode/             # VS Codeの推奨設定

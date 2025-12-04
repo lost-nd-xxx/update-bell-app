@@ -166,7 +166,7 @@ export interface AppState {
   filter: FilterSettings;
   sort: SortSettings;
   isLoading: boolean;
-  error: string | null;
+  error?: string | null; // オプショナルに変更
 }
 
 // API関連の型（将来の拡張用）- 具体的な型定義

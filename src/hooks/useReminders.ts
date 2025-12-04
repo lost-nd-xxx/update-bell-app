@@ -8,12 +8,12 @@ import {
   getErrorMessage,
 } from "../utils/helpers";
 import { usePushNotifications } from "./usePushNotifications";
+import { ToastType } from "../components/ToastMessage"; // 追加
 
 export const useReminders = (
   settings: AppSettings,
   userId: string | null,
-  setError: (message: string | null) => void,
-  setSuccessMessage: (message: string | null) => void, // 追加
+  addToast: (message: string, type?: ToastType, duration?: number) => void, // 変更
 ) => {
   const [reminders, setReminders] = useState<Reminder[]>(() => {
     const saved = localStorage.getItem("update-bell-data");
@@ -21,8 +21,11 @@ export const useReminders = (
       try {
         const parsed = JSON.parse(saved);
         return Array.isArray(parsed) ? parsed.filter(isReminder) : [];
-      } catch (error) {
-        console.error("リマインダーデータの読み込みに失敗:", error);
+      } catch (_error) {
+        addToast(
+          `リマインダーデータの読み込みに失敗しました: ${getErrorMessage(_error)}`,
+          "error",
+        );
         return [];
       }
     }
@@ -30,7 +33,7 @@ export const useReminders = (
   });
 
   // usePushNotificationsから現在の購読情報を取得
-  const { subscription } = usePushNotifications();
+  const { subscription } = usePushNotifications(addToast);
 
   // リマインダーをlocalStorageに保存
   useEffect(() => {
@@ -79,9 +82,7 @@ export const useReminders = (
     );
     if (!userId) {
       console.log("schedulePushNotification: userId is null, throwing error.");
-      throw new Error(
-        "プッシュ通知のスケジュールに失敗: ユーザーIDが利用できません。",
-      );
+      throw new Error("ユーザーIDが利用できません。"); // 変更
     }
 
     // `calculateNextScheduledNotification` を使って次の通知時刻を計算
@@ -133,7 +134,6 @@ export const useReminders = (
       }
       console.log("schedulePushNotification: Fetch call successful.");
     } catch (error) {
-      console.error("schedulePushNotification caught error:", error);
       throw new Error(
         `リマインダーの保存に失敗しました: ${(error as Error).message}`,
       );
@@ -212,7 +212,10 @@ export const useReminders = (
           `[Frontend] Failed to request server to delete reminder ${id}:`,
           error,
         );
-        setError(`リマインダーの削除に失敗しました: ${getErrorMessage(error)}`);
+        addToast(
+          `リマインダーの削除に失敗しました: ${getErrorMessage(error)}`,
+          "error",
+        );
       }
     }
 
@@ -273,28 +276,29 @@ export const useReminders = (
               "Failed to schedule push notification in useEffect:",
               error,
             );
-            errors.push(
-              `${reminder.title} のスケジュールに失敗: ${getErrorMessage(error)}`,
-            );
+            errors.push(`${reminder.title}: ${getErrorMessage(error)}`);
           }
         }
 
         if (errors.length > 0) {
-          let errorMessage = `プッシュ通知のスケジュールに一部失敗しました:\n* ${errors.join("\n* ")}`;
+          // 複数のエラーがある場合、それぞれ個別にトースト通知として表示
+          errors.forEach((err) => {
+            addToast(`${err}`, "error", 20000); // 20秒表示に延長
+          });
+
+          // 成功したリマインダーがあればそれも表示
           if (successfulReminders.length > 0) {
-            errorMessage += `\n(${successfulReminders.length}件のリマインダーは正常にスケジュールされました。)`;
+            addToast(
+              `${successfulReminders.length}件のプッシュ通知をスケジュールしました。`,
+              "success",
+            );
           }
-          setError(errorMessage);
         } else if (successfulReminders.length > 0) {
           // 全て成功した場合
-          setSuccessMessage(
+          addToast(
             `${successfulReminders.length}件のプッシュ通知をスケジュールしました。`,
+            "success",
           );
-          setError(null); // エラーはクリア
-        } else {
-          // エラーも成功もなかった場合 (例: remindersToProcessが空、またはすべてearly returnされた)
-          setError(null);
-          setSuccessMessage(null);
         }
       }
     }, 500), // デバウンス時間

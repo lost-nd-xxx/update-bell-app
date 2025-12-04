@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Plus, X } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Plus } from "lucide-react";
 import { Reminder, AppState } from "./types";
 import { getErrorMessage } from "./utils/helpers";
 import { useReminders } from "./hooks/useReminders";
@@ -7,6 +7,8 @@ import { useSettings } from "./hooks/useSettings";
 import { useTheme } from "./hooks/useTheme";
 import { useTimezone } from "./hooks/useTimezone";
 import { useUserId } from "./contexts/UserIdContext";
+import { useToastContext } from "./contexts/ToastProvider";
+
 import Dashboard from "./components/Dashboard";
 import CreateReminder from "./components/CreateReminder";
 import Settings from "./components/Settings";
@@ -22,38 +24,10 @@ declare global {
   }
 }
 
-// メッセージ内の改行を <br /> に変換してレンダリングするヘルパーコンポーネント
-const RenderMessage: React.FC<{ message: string; onDismiss: () => void }> = ({ message, onDismiss }) => {
-  const htmlContent = message.split('\n').join('<br />');
-  return (
-    <div className="flex items-start justify-between w-full" onClick={onDismiss}>
-      <span className="flex-grow" dangerouslySetInnerHTML={{ __html: htmlContent }} />
-      <button onClick={onDismiss} className="ml-4 flex-shrink-0 text-white opacity-75 hover:opacity-100 focus:outline-none rounded-full border border-white/50">
-        <X size={16} />
-      </button>
-    </div>
-  );
-};
-
 const App: React.FC = () => {
-  const { settings, updateSettings } = useSettings();
+  const { addToast } = useToastContext(); // ここに移動
+  const { settings, updateSettings } = useSettings(addToast);
   const userId = useUserId();
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const setError = useCallback((message: string | null) => {
-    setAppState((prev) => ({ ...prev, error: message }));
-    setSuccessMessage(null); // エラー発生時は成功メッセージをクリア
-  }, []);
-
-  const memoizedSetSuccessMessage = useCallback(
-    (message: string | null) => {
-      setSuccessMessage(message);
-      setAppState((prev) => ({ ...prev, error: null })); // 成功時はエラーメッセージをクリア
-      if (message) {
-        setTimeout(() => setSuccessMessage(null), 5000); // 5秒後にメッセージをクリア
-      }
-    },
-    [setSuccessMessage],
-  );
 
   const {
     reminders,
@@ -61,10 +35,11 @@ const App: React.FC = () => {
     updateReminder,
     deleteReminder,
     bulkUpdateReminders,
-  } = useReminders(settings, userId, setError, memoizedSetSuccessMessage);
+  } = useReminders(settings, userId, addToast);
+
   const [theme, setTheme] = useTheme();
   const { timezoneChanged, handleTimezoneChange, dismissTimezoneChange } =
-    useTimezone(reminders, updateReminder);
+    useTimezone(reminders, updateReminder, addToast);
 
   const [appState, setAppState] = useState<AppState>({
     currentView: "dashboard",
@@ -79,7 +54,7 @@ const App: React.FC = () => {
       order: "desc",
     },
     isLoading: false,
-    error: null,
+    // error: null, // error state はもうApp.tsxで直接管理しない
   });
 
   // 通知スケジューリング関連のロジックは useReminders フックに移動したため削除
@@ -130,16 +105,18 @@ const App: React.FC = () => {
     try {
       if (appState.editingReminder) {
         await updateReminder(appState.editingReminder.id, reminderData);
+        addToast("リマインダーを更新しました。", "success");
       } else {
         await addReminder(reminderData);
+        addToast("リマインダーを追加しました。", "success");
       }
-      setAppState((prev) => ({ ...prev, error: null })); // 成功時はエラーをクリア
-      memoizedSetSuccessMessage("リマインダーを保存しました。"); // 成功メッセージを表示
       handleViewChange("dashboard");
       console.log("handleReminderSave success");
     } catch (error) {
-      console.error("handleReminderSave caught error:", error); // エラーオブジェクト全体をログに出力
-      setAppState((prev) => ({ ...prev, error: (error as Error).message })); // エラーメッセージを設定
+      addToast(
+        `リマインダーの保存に失敗しました: ${getErrorMessage(error)}`,
+        "error",
+      );
     }
   };
 
@@ -217,25 +194,26 @@ const App: React.FC = () => {
       });
 
       if (importErrors.length > 0) {
-        setError(
+        addToast(
           `リマインダーのインポートに一部失敗しました:\n* ${importErrors.join("\n* ")}`,
+          "error",
         );
-        memoizedSetSuccessMessage(null); // エラー発生時は成功メッセージをクリア
       } else if (updates.length > 0 || newReminders.length > 0) {
-        memoizedSetSuccessMessage(
+        addToast(
           `${updates.length}件更新、${newReminders.length}件追加でインポートしました。`,
+          "success",
         );
-        setError(null); // 成功時はエラーをクリア
       } else {
-        memoizedSetSuccessMessage(
+        addToast(
           "インポートするリマインダーはありませんでした。",
+          "info", // インフォメーションとして扱う
         );
-        setError(null); // 成功時はエラーをクリア
       }
     } catch (error) {
-      console.error("リマインダーインポートに失敗:", error);
-      setError(`リマインダーインポートに失敗: ${getErrorMessage(error)}`);
-      memoizedSetSuccessMessage(null); // エラー発生時は成功メッセージをクリア
+      addToast(
+        `リマインダーインポートに失敗: ${getErrorMessage(error)}`,
+        "error",
+      );
     }
   };
 
@@ -262,18 +240,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {appState.error && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-[9999] flex items-center">
-          <RenderMessage message={appState.error} onDismiss={() => setError(null)} />
-        </div>
-      )}
-
-      {successMessage && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-[9999] flex items-center">
-          <RenderMessage message={successMessage} onDismiss={() => memoizedSetSuccessMessage(null)} />
-        </div>
-      )}
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {appState.currentView === "dashboard" && (
           <Dashboard
@@ -286,13 +252,12 @@ const App: React.FC = () => {
             onDelete={async (id) => {
               try {
                 await deleteReminder(id);
-                setAppState((prev) => ({ ...prev, error: null })); // 成功時はエラーをクリア
+                addToast("リマインダーを削除しました。", "success");
               } catch (error) {
-                console.error(error); // エラーオブジェクト全体をログに出力
-                setAppState((prev) => ({
-                  ...prev,
-                  error: (error as Error).message,
-                })); // エラーメッセージを設定
+                addToast(
+                  `リマインダーの削除に失敗しました: ${getErrorMessage(error)}`,
+                  "error",
+                );
               }
             }}
             onTogglePause={(id, isPaused) =>
@@ -326,8 +291,7 @@ const App: React.FC = () => {
             onBack={() => handleViewChange("dashboard")}
             onImportReminders={handleImportReminders}
             onImportTheme={handleImportTheme}
-            setError={setError}
-            setSuccessMessage={memoizedSetSuccessMessage}
+            addToast={addToast} // addToastを渡す
           />
         )}
       </main>

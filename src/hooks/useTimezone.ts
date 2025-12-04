@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { Reminder, TimezoneChangeDetection } from "../types";
+import { ToastType } from "../components/ToastMessage";
+import { getErrorMessage } from "../utils/helpers"; // 追加
 
 export const useTimezone = (
   reminders: Reminder[],
   updateReminder: (id: string, updates: Partial<Reminder>) => void,
+  addToast: (message: string, type?: ToastType, duration?: number) => void,
 ) => {
   const [timezoneChanged, setTimezoneChanged] =
     useState<TimezoneChangeDetection | null>(null);
@@ -102,7 +105,10 @@ export const useTimezone = (
       );
       return (targetTime.getTime() - utc.getTime()) / (1000 * 60); // 分単位で返す
     } catch (error) {
-      console.error("タイムゾーンオフセットの取得に失敗:", error);
+      addToast(
+        `タイムゾーンオフセットの取得に失敗しました: ${getErrorMessage(error)}`,
+        "error",
+      );
       return 0;
     }
   };
@@ -133,7 +139,7 @@ export const useTimezone = (
         minute: toTime.getMinutes(),
       };
     } catch (error) {
-      console.error("時刻変換に失敗:", error);
+      addToast(`時刻変換に失敗しました: ${getErrorMessage(error)}`, "error");
       return { hour, minute }; // 失敗時は元の時刻を返す
     }
   };

@@ -102,6 +102,7 @@ window.addEventListener("appinstalled", () => {
 });
 
 import { UserIdProvider } from "./contexts/UserIdContext";
+import { ToastProvider } from "./contexts/ToastProvider"; // 追加
 
 // React アプリケーションのマウント
 const rootElement = document.getElementById("root");
@@ -109,7 +110,12 @@ if (rootElement) {
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
       <UserIdProvider>
-        <App />
+        <ToastProvider>
+          {" "}
+          {/* 追加 */}
+          <App />
+        </ToastProvider>{" "}
+        {/* 追加 */}
       </UserIdProvider>
     </React.StrictMode>,
   );
