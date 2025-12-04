@@ -314,7 +314,8 @@ export const useReminders = (
     if (settings.notifications.method === "local") {
       // ローカル通知の場合、全リマインダーから次の通知を計算して予約する
       debouncedLocalScheduler();
-    } else if (settings.notifications.method === "push") {
+    } else if (settings.notifications.method === "push" && userId) {
+      // userIdの存在を確認
       // プッシュ通知の場合、remindersが変更されたら、debouncedHandleReminderChangeを呼ぶ
       // 全てのリマインダーについてAPIを叩き直すことになるが、現状これがシンプル
       debouncedHandleReminderChange(reminders);
@@ -324,6 +325,7 @@ export const useReminders = (
     settings.notifications.method,
     debouncedLocalScheduler,
     debouncedHandleReminderChange,
+    userId, // 依存配列にuserIdを追加
   ]);
   // --- ここまで通知スケジューリングロジックをuseEffectに移動 ---
 
