@@ -146,7 +146,7 @@ export const useReminders = (
     }
   };
 
-  const addReminder = (
+  const addReminder = async (
     reminderData: Omit<Reminder, "id" | "createdAt" | "timezone">,
   ) => {
     console.log("addReminder called with:", reminderData);
@@ -160,13 +160,24 @@ export const useReminders = (
 
     setReminders((prev) => [...prev, newReminder]);
     console.log("addReminder finished, new reminder:", newReminder);
+
+    if (settings.notifications.method === "push") {
+      try {
+        await schedulePushNotification(newReminder, subscription);
+      } catch (error) {
+        addToast(
+          `プッシュ通知のスケジュールに失敗: ${getErrorMessage(error)}`,
+          "error",
+        );
+      }
+    }
     return newReminder;
   };
 
-  const updateReminder = (id: string, updates: Partial<Reminder>) => {
+  const updateReminder = async (id: string, updates: Partial<Reminder>) => {
     console.log("updateReminder called for id:", id, "with updates:", updates);
+    let updatedReminder: Reminder | null = null;
     setReminders((prev) => {
-      let updatedReminder: Reminder | null = null;
       const newReminders = prev.map((reminder) => {
         if (reminder.id === id) {
           updatedReminder = { ...reminder, ...updates };
@@ -180,11 +191,21 @@ export const useReminders = (
       );
       return newReminders;
     });
+
+    if (updatedReminder && settings.notifications.method === "push") {
+      try {
+        await schedulePushNotification(updatedReminder, subscription);
+      } catch (error) {
+        addToast(
+          `プッシュ通知の更新に失敗: ${getErrorMessage(error)}`,
+          "error",
+        );
+      }
+    }
   };
 
   const deleteReminder = async (id: string) => {
     console.log("deleteReminder called for id:", id);
-    // async を追加
     // ローカル通知の場合は全キャンセルしてから再スケジュール
     if (
       settings.notifications.method === "local" &&
@@ -230,7 +251,6 @@ export const useReminders = (
   };
 
   const bulkUpdateReminders = (
-    // async を追加
     updates: Array<{ id: string; data: Partial<Reminder> }>,
   ) => {
     console.log("bulkUpdateReminders called with updates:", updates);
@@ -246,39 +266,12 @@ export const useReminders = (
         return reminder;
       }),
     );
+    // バルク更新では個別のプッシュ通知は行わない
     console.log(
       "bulkUpdateReminders finished, updated reminders count:",
       updatedReminders.length,
     );
   };
-
-  // --- 通知スケジューリングロジックをuseEffectに移動 ---
-  const debouncedHandleReminderChange = useRef(
-    debounce(async (remindersToProcess: Reminder[]) => {
-      console.log("debouncedHandleReminderChange fired");
-
-      const currentUserId = userIdRef.current;
-      if (settings.notifications.method === "push") {
-        if (!currentUserId) {
-          console.log(
-            "debouncedHandleReminderChange: userId is null, skipping.",
-          );
-          return;
-        }
-        for (const reminder of remindersToProcess) {
-          try {
-            await schedulePushNotification(reminder, subscription);
-          } catch (error) {
-            console.error(
-              "Failed to schedule push notification in useEffect:",
-              error,
-            );
-            // エラーが発生しても、ここではUIに直接フィードバックしない
-          }
-        }
-      }
-    }, 500),
-  ).current;
 
   useEffect(() => {
     console.log(
@@ -289,15 +282,9 @@ export const useReminders = (
     );
     if (settings.notifications.method === "local") {
       debouncedLocalScheduler();
-    } else if (settings.notifications.method === "push") {
-      debouncedHandleReminderChange(reminders);
     }
-  }, [
-    reminders,
-    settings.notifications.method,
-    debouncedLocalScheduler,
-    debouncedHandleReminderChange,
-  ]);
+    // プッシュ通知の一括同期は行わない
+  }, [reminders, settings.notifications.method, debouncedLocalScheduler]);
   // --- ここまで通知スケジューリングロジックをuseEffectに移動 ---
 
   // (元のフックの他の関数はそのまま)
