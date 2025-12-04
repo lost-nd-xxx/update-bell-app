@@ -265,47 +265,16 @@ export const useReminders = (
           );
           return;
         }
-        const errors: string[] = [];
-        const successfulReminders: string[] = [];
         for (const reminder of remindersToProcess) {
-          console.log(
-            "Scheduling push notification for reminder:",
-            reminder.id,
-            "title:",
-            reminder.title,
-          );
           try {
             await schedulePushNotification(reminder, subscription);
-            successfulReminders.push(reminder.title);
-            console.log(
-              "schedulePushNotification successful for reminder:",
-              reminder.id,
-            );
           } catch (error) {
             console.error(
               "Failed to schedule push notification in useEffect:",
               error,
             );
-            errors.push(`${reminder.title}: ${getErrorMessage(error)}`);
+            // エラーが発生しても、ここではUIに直接フィードバックしない
           }
-        }
-
-        if (errors.length > 0) {
-          errors.forEach((err) => {
-            addToast(`${err}`, "error", 20000);
-          });
-
-          if (successfulReminders.length > 0) {
-            addToast(
-              `${successfulReminders.length}件のプッシュ通知をスケジュールしました。`,
-              "success",
-            );
-          }
-        } else if (successfulReminders.length > 0) {
-          addToast(
-            `${successfulReminders.length}件のプッシュ通知をスケジュールしました。`,
-            "success",
-          );
         }
       }
     }, 500),
