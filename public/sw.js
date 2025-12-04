@@ -119,7 +119,7 @@ self.addEventListener("notificationclick", (event) => {
 
   const data = event.notification.data;
   const urlToOpen = data?.url;
-  const trackingUrl = data?.trackingUrl;
+  const trackingUrl = "/api/track-access"; // URLをハードコード
   const userId = data?.userId;
 
   const promises = [];
@@ -130,7 +130,8 @@ self.addEventListener("notificationclick", (event) => {
   }
 
   // アクセスを追跡するリクエストをバックグラウンドで送信
-  if (trackingUrl && userId) {
+  if (userId) {
+    // userIdがあれば追跡リクエストを送信
     const trackingRequest = fetch(trackingUrl, {
       method: "POST",
       headers: {
@@ -182,7 +183,6 @@ self.addEventListener("push", (event) => {
     tag: pushData.tag || "general-notification",
     data: {
       url: pushData.url, // URLをdataに含めることで、notificationclickで利用
-      trackingUrl: pushData.trackingUrl, // アクセス追跡用URL
       userId: pushData.userId, // 追跡APIで使うユーザーID
     },
   };
