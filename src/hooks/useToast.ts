@@ -24,7 +24,7 @@ export const useToast = (): UseToast => {
 
   const addToast = useCallback(
     (message: string, type: ToastType = "info", duration?: number) => {
-      const id = Date.now().toString(); // ユニークなIDを生成
+      const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`; // ユニークなIDを生成
       // タイプに応じてデフォルトのdurationを決定
       const finalDuration = duration ?? (type === "success" ? 10000 : 20000);
       const newToast: Toast = { id, message, type, duration: finalDuration };

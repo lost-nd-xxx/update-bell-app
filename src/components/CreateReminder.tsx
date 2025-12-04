@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Plus, AlertTriangle, Clock } from "lucide-react";
+import { X, Plus, AlertTriangle, Clock, Calendar } from "lucide-react";
 import { Reminder, Schedule, DateFilterType, ScheduleType } from "../types";
 import {
   isValidUrl,
@@ -12,7 +12,11 @@ import {
 
 interface CreateReminderProps {
   editingReminder?: Reminder | null;
-  onSave: (reminder: Omit<Reminder, "id" | "createdAt" | "timezone">) => void;
+  onSave: (
+    reminder: Omit<Reminder, "id" | "createdAt" | "timezone" | "baseDate"> & {
+      baseDate?: string;
+    },
+  ) => void;
   onCancel: () => void;
 }
 
@@ -36,6 +40,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
     } as Schedule & { selectedDays: number[] },
     tags: [] as string[],
     isPaused: false,
+    baseDate: undefined as string | undefined,
   });
 
   const [tagInput, setTagInput] = useState("");
@@ -43,6 +48,9 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [hourInput, setHourInput] = useState("10");
   const [minuteInput, setMinuteInput] = useState("00");
+  const [nextNotificationTime, setNextNotificationTime] = useState<Date | null>(
+    null,
+  );
 
   useEffect(() => {
     if (editingReminder) {
@@ -59,6 +67,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
         },
         tags: [...editingReminder.tags],
         isPaused: editingReminder.isPaused,
+        baseDate: editingReminder.baseDate,
       });
       setHourInput(editingReminder.schedule.hour.toString().padStart(2, "0"));
       setMinuteInput(
@@ -104,6 +113,45 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
     formData.schedule.weekOfMonth,
     formData.schedule.dayOfWeek,
   ]);
+
+  useEffect(() => {
+    const calculate = () => {
+      const now = new Date();
+      const baseForCalc = formData.baseDate ? new Date(formData.baseDate) : now;
+
+      // 基準日の時刻を通知時刻に合わせる
+      baseForCalc.setHours(
+        formData.schedule.hour,
+        formData.schedule.minute,
+        0,
+        0,
+      );
+
+      let candidate = calculateNextNotificationTime(
+        formData.schedule,
+        baseForCalc,
+      );
+
+      let i = 0; // 無限ループ防止
+      while (candidate.getTime() <= now.getTime() && i < 1000) {
+        const nextBase = new Date(candidate);
+        // 同じ日なら1日進める、さもなければ1分進める
+        if (
+          nextBase.getFullYear() === candidate.getFullYear() &&
+          nextBase.getMonth() === candidate.getMonth() &&
+          nextBase.getDate() === candidate.getDate()
+        ) {
+          nextBase.setDate(nextBase.getDate() + 1);
+        } else {
+          nextBase.setMinutes(nextBase.getMinutes() + 1);
+        }
+        candidate = calculateNextNotificationTime(formData.schedule, nextBase);
+        i++;
+      }
+      setNextNotificationTime(candidate);
+    };
+    calculate();
+  }, [formData.schedule, formData.baseDate]);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -165,6 +213,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
       tags: formData.tags,
       isPaused: formData.isPaused,
       schedule: scheduleToSave,
+      baseDate: formData.baseDate,
       lastNotified: editingReminder?.lastNotified || null,
       pausedAt: formData.isPaused
         ? editingReminder?.pausedAt || new Date().toISOString()
@@ -213,8 +262,6 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
       : [...selectedDays, day];
     updateSchedule({ selectedDays: newSelectedDays });
   };
-
-  const nextNotificationTime = calculateNextNotificationTime(formData.schedule);
 
   return (
     <div className="card p-6 max-w-2xl mx-auto">
@@ -293,11 +340,56 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
             >
               <option value="daily">毎日</option>
               <option value="interval">数日ごと</option>
-              <option value="weekly">毎週〇曜日</option>
+              <option value="weekly">N週間ごとの〇曜日</option>
               <option value="specific_days">毎週〇曜日（複数）</option>
               <option value="monthly">毎月第〇週〇曜日</option>
             </select>
           </div>
+
+          {/* 基準日設定 */}
+          {formData.schedule.type !== "daily" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                基準日（任意）
+              </label>
+              <div className="relative">
+                <Calendar
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400"
+                  size={16}
+                />
+                <input
+                  type="date"
+                  value={
+                    formData.baseDate ? formData.baseDate.split("T")[0] : ""
+                  }
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      baseDate: e.target.value
+                        ? new Date(e.target.value).toISOString()
+                        : undefined,
+                    }))
+                  }
+                  className="input pl-10 w-full"
+                />
+                {formData.baseDate && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => ({ ...prev, baseDate: undefined }))
+                    }
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-full"
+                    aria-label="基準日をクリア"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                周期の計算を開始する日付です。指定しない場合は作成日が基準になります。
+              </p>
+            </div>
+          )}
 
           {formData.schedule.type === "daily" && (
             <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -512,7 +604,10 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
                 設定内容確認
               </h4>
               <p className="text-sm text-purple-700 dark:text-purple-200 mb-2">
-                {generateScheduleDescription(formData.schedule)}
+                {generateScheduleDescription(
+                  formData.schedule,
+                  formData.baseDate,
+                )}
               </p>
               {nextNotificationTime && (
                 <p className="text-sm text-purple-600 dark:text-purple-300">

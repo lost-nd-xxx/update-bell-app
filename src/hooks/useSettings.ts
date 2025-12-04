@@ -131,10 +131,37 @@ export const useSettings = (
     setSettings(defaultSettings);
   };
 
+  const importSettings = (
+    importedSettings: AppSettings,
+  ): { settings: AppSettings; pushNotificationFallback: boolean } => {
+    let finalSettings = { ...importedSettings };
+    let pushNotificationFallback = false;
+
+    // プッシュ通知がサポートされていない環境でプッシュ設定をインポートしようとした場合
+    if (
+      finalSettings.notifications.method === "push" &&
+      !("PushManager" in window)
+    ) {
+      finalSettings = {
+        ...finalSettings,
+        notifications: {
+          ...finalSettings.notifications,
+          method: "local",
+        },
+      };
+      pushNotificationFallback = true;
+    }
+
+    setSettings(finalSettings);
+
+    return { settings: finalSettings, pushNotificationFallback };
+  };
+
   return {
     settings,
     updateSettings,
     requestNotificationPermission,
     resetSettings,
+    importSettings,
   };
 };

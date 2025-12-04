@@ -1,6 +1,8 @@
 // update-bell-app/api/cron/send-notifications.js
 import { kv } from "@vercel/kv";
 
+// --- ヘルパー関数 (ここから) ---
+
 /**
  * Vercel環境ではVERCEL_URL、ローカルではlocalhostをベースにしたAPIエンドポイントを返す
  */
@@ -45,6 +47,217 @@ async function callSendWebPush(subscriptions, payloads) {
   }
   return response.json();
 }
+
+// 日付フィルターを適用（平日・週末）
+const adjustForDateFilter = (date, filter, _interval) => {
+  if (filter === "all") return;
+
+  let attempts = 0;
+  const maxAttempts = 14; // 無限ループを防ぐ
+
+  while (attempts < maxAttempts) {
+    const dayOfWeek = date.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const isWeekday = !isWeekend;
+
+    if (
+      (filter === "weekdays" && isWeekday) ||
+      (filter === "weekends" && isWeekend)
+    ) {
+      break;
+    }
+
+    date.setDate(date.getDate() + 1);
+    attempts++;
+  }
+};
+
+// 次の通知日時を計算（helpers.tsから移植）
+const calculateNextNotificationTime = (
+  schedule,
+  startPoint = new Date(), // 計算の起点となる日付（時刻も含む）
+) => {
+  let candidate = new Date(startPoint);
+  candidate.setHours(schedule.hour, schedule.minute, 0, 0); // スケジュールの時刻をセット
+
+  switch (schedule.type) {
+    case "daily": {
+      // startPointの時刻が既に候補日時の時刻を過ぎている場合、次のintervalへ
+      if (startPoint.getTime() > candidate.getTime()) {
+        candidate.setDate(candidate.getDate() + (schedule.interval || 1));
+      }
+      // 平日・週末フィルターを適用
+      adjustForDateFilter(
+        candidate,
+        schedule.dateFilter,
+        schedule.interval || 1,
+      );
+      break;
+    }
+
+    case "interval": {
+      // startPointの時刻が既に候補日時の時刻を過ぎている場合、次のintervalへ
+      if (startPoint.getTime() > candidate.getTime()) {
+        candidate.setDate(startPoint.getDate() + schedule.interval);
+        candidate.setHours(schedule.hour, schedule.minute, 0, 0);
+      }
+
+      // startPointからcandidateまでの日数差を計算
+      const diffTime = candidate.getTime() - startPoint.getTime();
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)); // 日数差
+
+      if (diffDays > 0 && diffDays % schedule.interval !== 0) {
+        // intervalの倍数でない場合、最も近い次の倍数まで進める
+        const remainder = diffDays % schedule.interval;
+        candidate.setDate(
+          candidate.getDate() + (schedule.interval - remainder),
+        );
+      } else if (diffDays < 0) {
+        // startPointがcandidateより未来の時刻で、かつdiffDaysが負になるケース
+        // 例: startPointが今日15時、candidateが今日10時。この場合も次のintervalへ
+        candidate.setDate(startPoint.getDate() + schedule.interval);
+        candidate.setHours(schedule.hour, schedule.minute, 0, 0);
+      }
+      break;
+    }
+
+    case "weekly": {
+      const targetDay = schedule.dayOfWeek;
+      let currentDay = startPoint.getDay();
+
+      // まず、startPointの週でtargetDayの曜日まで移動
+      if (currentDay !== targetDay) {
+        const daysUntilTarget = (targetDay - currentDay + 7) % 7;
+        candidate.setDate(startPoint.getDate() + daysUntilTarget);
+        candidate.setHours(schedule.hour, schedule.minute, 0, 0);
+      }
+
+      // startPointからcandidateまでの週数差を計算
+      // 時刻を考慮せずに日付部分のみで差を計算するため、一度日付のみに変換
+      const startPointDateOnly = new Date(startPoint);
+      startPointDateOnly.setHours(0, 0, 0, 0);
+      const candidateDateOnly = new Date(candidate);
+      candidateDateOnly.setHours(0, 0, 0, 0);
+
+      const diffWeeks = Math.round(
+        (candidateDateOnly.getTime() - startPointDateOnly.getTime()) /
+          (1000 * 60 * 60 * 24 * 7),
+      );
+
+      if (diffWeeks < 0) {
+        // candidateがstartPointより過去になることは通常ないが念のため
+        // diffWeeksを0週と見なして計算を進める
+        // あるいは、startPointから次のターゲット曜日を正しく見つけるロジックに調整
+      }
+
+      const interval = schedule.interval || 1;
+
+      // diffWeeksがintervalの倍数でない、またはstartPointの時刻がcandidateの時刻を過ぎている場合
+      if (
+        diffWeeks % interval !== 0 ||
+        (diffWeeks === 0 && startPoint.getTime() > candidate.getTime())
+      ) {
+        const remainder = diffWeeks % interval;
+        const weeksToAdd = (interval - remainder) % interval; // 0ならinterval週追加、それ以外は差分週追加
+        candidate.setDate(candidate.getDate() + weeksToAdd * 7);
+      }
+      break;
+    }
+
+    case "specific_days": {
+      if (!schedule.selectedDays || schedule.selectedDays.length === 0) {
+        return candidate; // 選択された曜日がない場合は変更なし
+      }
+
+      let found = false;
+      let tempCandidate = new Date(startPoint);
+      tempCandidate.setHours(schedule.hour, schedule.minute, 0, 0);
+
+      for (let i = 0; i < 7; i++) {
+        const day = tempCandidate.getDay();
+        if (schedule.selectedDays.includes(day)) {
+          // 選択された曜日の場合
+          if (tempCandidate.getTime() >= startPoint.getTime()) {
+            candidate = tempCandidate;
+            found = true;
+            break;
+          }
+        }
+        tempCandidate.setDate(tempCandidate.getDate() + 1);
+      }
+
+      if (!found) {
+        // 1週間探しても見つからなかった場合は、次の週の最初の選択された曜日
+        tempCandidate = new Date(startPoint);
+        tempCandidate.setDate(
+          tempCandidate.getDate() +
+            (7 - startPoint.getDay()) +
+            schedule.selectedDays[0],
+        );
+        tempCandidate.setHours(schedule.hour, schedule.minute, 0, 0);
+        candidate = tempCandidate;
+      }
+      break;
+    }
+
+    case "monthly": {
+      const targetWeek = schedule.weekOfMonth;
+      const targetDay = schedule.dayOfWeek;
+
+      let tempCandidate = new Date(
+        startPoint.getFullYear(),
+        startPoint.getMonth(),
+        1,
+      );
+      tempCandidate.setHours(schedule.hour, schedule.minute, 0, 0);
+
+      // 月の最初の指定曜日を見つける
+      while (tempCandidate.getDay() !== targetDay) {
+        tempCandidate.setDate(tempCandidate.getDate() + 1);
+      }
+
+      // 第N週目に調整
+      tempCandidate.setDate(tempCandidate.getDate() + (targetWeek - 1) * 7);
+
+      candidate = tempCandidate;
+
+      // 候補日がstartPointの時刻より過去の場合、次の月を探す
+      if (candidate.getTime() < startPoint.getTime()) {
+        // 次の月で再計算
+        candidate.setMonth(startPoint.getMonth() + 1);
+        candidate.setDate(1); // 1日にリセット
+        candidate.setHours(schedule.hour, schedule.minute, 0, 0);
+
+        // 月の最初の指定曜日を見つける
+        while (candidate.getDay() !== targetDay) {
+          candidate.setDate(candidate.getDate() + 1);
+        }
+        candidate.setDate(candidate.getDate() + (targetWeek - 1) * 7);
+      }
+      // 最終チェック: 設定された日がその月に存在しない場合 (例: 第5週)
+      // 月が変わってしまっている場合はさらに1ヶ月進める
+      if (
+        candidate.getMonth() !==
+        (startPoint.getMonth() +
+          (candidate.getTime() < startPoint.getTime() ? 1 : 0)) %
+          12
+      ) {
+        candidate.setMonth(candidate.getMonth() + 1);
+        candidate.setDate(1);
+        candidate.setHours(schedule.hour, schedule.minute, 0, 0);
+        while (candidate.getDay() !== targetDay) {
+          candidate.setDate(candidate.getDate() + 1);
+        }
+        candidate.setDate(candidate.getDate() + (targetWeek - 1) * 7);
+      }
+      break;
+    }
+  }
+
+  // 時刻は既に設定済み
+  return candidate;
+};
+// --- ヘルパー関数 (ここまで) ---
 
 /**
  * Vercel Cron から呼び出されるハンドラ
@@ -158,54 +371,47 @@ export default async function handler(request, response) {
       }
 
       // 処理済みのリマインダーをKVとSorted Setから更新/再登録
-      const now = Date.now();
+      const nowForCalc = Date.now();
 
       for (const rem of userReminders) {
-        // schedule プロパティが存在しない場合はスキップ (古いデータへの対応)
         if (!rem.data.schedule) {
           console.warn(
             `[CRON] Reminder ${rem.key} has no schedule property. Skipping.`,
           );
-          continue; // 次のリマインダーへ
+          continue;
         }
 
         const updatedReminderData = {
           ...rem.data,
-          lastNotified: new Date(now).toISOString(),
+          lastNotified: new Date(nowForCalc).toISOString(),
         };
 
-        // 次回の通知時刻を計算
-        // calculateNextNotificationTime関数はhelpers.tsからimportする必要がありますが、
-        // ここでは簡易的にAPI内で定義します。実際は共通関数としてimportすべきです。
-        // TODO: helpers.tsからimportするように変更する
-        const calculateNextNotificationTime = (
-          schedule,
-          baseDate = new Date(),
-        ) => {
-          const hour = schedule.hour;
-          const minute = schedule.minute;
-          let nextDate = new Date(baseDate);
+        const baseForNextCalc = rem.data.baseDate
+          ? new Date(rem.data.baseDate)
+          : new Date(nowForCalc);
 
-          // ここはhelpers.tsのcalculateNextNotificationTimeロジックの簡略版
-          // 実際にはhelpers.tsの関数をそのまま使用すべき
-          nextDate.setHours(hour, minute, 0, 0);
-          if (nextDate.getTime() <= baseDate.getTime()) {
-            nextDate.setDate(nextDate.getDate() + 1); // 翌日に設定（最も単純な繰り返し）
-          }
-          return nextDate;
-        };
-
-        const nextScheduleTime = calculateNextNotificationTime(
+        let nextScheduleTime = calculateNextNotificationTime(
           rem.data.schedule,
-          new Date(now),
+          baseForNextCalc,
         );
 
-        updateTx.set(rem.key, updatedReminderData); // lastNotifiedを更新して保存
-        updateTx.zrem(sortedSetKey, rem.key); // 古いSorted Setエントリを削除
+        let i = 0; // 無限ループ防止
+        while (nextScheduleTime.getTime() <= nowForCalc && i < 1000) {
+          const nextBase = new Date(nextScheduleTime);
+          nextBase.setMinutes(nextBase.getMinutes() + 1);
+          nextScheduleTime = calculateNextNotificationTime(
+            rem.data.schedule,
+            nextBase,
+          );
+          i++;
+        }
+
+        updateTx.set(rem.key, updatedReminderData);
+        updateTx.zrem(sortedSetKey, rem.key);
         updateTx.zadd(sortedSetKey, {
           score: nextScheduleTime.getTime(),
           member: rem.key,
-        }); // 新しい時刻で再追加
+        });
         console.log(
           `[CRON] Reminder ${rem.key} updated and re-scheduled for ${nextScheduleTime.toISOString()}`,
         );

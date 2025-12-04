@@ -113,6 +113,7 @@ export const useReminders = (
             status: reminder.status || "pending",
             subscription: currentSubscription,
             schedule: reminder.schedule,
+            baseDate: reminder.baseDate,
           },
         }),
       });

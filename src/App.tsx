@@ -26,7 +26,7 @@ declare global {
 
 const App: React.FC = () => {
   const { addToast } = useToastContext(); // ここに移動
-  const { settings, updateSettings } = useSettings(addToast);
+  const { settings, updateSettings, importSettings } = useSettings(addToast);
   const userId = useUserId();
 
   const {
@@ -142,79 +142,46 @@ const App: React.FC = () => {
     setTheme(importedTheme);
   };
 
-  const handleImportReminders = (importedReminders: Reminder[]) => {
-    const importErrors: string[] = [];
-    try {
-      const newReminders: Reminder[] = [];
-      const updates: Array<{ id: string; data: Partial<Reminder> }> = [];
+  const handleImportReminders = (
+    importedReminders: Reminder[],
+  ): { added: number; updated: number } => {
+    const newReminders: Reminder[] = [];
+    const updates: Array<{ id: string; data: Partial<Reminder> }> = [];
 
-      importedReminders.forEach((imported) => {
-        const existing = reminders.find((r) => r.url === imported.url);
+    importedReminders.forEach((imported) => {
+      const existing = reminders.find((r) => r.url === imported.url);
 
-        if (existing) {
-          updates.push({
-            id: existing.id,
-            data: {
-              ...imported,
-              id: existing.id,
-              createdAt: imported.createdAt || existing.createdAt,
-            },
-          });
-        } else {
-          newReminders.push({
+      if (existing) {
+        updates.push({
+          id: existing.id,
+          data: {
             ...imported,
-            id: Date.now().toString(36) + Math.random().toString(36).substr(2),
-            createdAt: imported.createdAt || new Date().toISOString(),
-            timezone:
-              imported.timezone ||
-              Intl.DateTimeFormat().resolvedOptions().timeZone,
-          });
-        }
-      });
-
-      if (updates.length > 0) {
-        try {
-          bulkUpdateReminders(updates);
-        } catch (error) {
-          importErrors.push(
-            `既存リマインダーの更新に失敗: ${getErrorMessage(error)}`,
-          );
-        }
-      }
-
-      newReminders.forEach((reminder) => {
-        const { ...reminderData } = reminder;
-        try {
-          addReminder(reminderData);
-        } catch (error) {
-          importErrors.push(
-            `新規リマインダーの追加に失敗: ${getErrorMessage(error)}`,
-          );
-        }
-      });
-
-      if (importErrors.length > 0) {
-        addToast(
-          `リマインダーのインポートに一部失敗しました:\n* ${importErrors.join("\n* ")}`,
-          "error",
-        );
-      } else if (updates.length > 0 || newReminders.length > 0) {
-        addToast(
-          `${updates.length}件更新、${newReminders.length}件追加でインポートしました。`,
-          "success",
-        );
+            id: existing.id,
+            createdAt: imported.createdAt || existing.createdAt,
+          },
+        });
       } else {
-        addToast(
-          "インポートするリマインダーはありませんでした。",
-          "info", // インフォメーションとして扱う
-        );
+        newReminders.push({
+          ...imported,
+          id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+          createdAt: imported.createdAt || new Date().toISOString(),
+          timezone:
+            imported.timezone ||
+            Intl.DateTimeFormat().resolvedOptions().timeZone,
+        });
       }
-    } catch (error) {
-      addToast(
-        `リマインダーインポートに失敗: ${getErrorMessage(error)}`,
-        "error",
-      );
+    });
+
+    if (updates.length > 0) {
+      bulkUpdateReminders(updates);
     }
+
+    newReminders.forEach((reminder) => {
+      const { ...reminderData } = reminder;
+      addReminder(reminderData);
+    });
+
+    return { added: newReminders.length, updated: updates.length };
   };
 
   return (
@@ -287,6 +254,7 @@ const App: React.FC = () => {
             setTheme={setTheme}
             settings={settings}
             updateSettings={updateSettings}
+            importSettings={importSettings}
             reminders={reminders}
             onBack={() => handleViewChange("dashboard")}
             onImportReminders={handleImportReminders}

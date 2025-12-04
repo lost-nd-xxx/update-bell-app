@@ -26,172 +26,162 @@ export const formatRelativeTime = (date: Date | string): string => {
   return `${Math.floor(diffDays / 365)}年前`;
 };
 
-// 次の通知日時を計算（当日判定ロジック追加）
+// 次の通知日時を計算
 export const calculateNextNotificationTime = (
   schedule: Schedule,
-  baseDate: Date = new Date(),
+  searchFrom: Date = new Date(), // 探索を開始する日時
 ): Date => {
-  const now = new Date(baseDate);
-  let nextDate = new Date(baseDate);
+  const candidate = new Date(searchFrom.getTime()); // searchFrom のコピーを作成
+  candidate.setSeconds(0, 0); // 秒とミリ秒をリセット
 
-  // 基本的な時刻設定
-  const hour = schedule.hour;
-  const minute = schedule.minute;
+  // 初期設定として、予定時刻を候補日に設定
+  candidate.setHours(schedule.hour, schedule.minute, 0, 0);
 
-  switch (schedule.type) {
-    case "daily": {
-      // 当日の指定時刻を計算
-      const todayTarget = new Date(now);
-      todayTarget.setHours(hour, minute, 0, 0);
+  // もし初期候補日時が searchFrom より前であれば、1日進める
+  if (candidate.getTime() < searchFrom.getTime()) {
+    candidate.setDate(candidate.getDate() + 1);
+  }
 
-      // 指定時刻が未来の場合は当日、過去の場合は翌日以降
-      if (todayTarget.getTime() > now.getTime()) {
-        nextDate = todayTarget;
-      } else {
-        nextDate.setDate(now.getDate() + (schedule.interval || 1));
-      }
+  let iterations = 0;
+  const MAX_ITERATIONS = 366 * 2; // 無限ループ防止のため最大試行回数を設定 (約2年間)
 
-      // 平日・週末フィルターを適用
-      if (
-        schedule.dateFilter &&
-        nextDate.toDateString() !== todayTarget.toDateString()
-      ) {
-        adjustForDateFilter(
-          nextDate,
-          schedule.dateFilter,
-          schedule.interval || 1,
-        );
-      }
-      break;
-    }
+  while (iterations < MAX_ITERATIONS) {
+    iterations++;
 
-    case "interval": {
-      // 当日の指定時刻を計算
-      const todayTarget = new Date(now);
-      todayTarget.setHours(hour, minute, 0, 0);
-
-      // 新規作成時は当日判定、それ以外は間隔通り
-      if (todayTarget.getTime() > now.getTime()) {
-        nextDate = todayTarget;
-      } else {
-        nextDate.setDate(now.getDate() + schedule.interval);
-      }
-      break;
-    }
-
-    case "weekly": {
-      const targetDay = schedule.dayOfWeek!;
-      const currentDay = now.getDay();
-
-      // 当日が対象曜日かチェック
-      if (currentDay === targetDay) {
-        const todayTarget = new Date(now);
-        todayTarget.setHours(hour, minute, 0, 0);
-
-        // 当日の指定時刻が未来の場合は当日
-        if (todayTarget.getTime() > now.getTime()) {
-          nextDate = todayTarget;
-          break;
+    switch (schedule.type) {
+      case "daily": {
+        // daily では、interval ごとに日付を進める
+        if (schedule.interval && schedule.interval > 1) {
+          // baseDate からのオフセットを計算して、interval に合わせる必要がある
+          // 現状は daily の interval は常に 1
+          // したがって、日付を進めるだけで良い
         }
+
+        // 日付フィルター適用
+        adjustForDateFilter(candidate, schedule.dateFilter, 1); // daily は1日ごと
+
+        // フィルター適用後も searchFrom より前なら、さらに進める
+        if (candidate.getTime() < searchFrom.getTime()) {
+          candidate.setDate(candidate.getDate() + (schedule.interval || 1));
+          continue;
+        }
+
+        return candidate;
       }
 
-      // 次の対象曜日を計算
-      const daysUntilTarget = (targetDay - currentDay + 7) % 7;
-      const weeklyDaysToAdd =
-        daysUntilTarget === 0 ? 7 * (schedule.interval || 1) : daysUntilTarget;
-      nextDate.setDate(now.getDate() + weeklyDaysToAdd);
-      break;
-    }
+      case "interval": {
+        // baseDate を考慮し、かつ searchFrom 以降で最も近い interval の日を見つける
+        // outer while loop が baseDate を考慮した searchFrom を渡すことを期待する
+        // calculateNextNotificationTime は単純に searchFrom 以降の次の interval の日を探す
+        return candidate;
+      }
 
-    case "specific_days": {
-      // 特定の曜日（複数選択）
-      if (schedule.selectedDays && schedule.selectedDays.length > 0) {
-        const today = now.getDay();
+      case "weekly": {
+        const targetDayOfWeek = schedule.dayOfWeek!;
+        const currentDayOfWeek = candidate.getDay();
 
-        // 当日が対象曜日に含まれるかチェック
-        if (schedule.selectedDays.includes(today)) {
-          const todayTarget = new Date(now);
-          todayTarget.setHours(hour, minute, 0, 0);
-
-          // 当日の指定時刻が未来の場合は当日
-          if (todayTarget.getTime() > now.getTime()) {
-            nextDate = todayTarget;
-            break;
+        // 曜日が一致しない、または一致しても searchFrom より前なら日付を進める
+        if (currentDayOfWeek !== targetDayOfWeek) {
+          const daysToAdd = (targetDayOfWeek - currentDayOfWeek + 7) % 7;
+          candidate.setDate(candidate.getDate() + daysToAdd);
+          candidate.setHours(schedule.hour, schedule.minute, 0, 0); // 時刻再設定
+          // 日付が変わったので、searchFrom との比較のために再評価
+          if (candidate.getTime() < searchFrom.getTime()) {
+            candidate.setDate(
+              candidate.getDate() + (schedule.interval || 1) * 7,
+            );
           }
+          return candidate;
         }
 
-        // 次の対象曜日を見つける
-        let nextDay = schedule.selectedDays.find((day) => day > today);
-
-        if (nextDay === undefined) {
-          // 今週に該当する曜日がない場合は来週の最初の曜日
-          nextDay = schedule.selectedDays[0];
-          const daysToAdd = (nextDay - today + 7) % 7 || 7;
-          nextDate.setDate(now.getDate() + daysToAdd);
+        // 曜日が一致し、時刻も searchFrom 以降であればOK
+        if (candidate.getTime() >= searchFrom.getTime()) {
+          return candidate;
         } else {
-          // 今週の該当する曜日
-          nextDate.setDate(now.getDate() + (nextDay - today));
+          // 曜日が一致しているが時刻が searchFrom より前の場合、次の interval の週へ
+          candidate.setDate(candidate.getDate() + (schedule.interval || 1) * 7);
+          candidate.setHours(schedule.hour, schedule.minute, 0, 0); // 時刻再設定
+          return candidate;
         }
       }
-      break;
-    }
 
-    case "monthly": {
-      const targetWeek = schedule.weekOfMonth!;
-      const targetDay = schedule.dayOfWeek!;
+      case "specific_days": {
+        if (!schedule.selectedDays || schedule.selectedDays.length === 0) {
+          return candidate; // 選択された曜日がなければ現状維持 (エラー回避)
+        }
 
-      // 今月の対象日を計算
-      const thisMonthTarget = new Date(now.getFullYear(), now.getMonth(), 1);
+        const isTargetDay = schedule.selectedDays.includes(candidate.getDay());
 
-      // その月の最初の指定曜日を見つける
-      while (thisMonthTarget.getDay() !== targetDay) {
-        thisMonthTarget.setDate(thisMonthTarget.getDate() + 1);
+        // 選択された曜日であり、かつ時刻が searchFrom 以降であればOK
+        if (isTargetDay && candidate.getTime() >= searchFrom.getTime()) {
+          return candidate;
+        } else {
+          // 選択された曜日ではない、または時刻が searchFrom より前の場合、次の日へ
+          candidate.setDate(candidate.getDate() + 1);
+          candidate.setHours(schedule.hour, schedule.minute, 0, 0); // 時刻再設定
+          // continue; // 再評価のためループを継続
+        }
+        break; // ループの最後で再評価される
       }
 
-      // N週目に調整
-      thisMonthTarget.setDate(thisMonthTarget.getDate() + (targetWeek - 1) * 7);
-      thisMonthTarget.setHours(hour, minute, 0, 0);
+      case "monthly": {
+        const targetWeekOfMonth = schedule.weekOfMonth!;
+        const targetDayOfWeek = schedule.dayOfWeek!;
 
-      // 今月の対象日が未来の場合は今月、過去の場合は来月
-      if (thisMonthTarget.getTime() > now.getTime()) {
-        nextDate = thisMonthTarget;
-      } else {
-        // 来月の第n週のx曜日を計算
-        nextDate.setMonth(now.getMonth() + 1, 1);
-        const firstDayOfMonth = nextDate.getDay();
-        const monthlyDaysToAdd =
-          ((targetDay - firstDayOfMonth + 7) % 7) + (targetWeek - 1) * 7;
-        nextDate.setDate(1 + monthlyDaysToAdd);
+        // 候補日が含まれる月の第N週の指定曜日を計算
+        const firstDayOfMonth = new Date(
+          candidate.getFullYear(),
+          candidate.getMonth(),
+          1,
+        );
+        const calculatedDate = new Date(firstDayOfMonth);
 
-        // 該当する日が存在しない場合（第5週など）
-        if (nextDate.getMonth() !== (now.getMonth() + 1) % 12) {
-          // 次の月を試す
-          nextDate.setMonth(now.getMonth() + 2, 1);
-          const nextFirstDay = nextDate.getDay();
-          const nextMonthDaysToAdd =
-            ((targetDay - nextFirstDay + 7) % 7) + (targetWeek - 1) * 7;
-          nextDate.setDate(1 + nextMonthDaysToAdd);
+        // 月の最初の targetDayOfWeek を見つける
+        while (calculatedDate.getDay() !== targetDayOfWeek) {
+          calculatedDate.setDate(calculatedDate.getDate() + 1);
+        }
+        // 第N週目に調整
+        calculatedDate.setDate(
+          calculatedDate.getDate() + (targetWeekOfMonth - 1) * 7,
+        );
+        calculatedDate.setHours(schedule.hour, schedule.minute, 0, 0);
+
+        // 計算された日付が現在の月の範囲内にあるか
+        if (calculatedDate.getMonth() === candidate.getMonth()) {
+          // 月は同じ。時刻が searchFrom 以降であればOK
+          if (calculatedDate.getTime() >= searchFrom.getTime()) {
+            return calculatedDate;
+          } else {
+            // 同じ月の予定だが時刻が過ぎているので、次の月を探す
+            candidate.setMonth(candidate.getMonth() + 1, 1); // 次の月の1日にセット
+            continue;
+          }
+        } else {
+          // 計算された日付が次の月になっている場合、その月で再評価
+          candidate.setMonth(candidate.getMonth() + 1, 1); // 次の月の1日にセット
+          continue;
         }
       }
-      break;
     }
+    // ここに到達した場合は、まだ適切な日付が見つかっていない
+    candidate.setDate(candidate.getDate() + 1); // 1日進めてループを継続
   }
 
-  // 時刻設定（monthly以外）
-  if (schedule.type !== "monthly") {
-    nextDate.setHours(hour, minute, 0, 0);
-  }
-
-  return nextDate;
+  // MAX_ITERATIONS に達した場合
+  console.warn(
+    "calculateNextNotificationTime reached MAX_ITERATIONS. This might indicate an issue with the scheduling logic. Returning a fallback date.",
+  );
+  candidate.setDate(candidate.getDate() + 365); // フォールバックとして1年後を返す
+  return candidate;
 };
 
 // 日付フィルターを適用（平日・週末）
 const adjustForDateFilter = (
   date: Date,
-  filter: DateFilterType,
+  filter: DateFilterType | undefined,
   _interval: number,
 ): void => {
-  if (filter === "all") return;
+  if (filter === undefined || filter === "all") return;
 
   let attempts = 0;
   const maxAttempts = 14; // 無限ループを防ぐ
@@ -226,25 +216,32 @@ export const getWeekName = (weekOfMonth: number): string => {
 };
 
 // スケジュールの説明文を生成
-export const generateScheduleDescription = (schedule: Schedule): string => {
+export const generateScheduleDescription = (
+  schedule: Schedule,
+  baseDate?: string,
+): string => {
+  let desc: string;
   switch (schedule.type) {
     case "daily": {
-      let desc = "毎日";
-      if (schedule.dateFilter === "weekdays") desc += "（平日のみ）";
-      if (schedule.dateFilter === "weekends") desc += "（週末のみ）";
-      desc += ` ${formatTime(schedule.hour, schedule.minute)}`;
-      return desc;
+      let dailyDesc = "毎日";
+      if (schedule.dateFilter === "weekdays") dailyDesc += "（平日のみ）";
+      if (schedule.dateFilter === "weekends") dailyDesc += "（週末のみ）";
+      dailyDesc += ` ${formatTime(schedule.hour, schedule.minute)}`;
+      desc = dailyDesc;
+      break;
     }
 
     case "interval": {
-      return `${schedule.interval}日ごと ${formatTime(schedule.hour, schedule.minute)}`;
+      desc = `${schedule.interval}日ごと ${formatTime(schedule.hour, schedule.minute)}`;
+      break;
     }
 
     case "weekly": {
       const dayName = getDayName(schedule.dayOfWeek!);
       const weekInterval =
         schedule.interval === 1 ? "毎週" : `${schedule.interval}週間ごと`;
-      return `${weekInterval}${dayName}曜日 ${formatTime(schedule.hour, schedule.minute)}`;
+      desc = `${weekInterval}${dayName}曜日 ${formatTime(schedule.hour, schedule.minute)}`;
+      break;
     }
 
     case "specific_days": {
@@ -253,21 +250,43 @@ export const generateScheduleDescription = (schedule: Schedule): string => {
           .sort()
           .map((day) => getDayName(day))
           .join("・");
-        return `毎週${dayNames}曜日 ${formatTime(schedule.hour, schedule.minute)}`;
+        desc = `毎週${dayNames}曜日 ${formatTime(schedule.hour, schedule.minute)}`;
+      } else {
+        desc = `特定の曜日 ${formatTime(schedule.hour, schedule.minute)}`;
       }
-      return `特定の曜日 ${formatTime(schedule.hour, schedule.minute)}`;
+      break;
     }
 
     case "monthly": {
       const weekName = getWeekName(schedule.weekOfMonth!);
       const monthlyDayName = getDayName(schedule.dayOfWeek!);
-      return `毎月${weekName}${monthlyDayName}曜日 ${formatTime(schedule.hour, schedule.minute)}`;
+      desc = `毎月${weekName}${monthlyDayName}曜日 ${formatTime(
+        schedule.hour,
+        schedule.minute,
+      )}`;
+      break;
     }
 
     default: {
       return "未設定";
     }
   }
+
+  if (baseDate) {
+    try {
+      const date = new Date(baseDate);
+      // getTime()の返り値がNaNであるかどうかで、有効な日付かどうかを判定
+      if (!isNaN(date.getTime())) {
+        const formattedDate = `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+        desc += ` (${formattedDate}基準)`;
+      }
+    } catch (_e) {
+      void _e; // ESLint: 'e' is defined but never used. を回避
+      // 無効な日付文字列の場合は何もしない
+    }
+  }
+
+  return desc;
 };
 
 // URLの妥当性をチェック
@@ -477,19 +496,34 @@ export const calculateNextScheduledNotification = (
     const lastNotified = reminder.lastNotified
       ? new Date(reminder.lastNotified)
       : null;
-    let candidate = calculateNextNotificationTime(reminder.schedule, now);
+
+    const baseForCalc = reminder.baseDate ? new Date(reminder.baseDate) : now;
+    let candidate = calculateNextNotificationTime(
+      reminder.schedule,
+      baseForCalc,
+    );
 
     // 既に通知済み、または計算された時刻が過去の場合、次の候補を計算
-    while ((lastNotified && candidate <= lastNotified) || candidate <= now) {
-      const nextBase = new Date(candidate);
-      // 1分進めて再計算（無限ループ防止）
-      nextBase.setMinutes(nextBase.getMinutes() + 1);
-      candidate = calculateNextNotificationTime(reminder.schedule, nextBase);
+    // candidate を適切な未来の日付まで「早送り」する
+    while (
+      (lastNotified && candidate.getTime() <= lastNotified.getTime()) ||
+      candidate.getTime() <= now.getTime()
+    ) {
+      // calculateNextNotificationTime は searchFrom 以降の次のスケジュールを返す
+      // そのため、次の候補は現在の candidate の「次」であるべき
+      // ここで1分進める代わりに、candidate の日付を1日進めてから
+      // calculateNextNotificationTime を呼び出すことで、次の周期を探索させる
+      const nextSearchFrom = new Date(candidate.getTime());
+      nextSearchFrom.setDate(nextSearchFrom.getDate() + 1); // 少なくとも1日進める
+      candidate = calculateNextNotificationTime(
+        reminder.schedule,
+        nextSearchFrom,
+      );
     }
 
     if (
       !nextNotification ||
-      candidate < new Date(nextNotification.scheduleTime)
+      candidate.getTime() < nextNotification.scheduleTime
     ) {
       nextNotification = {
         reminder,

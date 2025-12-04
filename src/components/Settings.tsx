@@ -29,11 +29,18 @@ interface SettingsProps {
   setTheme: (theme: "light" | "dark" | "system") => void;
   settings: AppSettings;
   updateSettings: (updates: Partial<AppSettings>) => void;
+  importSettings: (settings: AppSettings) => {
+    settings: AppSettings;
+    pushNotificationFallback: boolean;
+  };
   reminders: Reminder[];
   onBack: () => void;
-  onImportReminders?: (reminders: Reminder[]) => void;
+  onImportReminders?: (reminders: Reminder[]) => {
+    added: number;
+    updated: number;
+  };
   onImportTheme?: (theme: "light" | "dark" | "system") => void;
-  addToast: (message: string, type?: ToastType, duration?: number) => void; // 変更
+  addToast: (message: string, type?: ToastType, duration?: number) => void;
 }
 
 interface ExtendedNavigator extends Navigator {
@@ -45,11 +52,12 @@ const Settings: React.FC<SettingsProps> = ({
   setTheme,
   settings,
   updateSettings,
+  importSettings,
   reminders,
   onBack,
   onImportReminders,
   onImportTheme,
-  addToast, // 変更
+  addToast,
 }) => {
   const [isImporting, setIsImporting] = useState(false);
 
@@ -118,20 +126,27 @@ const Settings: React.FC<SettingsProps> = ({
 
       const validReminders = data.reminders.filter(isReminder);
       const invalidCount = data.reminders.length - validReminders.length;
+      let importResult = { added: 0, updated: 0 };
 
       if (validReminders.length > 0 && onImportReminders) {
-        onImportReminders(validReminders);
+        importResult = onImportReminders(validReminders);
       }
       if (data.theme && onImportTheme) {
         onImportTheme(data.theme);
       }
       if (data.settings) {
-        updateSettings(data.settings);
+        const { pushNotificationFallback } = importSettings(data.settings);
+        if (pushNotificationFallback) {
+          addToast(
+            "プッシュ通知が利用できないため、ローカル通知に切り替えました。",
+            "warning",
+          );
+        }
       }
 
-      let message = `${validReminders.length}個のリマインダーをインポートしました`;
+      let message = `インポート完了: ${importResult.added}件追加, ${importResult.updated}件更新`;
       if (invalidCount > 0) {
-        message += ` (${invalidCount}個の無効なデータは除外されました)`;
+        message += ` (${invalidCount}件の無効なデータは除外)`;
       }
       addToast(message, "success");
     } catch (error) {
