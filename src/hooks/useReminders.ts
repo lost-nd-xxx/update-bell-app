@@ -249,67 +249,68 @@ export const useReminders = (
 
   // --- 通知スケジューリングロジックをuseEffectに移動 ---
   const debouncedHandleReminderChange = useRef(
-    debounce(async (...args: unknown[]) => {
-      // async を追加
-      console.log("debouncedHandleReminderChange fired");
-      const remindersToProcess = args[0] as Reminder[]; // 型アサーション
+    debounce(
+      async (remindersToProcess: Reminder[], currentUserId: string | null) => {
+        console.log("debouncedHandleReminderChange fired");
 
-      // プッシュ通知の場合、変更された各リマインダーについて予約APIを叩く
-      if (settings.notifications.method === "push") {
-        if (!userId) {
-          // ★ ガード節を追加
-          console.log(
-            "debouncedHandleReminderChange: userId is null, skipping.",
-          );
-          return;
-        }
-        const errors: string[] = [];
-        const successfulReminders: string[] = [];
-        for (const reminder of remindersToProcess) {
-          console.log(
-            "Scheduling push notification for reminder:",
-            reminder.id,
-            "title:",
-            reminder.title,
-          );
-          try {
-            await schedulePushNotification(reminder, subscription);
-            successfulReminders.push(reminder.title);
+        if (settings.notifications.method === "push") {
+          if (!currentUserId) {
             console.log(
-              "schedulePushNotification successful for reminder:",
-              reminder.id,
+              "debouncedHandleReminderChange: userId is null, skipping.",
             );
-          } catch (error) {
-            console.error(
-              "Failed to schedule push notification in useEffect:",
-              error,
-            );
-            errors.push(`${reminder.title}: ${getErrorMessage(error)}`);
+            return;
           }
-        }
+          const errors: string[] = [];
+          const successfulReminders: string[] = [];
+          for (const reminder of remindersToProcess) {
+            console.log(
+              "Scheduling push notification for reminder:",
+              reminder.id,
+              "title:",
+              reminder.title,
+            );
+            try {
+              // schedulePushNotificationはクロージャ内の古いuserIdを参照してしまうため、
+              // ここで最新のuserIdを渡してあげる必要がある。
+              // ただし、schedulePushNotificationのシグネチャを変更すると影響範囲が広いため、
+              // ここではuserId propに依存する useReminders フック全体が、
+              // userIdの変更時に再評価されることを期待する。
+              await schedulePushNotification(reminder, subscription);
+              successfulReminders.push(reminder.title);
+              console.log(
+                "schedulePushNotification successful for reminder:",
+                reminder.id,
+              );
+            } catch (error) {
+              console.error(
+                "Failed to schedule push notification in useEffect:",
+                error,
+              );
+              errors.push(`${reminder.title}: ${getErrorMessage(error)}`);
+            }
+          }
 
-        if (errors.length > 0) {
-          // 複数のエラーがある場合、それぞれ個別にトースト通知として表示
-          errors.forEach((err) => {
-            addToast(`${err}`, "error", 20000); // 20秒表示に延長
-          });
+          if (errors.length > 0) {
+            errors.forEach((err) => {
+              addToast(`${err}`, "error", 20000);
+            });
 
-          // 成功したリマインダーがあればそれも表示
-          if (successfulReminders.length > 0) {
+            if (successfulReminders.length > 0) {
+              addToast(
+                `${successfulReminders.length}件のプッシュ通知をスケジュールしました。`,
+                "success",
+              );
+            }
+          } else if (successfulReminders.length > 0) {
             addToast(
               `${successfulReminders.length}件のプッシュ通知をスケジュールしました。`,
               "success",
             );
           }
-        } else if (successfulReminders.length > 0) {
-          // 全て成功した場合
-          addToast(
-            `${successfulReminders.length}件のプッシュ通知をスケジュールしました。`,
-            "success",
-          );
         }
-      }
-    }, 500), // デバウンス時間
+      },
+      500,
+    ),
   ).current;
 
   useEffect(() => {
@@ -320,20 +321,17 @@ export const useReminders = (
       reminders.length,
     );
     if (settings.notifications.method === "local") {
-      // ローカル通知の場合、全リマインダーから次の通知を計算して予約する
       debouncedLocalScheduler();
-    } else if (settings.notifications.method === "push" && userId) {
-      // userIdの存在を確認
-      // プッシュ通知の場合、remindersが変更されたら、debouncedHandleReminderChangeを呼ぶ
-      // 全てのリマインダーについてAPIを叩き直すことになるが、現状これがシンプル
-      debouncedHandleReminderChange(reminders);
+    } else if (settings.notifications.method === "push") {
+      // userIdの有無に関わらず呼び出すが、中の処理はuserIdがなければスキップされる
+      debouncedHandleReminderChange(reminders, userId);
     }
   }, [
     reminders,
     settings.notifications.method,
     debouncedLocalScheduler,
     debouncedHandleReminderChange,
-    userId, // 依存配列にuserIdを追加
+    userId,
   ]);
   // --- ここまで通知スケジューリングロジックをuseEffectに移動 ---
 

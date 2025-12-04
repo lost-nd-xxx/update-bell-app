@@ -454,8 +454,9 @@ export const isReminder = (obj: unknown): obj is Reminder => {
   );
 };
 
-// デバウンス関数 - any型を具体的な関数型に修正
-export const debounce = <T extends (...args: unknown[]) => unknown>(
+// デバウンス関数 - ジェネリック型を使用
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const debounce = <T extends (...args: any[]) => any>(
   func: T,
   wait: number,
 ): ((...args: Parameters<T>) => void) => {
