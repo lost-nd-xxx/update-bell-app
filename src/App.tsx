@@ -36,6 +36,7 @@ const App: React.FC = () => {
     deleteReminder,
     deletingIds,
     bulkUpdateReminders,
+    syncLocalRemindersToServer,
   } = useReminders(settings, userId, addToast);
 
   const [theme, setTheme] = useTheme();
@@ -261,7 +262,8 @@ const App: React.FC = () => {
             onBack={() => handleViewChange("dashboard")}
             onImportReminders={handleImportReminders}
             onImportTheme={handleImportTheme}
-            addToast={addToast} // addToastを渡す
+            addToast={addToast}
+            syncLocalRemindersToServer={syncLocalRemindersToServer}
           />
         )}
       </main>

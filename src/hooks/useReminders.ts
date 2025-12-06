@@ -365,6 +365,30 @@ export const useReminders = (
     };
   };
 
+  const syncLocalRemindersToServer = async () => {
+    const currentUserId = userIdRef.current;
+    if (!currentUserId) {
+      throw new Error("ユーザーIDが利用できません。");
+    }
+    if (reminders.length === 0) {
+      console.log("No local reminders to sync.");
+      return;
+    }
+
+    const response = await fetch("/api/bulk-sync-reminders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: currentUserId, reminders }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        `サーバーとの同期に失敗しました: ${errorData.message || response.statusText}`,
+      );
+    }
+  };
+
   return {
     reminders,
     addReminder,
@@ -380,5 +404,6 @@ export const useReminders = (
     getRemindersByTag,
     searchReminders,
     getStats,
+    syncLocalRemindersToServer,
   };
 };

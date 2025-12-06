@@ -62,6 +62,7 @@ export default async function handler(request, response) {
 
     const reminderKey = `reminder:${userId}:${reminder.reminderId}`;
     const userSubscriptionKey = `user:${userId}:subscriptions`;
+    const userReminderKeysKey = `user:${userId}:reminder_keys`; // ユーザーごとのリマインダーキーセット
     const sortedSetKey = "reminders_by_time"; // Sorted Setのキー名
 
     // statusは常にpendingとして保存
@@ -79,7 +80,13 @@ export default async function handler(request, response) {
       `[INFO] schedule-reminder: Queued saving reminder ${reminderKey} to KV.`,
     );
 
-    // 2. スケジュール時刻をスコアとしてSorted Setに追加
+    // 2. このリマインダーキーをユーザーのキーセットに追加
+    tx.sadd(userReminderKeysKey, reminderKey);
+    console.log(
+      `[INFO] schedule-reminder: Queued adding reminder key to set ${userReminderKeysKey}.`,
+    );
+
+    // 3. スケジュール時刻をスコアとしてSorted Setに追加
     tx.zadd(sortedSetKey, {
       score: reminder.scheduledTime,
       member: reminderKey,
@@ -109,7 +116,7 @@ export default async function handler(request, response) {
         );
       }
 
-      // 3. サブスクリプションの更新もトランザクションに含める
+      // 4. サブスクリプションの更新もトランザクションに含める
       tx.set(userSubscriptionKey, subscriptions);
       console.log(
         `[INFO] schedule-reminder: Queued updating user subscriptions for ${userId} in KV.`,

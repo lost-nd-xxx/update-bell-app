@@ -18,6 +18,7 @@ export default async function handler(request, response) {
 
     const reminderKey = `reminder:${userId}:${reminderId}`;
     const sortedSetKey = "reminders_by_time";
+    const userReminderKeysKey = `user:${userId}:reminder_keys`;
 
     // トランザクションを開始
     const tx = kv.multi();
@@ -27,6 +28,9 @@ export default async function handler(request, response) {
 
     // 2. Sorted Setからスケジュールを削除
     tx.zrem(sortedSetKey, reminderKey);
+
+    // 3. ユーザーのリマインダーキーセットからキーを削除
+    tx.srem(userReminderKeysKey, reminderKey);
 
     // トランザクションを実行
     await tx.exec();

@@ -1,28 +1,31 @@
-import React, { useState, useMemo } from "react";
+import ConfirmationDialog from "./ConfirmationDialog";
+import { usePushNotifications } from "../hooks/usePushNotifications";
+import { ToastType } from "../components/ToastMessage"; // 変更
+import { useUserId } from "../contexts/UserIdContext";
+import { AppSettings, Reminder, ExportData } from "../types";
 import {
+  downloadFile,
+  isReminder,
+  getErrorMessage,
+  readFile,
+} from "../utils/helpers";
+import {
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
   ArrowLeft,
-  Moon,
+  Loader2,
   Sun,
+  Moon,
   Monitor,
   Download,
   Upload,
   Trash2,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
   ExternalLink,
-  Book,
   BarChart3,
+  Book,
 } from "lucide-react";
-import { AppSettings, Reminder, ExportData } from "../types";
-import {
-  downloadFile,
-  readFile,
-  getErrorMessage,
-  isReminder,
-} from "../utils/helpers";
-import { usePushNotifications } from "../hooks/usePushNotifications";
-import { ToastType } from "../components/ToastMessage"; // 変更
+import { useState, useMemo } from "react";
 
 interface SettingsProps {
   theme: "light" | "dark" | "system";
@@ -41,6 +44,7 @@ interface SettingsProps {
   };
   onImportTheme?: (theme: "light" | "dark" | "system") => void;
   addToast: (message: string, type?: ToastType, duration?: number) => void;
+  syncLocalRemindersToServer: () => Promise<void>;
 }
 
 interface ExtendedNavigator extends Navigator {
@@ -58,8 +62,15 @@ const Settings: React.FC<SettingsProps> = ({
   onImportReminders,
   onImportTheme,
   addToast,
+  syncLocalRemindersToServer,
 }) => {
   const [isImporting, setIsImporting] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isSwitchingToLocalConfirmOpen, setIsSwitchingToLocalConfirmOpen] =
+    useState(false);
+  const [isDeletingServerData, setIsDeletingServerData] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const userId = useUserId();
 
   const {
     subscribeToPushNotifications,
@@ -182,39 +193,103 @@ const Settings: React.FC<SettingsProps> = ({
     }
   };
 
-  const sendTestNotification = () => {
-    if (navigator.serviceWorker.controller) {
-      try {
-        navigator.serviceWorker.controller.postMessage({
+  const sendTestNotification = async () => {
+    if (!("serviceWorker" in navigator)) {
+      addToast("このブラウザは通知をサポートしていません", "error");
+      return;
+    }
+    try {
+      // Service Workerの準備が整うのを待つ
+      const registration = await navigator.serviceWorker.ready;
+      if (registration.active) {
+        // アクティブなService Workerにメッセージを送信
+        registration.active.postMessage({
           type: "TEST_NOTIFICATION",
         });
         addToast(
           "テスト通知を送信しました。アプリを閉じてお待ちください。",
           "info",
         );
-      } catch (error) {
-        addToast(
-          "テスト通知の送信に失敗しました: " + getErrorMessage(error),
-          "error",
-        );
+      } else {
+        throw new Error("アクティブなService Workerが見つかりませんでした。");
       }
-    } else {
+    } catch (error) {
       addToast(
-        "Service Workerが有効ではありません。ページを再読み込みしてください。",
+        `テスト通知の送信に失敗しました: ${getErrorMessage(error)}`,
         "error",
       );
     }
   };
 
-  const clearAllData = () => {
-    if (
-      confirm(
-        "すべてのリマインダーと設定が削除されます。\nこの操作は取り消せません。続行しますか？",
-      )
-    ) {
-      localStorage.clear();
-      location.reload();
+  const handleClearAllDataClick = () => {
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const confirmClearAllData = () => {
+    localStorage.clear();
+    location.reload();
+  };
+
+  const deleteAllUserReminders = async () => {
+    if (!userId) {
+      addToast("ユーザーIDが取得できませんでした。", "error");
+      return;
     }
+    setIsDeletingServerData(true);
+    try {
+      const response = await fetch("/api/delete-all-user-reminders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      if (!response.ok) {
+        throw new Error("サーバーデータの削除に失敗しました。");
+      }
+      addToast("サーバー上のデータを削除しました。", "success");
+    } catch (error) {
+      addToast(getErrorMessage(error), "error");
+    } finally {
+      setIsDeletingServerData(false);
+      setIsSwitchingToLocalConfirmOpen(false);
+    }
+  };
+
+  const handleNotificationMethodChange = async (
+    newMethod: "local" | "push",
+  ) => {
+    const oldMethod = settings.notifications.method;
+    if (newMethod === oldMethod) return;
+
+    if (oldMethod === "push" && newMethod === "local") {
+      setIsSwitchingToLocalConfirmOpen(true);
+    } else if (oldMethod === "local" && newMethod === "push") {
+      setIsSyncing(true);
+      try {
+        await syncLocalRemindersToServer();
+        addToast("ローカルデータをサーバーに同期しました。", "success");
+        updateSettings({
+          notifications: { ...settings.notifications, method: newMethod },
+        });
+      } catch (error) {
+        addToast(
+          `サーバーとの同期に失敗しました: ${getErrorMessage(error)}`,
+          "error",
+        );
+      } finally {
+        setIsSyncing(false);
+      }
+    } else {
+      updateSettings({
+        notifications: { ...settings.notifications, method: newMethod },
+      });
+    }
+  };
+
+  const confirmSwitchToLocal = async () => {
+    await deleteAllUserReminders();
+    updateSettings({
+      notifications: { ...settings.notifications, method: "local" },
+    });
   };
 
   const getNotificationStatusText = () => {
@@ -276,6 +351,47 @@ const Settings: React.FC<SettingsProps> = ({
 
   return (
     <div className="max-w-2xl mx-auto">
+      <ConfirmationDialog
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={confirmClearAllData}
+        title="すべてのデータを削除"
+        message={
+          <>
+            <p>すべてのリマインダーと設定がこのブラウザから削除されます。</p>
+            <p className="font-bold text-red-600 dark:text-red-400">
+              この操作は取り消せません。
+            </p>
+            <p>本当に続行しますか？</p>
+          </>
+        }
+        confirmText="すべて削除"
+        confirmButtonVariant="danger"
+      />
+      <ConfirmationDialog
+        isOpen={isSwitchingToLocalConfirmOpen}
+        onClose={() => setIsSwitchingToLocalConfirmOpen(false)}
+        onConfirm={confirmSwitchToLocal}
+        title="通知方法の変更"
+        message={
+          <>
+            <p>
+              「ローカル通知」に切り替えると、サーバーに保存されているプッシュ通知用のデータがすべて削除されます。
+            </p>
+            <ul className="list-disc list-inside my-2 space-y-1">
+              <li>
+                アプリを閉じていても通知が届く機能は利用できなくなります。
+              </li>
+              <li>このブラウザ内のリマインダーは削除されません。</li>
+            </ul>
+            <p>よろしいですか？</p>
+          </>
+        }
+        confirmText="切り替える"
+        confirmButtonVariant="danger"
+        isConfirming={isDeletingServerData}
+      />
+
       <div className="flex items-center gap-4 mb-6">
         <button
           onClick={onBack}
@@ -311,14 +427,7 @@ const Settings: React.FC<SettingsProps> = ({
               </label>
               <div className="mt-2 space-y-2">
                 <div
-                  onClick={() =>
-                    updateSettings({
-                      notifications: {
-                        ...settings.notifications,
-                        method: "local",
-                      },
-                    })
-                  }
+                  onClick={() => handleNotificationMethodChange("local")}
                   className={`p-3 rounded-lg border-2 cursor-pointer transition-colors ${
                     settings.notifications.method === "local"
                       ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
@@ -348,16 +457,11 @@ const Settings: React.FC<SettingsProps> = ({
                 <div
                   onClick={() => {
                     if (settings.notifications.permission === "granted") {
-                      updateSettings({
-                        notifications: {
-                          ...settings.notifications,
-                          method: "push",
-                        },
-                      });
+                      handleNotificationMethodChange("push");
                     }
                   }}
-                  className={`p-3 rounded-lg border-2 transition-colors ${
-                    settings.notifications.permission !== "granted"
+                  className={`relative p-3 rounded-lg border-2 transition-colors ${
+                    settings.notifications.permission !== "granted" || isSyncing
                       ? "cursor-not-allowed opacity-60"
                       : "cursor-pointer"
                   } ${
@@ -366,6 +470,14 @@ const Settings: React.FC<SettingsProps> = ({
                       : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500"
                   }`}
                 >
+                  {isSyncing && (
+                    <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 flex items-center justify-center rounded-lg z-10">
+                      <Loader2
+                        className="animate-spin text-gray-500"
+                        size={24}
+                      />
+                    </div>
+                  )}
                   <div className="flex items-center">
                     <input
                       type="radio"
@@ -373,12 +485,15 @@ const Settings: React.FC<SettingsProps> = ({
                       id="notification-push"
                       readOnly
                       checked={settings.notifications.method === "push"}
-                      disabled={settings.notifications.permission !== "granted"}
+                      disabled={
+                        settings.notifications.permission !== "granted" ||
+                        isSyncing
+                      }
                       className="h-4 w-4 text-purple-600 border-gray-300 focus:ring-purple-500"
                     />
                     <label htmlFor="notification-push" className="ml-3 block">
                       <span
-                        className={`text-sm font-medium ${settings.notifications.permission !== "granted" ? "text-gray-500" : "text-gray-900 dark:text-white"}`}
+                        className={`text-sm font-medium ${settings.notifications.permission !== "granted" || isSyncing ? "text-gray-500" : "text-gray-900 dark:text-white"}`}
                       >
                         プッシュ通知 (高信頼性)
                       </span>
@@ -548,7 +663,7 @@ const Settings: React.FC<SettingsProps> = ({
                   </div>
                 </div>
                 <button
-                  onClick={clearAllData}
+                  onClick={handleClearAllDataClick}
                   className="btn btn-danger flex items-center justify-center gap-2 text-black dark:text-white rounded-lg p-2 w-full sm:w-auto border-2 border-gray-200 dark:border-gray-600"
                 >
                   <Trash2 size={16} />

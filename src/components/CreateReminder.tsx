@@ -340,9 +340,9 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
             >
               <option value="daily">毎日</option>
               <option value="interval">数日ごと</option>
-              <option value="weekly">N週間ごとの〇曜日</option>
-              <option value="specific_days">毎週〇曜日（複数）</option>
-              <option value="monthly">毎月第〇週〇曜日</option>
+              <option value="specific_days">毎週〇曜日</option>
+              <option value="weekly">〇週間ごと</option>
+              <option value="monthly">毎月第〇週</option>
             </select>
           </div>
 
