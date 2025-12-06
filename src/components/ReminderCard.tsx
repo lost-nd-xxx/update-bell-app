@@ -23,6 +23,7 @@ interface ReminderCardProps {
   onDelete: () => void;
   onTogglePause: (isPaused: boolean) => void;
   processingIds: Record<string, "deleting" | "saving">;
+  nextNotificationTime?: Date | null; // 追加
 }
 
 const ReminderCard: React.FC<ReminderCardProps> = ({
@@ -116,13 +117,29 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
         </div>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+        <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
           <Clock size={16} className="flex-shrink-0" />
           <span>{scheduleDescription}</span>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+        {reminder.nextNotificationTime && (
+          <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
+            <Calendar size={16} className="flex-shrink-0" />
+            <span>
+              次回:{" "}
+              {reminder.nextNotificationTime.toLocaleDateString("ja-JP", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          </div>
+        )}
+
+        <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
           <Calendar size={16} className="flex-shrink-0" />
           <span>
             最終通知:{" "}
@@ -133,13 +150,13 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
         </div>
 
         {reminder.tags && reminder.tags.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 flex-wrap">
             <Tag size={16} className="text-gray-400 flex-shrink-0" />
             <div className="flex gap-1 flex-wrap">
               {reminder.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="tag tag-gray text-gray-800 dark:text-gray-200"
+                  className="text-sm text-gray-600 dark:text-gray-400"
                 >
                   #{tag}
                 </span>
@@ -148,14 +165,6 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
           </div>
         )}
       </div>
-
-      {reminder.isPaused && reminder.pausedAt && (
-        <div className="mt-3 pt-3 border-t border-yellow-200 dark:border-yellow-800">
-          <div className="text-sm text-yellow-700 dark:text-yellow-300">
-            {formatRelativeTime(reminder.pausedAt)}に一時停止されました
-          </div>
-        </div>
-      )}
     </div>
   );
 };

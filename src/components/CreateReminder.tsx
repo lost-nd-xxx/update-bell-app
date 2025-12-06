@@ -134,13 +134,17 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
         0,
       );
 
-      let candidate = calculateNextNotificationTime(
+      let candidate: Date | null = calculateNextNotificationTime(
         formData.schedule,
         baseForCalc,
       );
 
       let i = 0; // 無限ループ防止
-      while (candidate.getTime() <= now.getTime() && i < 1000) {
+      while (
+        candidate !== null &&
+        candidate.getTime() <= now.getTime() &&
+        i < 1000
+      ) {
         const nextBase = new Date(candidate);
         // 同じ日なら1日進める、さもなければ1分進める
         if (

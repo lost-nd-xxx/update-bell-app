@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
-import { Reminder, AppState } from "./types";
+import { Reminder, AppState, GroupByType } from "./types";
 import { getErrorMessage } from "./utils/helpers";
 import { useReminders } from "./hooks/useReminders";
 import { useSettings } from "./hooks/useSettings";
@@ -55,6 +55,7 @@ const App: React.FC = () => {
       field: "lastNotified",
       order: "desc",
     },
+    groupBy: "none", // 追加
     isLoading: false,
     // error: null, // error state はもうApp.tsxで直接管理しない
   });
@@ -147,6 +148,7 @@ const App: React.FC = () => {
   const handleImportReminders = async (
     importedReminders: Reminder[],
   ): Promise<{ added: number; updated: number }> => {
+    // ... (既存のコード)
     const newReminders: Reminder[] = [...reminders];
     let addedCount = 0;
     let updatedCount = 0;
@@ -168,6 +170,13 @@ const App: React.FC = () => {
     overwriteReminders(newReminders);
 
     return { added: addedCount, updated: updatedCount };
+  };
+
+  const handleGroupByChange = (groupBy: GroupByType) => {
+    setAppState((prev) => ({
+      ...prev,
+      groupBy,
+    }));
   };
 
   return (
@@ -199,9 +208,11 @@ const App: React.FC = () => {
             reminders={reminders}
             filter={appState.filter}
             sort={appState.sort}
+            groupBy={appState.groupBy} // 追加
             processingIds={processingIds}
             onFilterChange={handleFilterChange}
             onSortChange={handleSortChange}
+            onGroupByChange={handleGroupByChange} // 追加
             onEdit={(reminder) => handleViewChange("create", reminder)}
             onDelete={async (id) => {
               try {

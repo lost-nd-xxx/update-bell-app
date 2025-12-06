@@ -1,6 +1,14 @@
-import React, { useMemo, useState, useEffect } from "react";
-import { Search, Bell, SortAsc, SortDesc, X } from "lucide-react";
-import { Reminder, AppState } from "../types";
+import React, { useMemo, useState, useEffect, useRef } from "react";
+import {
+  Search,
+  Bell,
+  SortAsc,
+  SortDesc,
+  X,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+import { Reminder, AppState, GroupByType } from "../types";
 import ReminderCard from "./ReminderCard";
 import TagFilter from "./TagFilter";
 
@@ -8,8 +16,10 @@ interface DashboardProps {
   reminders: Reminder[];
   filter: AppState["filter"];
   sort: AppState["sort"];
+  groupBy: GroupByType; // 追加
   onFilterChange: (filter: Partial<AppState["filter"]>) => void;
   onSortChange: (sort: Partial<AppState["sort"]>) => void;
+  onGroupByChange: (groupBy: GroupByType) => void; // 追加
   onEdit: (reminder: Reminder) => void;
   onDelete: (id: string) => void;
   onTogglePause: (id: string, isPaused: boolean) => void;
@@ -24,8 +34,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   reminders,
   filter,
   sort,
+  groupBy, // 追加
   onFilterChange,
   onSortChange,
+  onGroupByChange, // 追加
   onEdit,
   onDelete,
   onTogglePause,
@@ -35,6 +47,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   processingIds,
 }) => {
   const [showNotificationInfo, setShowNotificationInfo] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set()); // 追加
+  const [isTagFilterOpen, setIsTagFilterOpen] = useState(false); // タグフィルターの開閉状態
+  const lastGroupByRef = useRef<GroupByType | undefined>(undefined); // groupByの以前の値を追跡
 
   useEffect(() => {
     const hasSeenInfo = localStorage.getItem(
@@ -61,8 +76,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       const matchesTags =
         filter.selectedTags.length === 0 ||
         filter.selectedTags.every((tag) => reminder.tags.includes(tag));
-      const matchesPause = filter.showPaused || !reminder.isPaused;
-      return matchesSearch && matchesTags && matchesPause;
+      return matchesSearch && matchesTags;
     });
 
     filtered.sort((a, b) => {
@@ -72,6 +86,21 @@ const Dashboard: React.FC<DashboardProps> = ({
           const aTime = a.lastNotified || a.createdAt;
           const bTime = b.lastNotified || b.createdAt;
           comparison = new Date(bTime).getTime() - new Date(aTime).getTime();
+          break;
+        }
+        case "nextNotification": {
+          // nextNotificationTime がない場合は後ろに回す
+          if (!a.nextNotificationTime && !b.nextNotificationTime) {
+            comparison = 0;
+          } else if (!a.nextNotificationTime) {
+            comparison = 1; // a を後ろに
+          } else if (!b.nextNotificationTime) {
+            comparison = -1; // b を後ろに
+          } else {
+            comparison =
+              a.nextNotificationTime.getTime() -
+              b.nextNotificationTime.getTime();
+          }
           break;
         }
         case "createdAt": {
@@ -107,9 +136,136 @@ const Dashboard: React.FC<DashboardProps> = ({
     onSortChange({ field });
   };
 
+  const toggleGroup = (groupKey: string) => {
+    setOpenGroups((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupKey)) {
+        newSet.delete(groupKey);
+      } else {
+        newSet.add(groupKey);
+      }
+      return newSet;
+    });
+  };
+
   const handleClearAllTags = () => {
     onFilterChange({ selectedTags: [] });
+    if (!isTagFilterOpen) {
+      setIsTagFilterOpen(true);
+    }
   };
+
+  const groupedReminders = useMemo(() => {
+    if (groupBy === "none" || filteredAndSortedReminders.length === 0) {
+      return { すべて: filteredAndSortedReminders };
+    }
+
+    const groups: Record<string, Reminder[]> = {};
+
+    filteredAndSortedReminders.forEach((reminder: Reminder) => {
+      let groupKey: string = "未分類"; // デフォルト値
+
+      switch (groupBy) {
+        case "nextNotification": {
+          if (reminder.isPaused || !reminder.nextNotificationTime) {
+            groupKey = "一時停止中 / 通知なし";
+          } else {
+            const now = new Date();
+            now.setHours(0, 0, 0, 0); // 今日の始まり
+
+            const nextTime = reminder.nextNotificationTime;
+            const nextTimeDate = new Date(
+              nextTime.getFullYear(),
+              nextTime.getMonth(),
+              nextTime.getDate(),
+            );
+
+            const diffTime = nextTimeDate.getTime() - now.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // 日数の差
+
+            if (diffDays === 0) {
+              groupKey = "今日";
+            } else if (diffDays === 1) {
+              groupKey = "明日";
+            } else if (diffDays > 1 && diffDays <= 7) {
+              groupKey = "今週中";
+            } else if (diffDays > 7 && diffDays <= 30) {
+              groupKey = "今月中";
+            } else {
+              groupKey = "それ以降";
+            }
+          }
+          break;
+        }
+        case "tags": {
+          if (reminder.tags && reminder.tags.length > 0) {
+            groupKey = reminder.tags
+              .sort()
+              .map((tag) => `#${tag}`)
+              .join(" / ");
+          } else {
+            groupKey = "タグなし";
+          }
+          break;
+        }
+        case "status": {
+          groupKey = reminder.isPaused ? "一時停止中" : "稼働中";
+          break;
+        }
+      }
+
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(reminder);
+    });
+
+    // グループの順番を固定する (特に日付の場合)
+    const orderedGroupKeys = Object.keys(groups).sort((a, b) => {
+      if (groupBy === "nextNotification") {
+        const order = [
+          "今日",
+          "明日",
+          "今週中",
+          "今月中",
+          "それ以降",
+          "一時停止中 / 通知なし",
+        ];
+        return order.indexOf(a) - order.indexOf(b);
+      }
+      if (groupBy === "status") {
+        const order = ["稼働中", "一時停止中"];
+        return order.indexOf(a) - order.indexOf(b);
+      }
+      // その他のグループはキーでソート
+      return a.localeCompare(b, "ja");
+    });
+
+    const orderedGroups: Record<string, Reminder[]> = {};
+    for (const key of orderedGroupKeys) {
+      orderedGroups[key] = groups[key];
+    }
+
+    return orderedGroups;
+  }, [filteredAndSortedReminders, groupBy]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (Object.keys(groupedReminders).length > 0) {
+      // groupByが変更された場合、openGroupsをリセットし、新しい最初のグループを開く
+
+      if (lastGroupByRef.current !== groupBy) {
+        const firstGroupKey = Object.keys(groupedReminders)[0];
+
+        setOpenGroups(new Set([firstGroupKey]));
+      }
+    } else if (Object.keys(groupedReminders).length === 0) {
+      // グループがない場合はopenGroupsをクリア
+
+      setOpenGroups(new Set());
+    }
+
+    lastGroupByRef.current = groupBy;
+  }, [groupedReminders, groupBy, openGroups]);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -190,6 +346,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               className="input text-sm"
             >
               <option value="lastNotified">最終通知日時</option>
+              <option value="nextNotification">次回通知日時</option>
               <option value="createdAt">作成日時</option>
               <option value="title">タイトル</option>
             </select>
@@ -205,33 +362,60 @@ const Dashboard: React.FC<DashboardProps> = ({
               )}
             </button>
           </div>
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              checked={filter.showPaused}
-              onChange={(e) => onFilterChange({ showPaused: e.target.checked })}
-              className="rounded border-gray-300 dark:border-gray-600"
-            />
-            <span className="pl-1 text-sm text-gray-700 dark:text-gray-300">
-              一時停止中も表示
-            </span>
-          </label>
+          <div className="flex items-center gap-2">
+            <label className="whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300">
+              グループ:
+            </label>
+            <select
+              value={groupBy}
+              onChange={(e) => onGroupByChange(e.target.value as GroupByType)}
+              className="input text-sm"
+            >
+              <option value="none">なし</option>
+              <option value="nextNotification">次回通知日</option>
+              <option value="tags">タグ</option>
+              <option value="status">ステータス</option>
+            </select>
+          </div>
         </div>
-        <TagFilter
-          allTags={allTags}
-          selectedTags={filter.selectedTags}
-          onTagToggle={(tag) => {
-            const newSelectedTags = filter.selectedTags.includes(tag)
-              ? filter.selectedTags.filter((t) => t !== tag)
-              : [...filter.selectedTags, tag];
-            onFilterChange({ selectedTags: newSelectedTags });
-          }}
-          onClearAll={handleClearAllTags}
-        />
+        <div className="flex items-center justify-between mb-2">
+          <button
+            onClick={() => setIsTagFilterOpen(!isTagFilterOpen)}
+            className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+          >
+            タグで絞り込み
+            {isTagFilterOpen ? (
+              <ChevronUp size={16} />
+            ) : (
+              <ChevronDown size={16} />
+            )}
+          </button>
+          {filter.selectedTags.length > 0 && (
+            <button
+              onClick={handleClearAllTags}
+              className="text-xs text-red-600 dark:text-red-400 hover:underline"
+            >
+              すべてクリア
+            </button>
+          )}
+        </div>
+        {isTagFilterOpen && (
+          <TagFilter
+            allTags={allTags}
+            selectedTags={filter.selectedTags}
+            onTagToggle={(tag) => {
+              const newSelectedTags = filter.selectedTags.includes(tag)
+                ? filter.selectedTags.filter((t) => t !== tag)
+                : [...filter.selectedTags, tag];
+              onFilterChange({ selectedTags: newSelectedTags });
+            }}
+            onClearAll={handleClearAllTags}
+          />
+        )}
       </div>
 
       <div className="space-y-4">
-        {filteredAndSortedReminders.length === 0 ? (
+        {Object.keys(groupedReminders).length === 0 ? (
           <div className="card p-12 text-center">
             <Bell className="mx-auto mb-4 text-gray-400" size={48} />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -253,8 +437,11 @@ const Dashboard: React.FC<DashboardProps> = ({
               </button>
             )}
           </div>
-        ) : (
-          filteredAndSortedReminders.map((reminder) => (
+        ) : groupBy === "none" &&
+          Object.keys(groupedReminders).length === 1 &&
+          Object.keys(groupedReminders)[0] === "すべて" ? (
+          // グルーピングが「なし」で、「すべて」の単一グループの場合、ヘッダなしで直接リマインダーを表示
+          Object.values(groupedReminders)[0].map((reminder: Reminder) => (
             <ReminderCard
               key={reminder.id}
               reminder={reminder}
@@ -263,6 +450,48 @@ const Dashboard: React.FC<DashboardProps> = ({
               onDelete={() => onDelete(reminder.id)}
               onTogglePause={(isPaused) => onTogglePause(reminder.id, isPaused)}
             />
+          ))
+        ) : (
+          // それ以外の場合は、グループヘッダを表示
+          Object.entries(groupedReminders).map(([groupKey, groupReminders]) => (
+            <div key={groupKey} className="card">
+              <button
+                onClick={() => {
+                  if (groupReminders.length === 0) return;
+                  toggleGroup(groupKey);
+                }}
+                className={`flex justify-between items-center w-full p-4 text-left font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                  groupReminders.length === 0
+                    ? "cursor-not-allowed opacity-50"
+                    : ""
+                }`}
+              >
+                <span>
+                  {groupKey} ({groupReminders.length})
+                </span>
+                {openGroups.has(groupKey) ? (
+                  <ChevronUp size={20} />
+                ) : (
+                  <ChevronDown size={20} />
+                )}
+              </button>
+              {openGroups.has(groupKey) && (
+                <div className="space-y-4 p-4 border-t border-gray-200 dark:border-gray-700">
+                  {groupReminders.map((reminder: Reminder) => (
+                    <ReminderCard
+                      key={reminder.id}
+                      reminder={reminder}
+                      processingIds={processingIds}
+                      onEdit={() => onEdit(reminder)}
+                      onDelete={() => onDelete(reminder.id)}
+                      onTogglePause={(isPaused) =>
+                        onTogglePause(reminder.id, isPaused)
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           ))
         )}
       </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"; // useMemo を追加
 import { Reminder, AppSettings } from "../types";
 import {
   generateId,
@@ -6,6 +6,7 @@ import {
   calculateNextScheduledNotification,
   debounce,
   getErrorMessage,
+  calculateNextNotificationTime, // 追加
 } from "../utils/helpers";
 import { ToastType } from "../components/ToastMessage";
 
@@ -14,7 +15,7 @@ export const useReminders = (
   userId: string | null,
   addToast: (message: string, type?: ToastType, duration?: number) => void,
 ) => {
-  const [reminders, setReminders] = useState<Reminder[]>(() => {
+  const [rawReminders, setRawReminders] = useState<Reminder[]>(() => {
     const saved = localStorage.getItem("update-bell-data");
     if (saved) {
       try {
@@ -39,9 +40,20 @@ export const useReminders = (
     userIdRef.current = userId;
   }, [userId]);
 
+  // rawReminders が更新されるたびに nextNotificationTime を計算し、reminders を生成
+  const reminders = useMemo(() => {
+    const now = new Date();
+    return rawReminders.map((r) => ({
+      ...r,
+      nextNotificationTime: r.isPaused
+        ? null
+        : calculateNextNotificationTime(r.schedule, now),
+    }));
+  }, [rawReminders]);
+
   useEffect(() => {
-    localStorage.setItem("update-bell-data", JSON.stringify(reminders));
-  }, [reminders]);
+    localStorage.setItem("update-bell-data", JSON.stringify(rawReminders));
+  }, [rawReminders]);
 
   const scheduleLocalNotification = useCallback(() => {
     if (
@@ -50,7 +62,15 @@ export const useReminders = (
     ) {
       return;
     }
-    const nextNotification = calculateNextScheduledNotification(reminders);
+    // nextNotificationTime が計算済みのため、それを直接利用
+    const activeRemindersWithNextTime = reminders.filter(
+      (r) => !r.isPaused && r.nextNotificationTime,
+    ) as (Reminder & { nextNotificationTime: Date })[];
+
+    const nextNotification = calculateNextScheduledNotification(
+      activeRemindersWithNextTime,
+    );
+
     if (nextNotification) {
       navigator.serviceWorker.controller.postMessage({
         type: "SCHEDULE_NEXT_REMINDER",
@@ -84,14 +104,14 @@ export const useReminders = (
         isPaused: reminderData.isPaused || false,
       };
 
-      const nextReminders = [...reminders, newReminder]; // ここで新しい配列を構築
-      setReminders(nextReminders); // その新しい配列で状態を更新
+      const nextRawReminders = [...rawReminders, newReminder];
+      setRawReminders(nextRawReminders);
 
       if (settings.notifications.method === "push") {
         console.log(
           "[useReminders] Push method detected. Syncing with server...",
         );
-        await syncRemindersToServer(nextReminders);
+        await syncRemindersToServer(nextRawReminders);
       } else {
         console.log(
           "[useReminders] Local method detected. Skipping server sync.",
@@ -116,22 +136,22 @@ export const useReminders = (
   const updateReminder = async (id: string, updates: Partial<Reminder>) => {
     setProcessingIds((prev) => ({ ...prev, [id]: "saving" }));
     try {
-      const originalReminder = reminders.find((r) => r.id === id);
+      const originalReminder = rawReminders.find((r) => r.id === id);
       if (!originalReminder)
         throw new Error("対象のリマインダーが見つかりません。");
 
       const updatedReminder = { ...originalReminder, ...updates };
 
-      const nextReminders = reminders.map((r) =>
+      const nextRawReminders = rawReminders.map((r) =>
         r.id === id ? updatedReminder : r,
-      ); // ここで新しい配列を構築
-      setReminders(nextReminders); // その新しい配列で状態を更新
+      );
+      setRawReminders(nextRawReminders);
 
       if (settings.notifications.method === "push") {
         console.log(
           "[useReminders] Push method detected. Syncing with server...",
         );
-        await syncRemindersToServer(nextReminders);
+        await syncRemindersToServer(nextRawReminders);
       } else {
         console.log(
           "[useReminders] Local method detected. Skipping server sync.",
@@ -180,7 +200,7 @@ export const useReminders = (
         }
       }
 
-      setReminders((prev) => prev.filter((reminder) => reminder.id !== id));
+      setRawReminders((prev) => prev.filter((reminder) => reminder.id !== id));
       addToast("リマインダーを削除しました。", "success");
     } catch (error) {
       addToast(`リマインダーの削除に失敗: ${getErrorMessage(error)}`, "error");
@@ -283,7 +303,7 @@ export const useReminders = (
   };
 
   const overwriteReminders = (newReminders: Reminder[]) => {
-    setReminders(newReminders);
+    setRawReminders(newReminders);
   };
 
   return {

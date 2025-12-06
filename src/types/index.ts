@@ -36,6 +36,7 @@ export interface Reminder {
   baseDate?: string; // 基準日 (ISO 8601 形式)
   status?: "pending" | "completed"; // リマインダーの状態
   subscription?: PushSubscription | null; // プッシュ通知の購読情報 (Optional)
+  nextNotificationTime?: Date | null; // 次回通知日時 (追加)
 }
 
 // アプリケーション設定
@@ -160,12 +161,16 @@ export interface SortSettings {
   order: SortOrder;
 }
 
+// グルーピング設定
+export type GroupByType = "none" | "nextNotification" | "tags" | "status";
+
 // アプリの状態管理用
 export interface AppState {
   currentView: "dashboard" | "create" | "edit" | "settings";
   editingReminder: Reminder | null;
   filter: FilterSettings;
   sort: SortSettings;
+  groupBy: GroupByType; // 追加
   isLoading: boolean;
   error?: string | null; // オプショナルに変更
 }
