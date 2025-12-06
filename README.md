@@ -17,6 +17,9 @@ PWAとしてホーム画面にインストールして使用することをお�
 - **[技術仕様書 (SPECIFICATION.md)](docs/SPECIFICATION.md)**  
   アーキテクチャ、技術スタック、開発への貢献方法など、技術的な詳細を知りたい方はこちらをご覧ください。
 
+- **[開発ガイドライン (DEVELOPMENT_GUIDE.md)](docs/DEVELOPMENT_GUIDE.md)**
+  開発における指針や設計思想を知りたい方はこちらをご覧ください。
+
 - **[デプロイガイド (DEPLOYMENT_GUIDE.md)](docs/DEPLOYMENT_GUIDE.md)**  
   ご自身のVercel環境へデプロイする手順はこちらをご覧ください。
 

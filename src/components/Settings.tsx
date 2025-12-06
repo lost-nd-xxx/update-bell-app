@@ -55,7 +55,6 @@ const Settings: React.FC<SettingsProps> = ({
   setTheme,
   settings,
   updateSettings,
-  importSettings,
   reminders,
   onBack,
   onImportReminders,
@@ -74,7 +73,6 @@ const Settings: React.FC<SettingsProps> = ({
   const {
     subscribeToPushNotifications,
     unsubscribeFromPushNotifications,
-    isSubscribing,
     subscription,
   } = usePushNotifications(addToast);
 
@@ -97,12 +95,8 @@ const Settings: React.FC<SettingsProps> = ({
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { timezone, lastTimezoneCheck, notifications, ...settingsBase } =
       settings;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { permission, enabled, ...notificationsToExport } = notifications;
-
     const settingsToExport = {
       ...settingsBase,
-      notifications: notificationsToExport,
     };
 
     const data = {
@@ -131,36 +125,42 @@ const Settings: React.FC<SettingsProps> = ({
       const data = JSON.parse(content) as ExportData;
 
       if (!data.reminders || !Array.isArray(data.reminders)) {
-        throw new Error("無効なファイル形式です");
+        throw new Error("無効なファイル形式です。");
       }
 
+      // --- リマインダーのインポート ---
       const validReminders = data.reminders.filter(isReminder);
       const invalidCount = data.reminders.length - validReminders.length;
-      let importResult = { added: 0, updated: 0 };
-
       if (validReminders.length > 0 && onImportReminders) {
-        importResult = await onImportReminders(validReminders);
+        const { added, updated } = await onImportReminders(validReminders);
+        let message = `インポート完了: ${added}件追加, ${updated}件更新`;
+        if (invalidCount > 0) {
+          message += ` (${invalidCount}件の無効なデータは除外)`;
+        }
+        addToast(message, "success");
+      } else if (invalidCount > 0) {
+        addToast(`${invalidCount}件の無効なデータは除外されました。`, "info");
       }
+
+      // --- 設定のインポート (通知方法は除く) ---
+      if (data.settings) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { notifications, ...otherSettings } = data.settings;
+        updateSettings(otherSettings);
+      }
+
+      // --- テーマのインポート ---
       if (data.theme && onImportTheme) {
         onImportTheme(data.theme);
       }
-      if (data.settings) {
-        const { pushNotificationFallback } = importSettings(data.settings);
-        if (pushNotificationFallback) {
-          addToast(
-            "プッシュ通知が利用できない、または許可されていないため、ローカル通知に切り替えました。",
-            "warning",
-          );
-        }
-      }
 
-      let message = `インポート完了: ${importResult.added}件追加, ${importResult.updated}件更新`;
-      if (invalidCount > 0) {
-        message += ` (${invalidCount}件の無効なデータは除外)`;
+      // --- 必要であればサーバー同期 ---
+      if (settings.notifications.method === "push") {
+        await syncRemindersToServer();
+        addToast("インポート内容をサーバーと同期しました。", "info");
       }
-      addToast(message, "success");
     } catch (error) {
-      addToast(`インポートに失敗: ${getErrorMessage(error)}`, "error");
+      addToast(`インポート処理に失敗: ${getErrorMessage(error)}`, "error");
     } finally {
       setIsImporting(false);
       event.target.value = "";
@@ -265,22 +265,22 @@ const Settings: React.FC<SettingsProps> = ({
     }
 
     if (newMethod === "push") {
-      // ユーザーがまだプッシュ通知を購読していない場合
-      if (!subscription) {
-        // 最初に購読を試みる
-        const success = await subscribeToPushNotifications();
-        if (!success) {
-          addToast(
-            "プッシュ通知の有効化がキャンセルされたか、失敗しました。",
-            "error",
-          );
-          return; // 購読に失敗したらここで処理を中断
-        }
-      }
-
-      // 購読が成功または既存の場合、同期処理へ
-      setIsSyncing(true);
+      setIsSyncing(true); // ★ UIロックを先に開始
       try {
+        // ユーザーがまだプッシュ通知を購読していない場合
+        if (!subscription) {
+          // 最初に購読を試みる
+          const success = await subscribeToPushNotifications();
+          if (!success) {
+            addToast(
+              "プッシュ通知の有効化がキャンセルされたか、失敗しました。",
+              "error",
+            );
+            return; // 購読に失敗したらここで処理を中断
+          }
+        }
+
+        // 購読が成功または既存の場合、同期処理へ
         await syncRemindersToServer();
         addToast("ローカルデータをサーバーに同期しました。", "success");
         // 同期成功後に設定を更新
@@ -556,36 +556,7 @@ const Settings: React.FC<SettingsProps> = ({
               </div>
               {settings.notifications.method === "push" &&
                 settings.notifications.permission === "granted" && (
-                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    {subscription ? (
-                      <div>
-                        <button
-                          onClick={unsubscribeFromPushNotifications}
-                          disabled={isSubscribing}
-                          className="w-full sm:w-auto justify-center inline-flex items-center px-4 py-2 border-2 border-red-500 bg-red-50 dark:bg-red-900/20 text-sm font-medium rounded-lg text-red-700 dark:text-red-300 disabled:opacity-50"
-                        >
-                          {isSubscribing
-                            ? "処理中..."
-                            : "このブラウザでのプッシュ通知を無効にする"}
-                        </button>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                          より確実な通知を受け取るために、このブラウザのプッシュ通知を有効にします。
-                        </p>
-                        <button
-                          onClick={subscribeToPushNotifications}
-                          disabled={isSubscribing}
-                          className="w-full sm:w-auto justify-center inline-flex items-center px-4 py-2 border-2 border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-sm font-medium rounded-lg text-purple-700 dark:text-purple-300 disabled:opacity-50"
-                        >
-                          {isSubscribing
-                            ? "有効化しています..."
-                            : "このブラウザでプッシュ通知を有効にする"}
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700" />
                 )}
             </div>
 

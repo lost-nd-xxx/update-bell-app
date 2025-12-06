@@ -7,12 +7,15 @@
 /node_modules
 
 # ===== パッケージマネージャー =====
-# 実際に使用しているパッケージマネージャーのみを保持
+# package-lock.json は npm を使用しているため追跡対象
+# Yarn を使用しない場合は削除
 yarn.lock
+# Pnpm を使用しない場合は削除
 pnpm-lock.yaml
+# Yarn キャッシュ
 .yarn/
+# Pnpm キャッシュ
 .pnpm/
-# package-lock.json は追跡対象（npm がメインのパッケージマネージャー）
 
 # ===== 環境変数 =====
 .env*
@@ -25,33 +28,48 @@ yarn-debug.log*
 pnpm-debug.log*
 
 # ===== キャッシュ・一時ファイル =====
+# npm キャッシュ
 .npm
+# ESLint キャッシュ
 .eslintcache
+# Stylelint キャッシュ (もし使用している場合)
 .stylelintcache
+# TypeScript ビルド情報
 *.tsbuildinfo
+# Vite のキャッシュディレクトリ
 .vite/
+# その他の一般的なキャッシュ
 .cache/
 
 # ===== テスト関連 =====
+# カバレッジレポート
 /coverage
+# NYC カバレッジ出力
 /.nyc_output
 
 # ===== エディター・IDE =====
 # VS Code 個人設定（除外）
+# デバッグ設定
 .vscode/launch.json
+# SFTP 設定 (もし使用している場合)
 .vscode/sftp.json
 
-# VS Code プロジェクト設定は含める
-# .vscode/settings.json（品質管理基盤）
-# .vscode/tasks.json（開発タスク）
-# .vscode/extensions.json（推奨拡張機能）
+# VS Code プロジェクト設定は追跡対象として含める:
+# .vscode/settings.json
+# .vscode/tasks.json
+# .vscode/extensions.json
 
-# その他のエディター
+# その他のエディター (例: IntelliJ IDEA, Sublime Text, Vim)
+# IntelliJ IDEA の設定ファイル
 .idea/
+# Sublime Text プロジェクトファイル
 *.sublime-project
+# Sublime Text ワークスペースファイル
 *.sublime-workspace
+# Vim スワップファイル
 *.swp
 *.swo
+# 一時ファイル
 *~
 
 # ===== オペレーティングシステム =====
@@ -68,24 +86,16 @@ Thumbs.db
 .Trash-*
 
 # ===== デバッグ関係 =====
-# mkcertの機密ファイル
-*.pem
+# mkcertで生成されるローカルHTTPS証明書ファイル
+localhost.pem
+localhost-key.pem
 
-# ===== 追跡対象ファイル（明示的な記録） =====
-# 常に追跡すべき重要なファイル:
-# - package.json
-# - package-lock.json  
-# - vite.config.ts
-# - tsconfig.json
-# - index.html
-# - public/manifest.json
-# - src/**/*
-# - .vscode/tasks.json
-# - .vscode/extensions.json
-# - LICENSE（法的要件）
-# - THIRD-PARTY-LICENSES.md（法的要件）
-# - README.md
-
-# =====
-.vercel
+# ===== クラウドプラットフォーム関連 =====
+# Vercel CLI の設定やキャッシュ
+.vercel/
+# Vercel デプロイ時に使用されるローカル環境変数
 .env*.local
+
+# ===== Gemini エージェント関連 =====
+# Gemini エージェントの作業ディレクトリ
+.gemini/

@@ -176,7 +176,7 @@ export const useSettings = (
     // 常に現在のブラウザの許可状態を正とする
     finalSettings.notifications.permission = currentNotificationPermission;
 
-    setSettings(finalSettings);
+    // setSettings(finalSettings); // 呼び出し元が状態を更新するように、ここでは更新しない
 
     return { settings: finalSettings, pushNotificationFallback };
   };

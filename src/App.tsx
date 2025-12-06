@@ -167,21 +167,6 @@ const App: React.FC = () => {
 
     overwriteReminders(newReminders);
 
-    if (settings.notifications.method === "push") {
-      try {
-        await syncRemindersToServer(newReminders);
-        addToast(
-          "インポートされたリマインダーをサーバーと同期しました。",
-          "success",
-        );
-      } catch (error) {
-        addToast(
-          `サーバーとの同期に失敗しました: ${getErrorMessage(error)}`,
-          "error",
-        );
-      }
-    }
-
     return { added: addedCount, updated: updatedCount };
   };
 

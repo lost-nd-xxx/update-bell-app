@@ -84,11 +84,16 @@ export const useReminders = (
         isPaused: reminderData.isPaused || false,
       };
 
+      let nextReminders: Reminder[] = [];
+      setReminders((prev) => {
+        nextReminders = [...prev, newReminder];
+        return nextReminders;
+      });
+
       if (settings.notifications.method === "push") {
-        // バルク同期に任せる
+        await syncRemindersToServer(nextReminders);
       }
 
-      setReminders((prev) => [...prev, newReminder]);
       return newReminder;
     } catch (error) {
       addToast(`リマインダーの追加に失敗: ${getErrorMessage(error)}`, "error");
@@ -111,13 +116,15 @@ export const useReminders = (
 
       const updatedReminder = { ...originalReminder, ...updates };
 
-      if (settings.notifications.method === "push") {
-        // バルク同期に任せる
-      }
+      let nextReminders: Reminder[] = [];
+      setReminders((prev) => {
+        nextReminders = prev.map((r) => (r.id === id ? updatedReminder : r));
+        return nextReminders;
+      });
 
-      setReminders((prev) =>
-        prev.map((r) => (r.id === id ? updatedReminder : r)),
-      );
+      if (settings.notifications.method === "push") {
+        await syncRemindersToServer(nextReminders);
+      }
     } catch (error) {
       addToast(`リマインダーの更新に失敗: ${getErrorMessage(error)}`, "error");
     } finally {

@@ -95,48 +95,6 @@ Cloudflareの`nodejs_compat`環境では`web-push`ライブラリの依存関係
 - アイコン: Lucide React
 - デプロイ: Vercel
 
-### 開発環境のセットアップ
-
-#### 必要な環境
-
-- Node.js 24.x
-- npm
-- mkcert（HTTPSでのローカル開発に必要）
-
-#### セットアップ手順
-
-```bash
-# 1. リポジトリのクローン
-git clone https://github.com/lost-nd-xxx/update-bell-app.git
-cd update-bell-app
-
-# 2. 依存関係のインストール
-npm install
-
-# 3. (任意) ローカル開発用の証明書を生成
-# mkcert -install
-# mkcert localhost.pem localhost-key.pem
-
-# 4. 開発サーバーの起動
-npm run dev
-```
-
-開発サーバーは `https://localhost:5173/` で起動します。
-
-#### 利用可能なスクリプト
-
-- `npm run dev`: 開発サーバーを起動
-- `npm run build`: 本番用にプロジェクトをビルド
-- `npm run preview`: ビルド結果をローカルでプレビュー
-- `npm run type-check`: TypeScriptの型チェックを実行
-- `npm run lint`: ESLintでコードをチェック
-- `npm run lint:fix`: ESLintでコードをチェック（自動修正）
-- `npm run format`: Prettierでコードをフォーマット
-- `npm run check:all`: type-check、lint、formatを実行
-- `npm run check:fix`: type-check、lint:fix、formatを実行
-- `npm run icons`: svgからアイコンを生成
-- `npm run licenses`: ライセンスファイルの作成と更新
-
 ### PWA・Service Worker仕様
 
 PWA機能は、Web ManifestとService Workerによって実装されています。
