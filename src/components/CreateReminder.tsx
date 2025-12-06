@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, Plus, AlertTriangle, Clock, Calendar, Loader2 } from "lucide-react";
 import { Reminder, Schedule, DateFilterType, ScheduleType } from "../types";
 import {
@@ -58,6 +58,13 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
     (editingReminder?.id
       ? processingIds[editingReminder.id]
       : processingIds["new"]) === "saving";
+
+  const titleRef = useRef<HTMLInputElement>(null);
+  const urlRef = useRef<HTMLInputElement>(null);
+  const intervalRef = useRef<HTMLInputElement>(null);
+  const selectedDaysRef = useRef<HTMLDivElement>(null);
+  const hourInputRef = useRef<HTMLInputElement>(null);
+  const minuteInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editingReminder) {
@@ -164,7 +171,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
     calculate();
   }, [formData.schedule, formData.baseDate]);
 
-  const validateForm = (): boolean => {
+  const validateForm = (): Record<string, string> => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.title.trim()) {
@@ -198,11 +205,57 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return newErrors;
   };
 
   const handleSubmit = () => {
-    if (!validateForm()) return;
+    const newErrors = validateForm();
+    if (Object.keys(newErrors).length > 0) {
+      // エラーがある場合にスクロール
+      if (newErrors.title && titleRef.current) {
+        titleRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      } else if (newErrors.url && urlRef.current) {
+        urlRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (newErrors.interval && intervalRef.current) {
+        intervalRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      } else if (newErrors.selectedDays && selectedDaysRef.current) {
+        selectedDaysRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      } else if (
+        newErrors.hour &&
+        (titleRef.current ||
+          urlRef.current ||
+          intervalRef.current ||
+          selectedDaysRef.current) &&
+        hourInputRef.current
+      ) {
+        hourInputRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      } else if (
+        newErrors.minute &&
+        (titleRef.current ||
+          urlRef.current ||
+          intervalRef.current ||
+          selectedDaysRef.current) &&
+        minuteInputRef.current
+      ) {
+        minuteInputRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+      return;
+    }
 
     let scheduleToSave: Omit<Schedule, "selectedDays"> & {
       selectedDays?: number[];
@@ -296,6 +349,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
               タイトル *
             </label>
             <input
+              ref={titleRef}
               type="text"
               value={formData.title}
               onChange={(e) =>
@@ -317,6 +371,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
               URL *
             </label>
             <input
+              ref={urlRef}
               type="url"
               value={formData.url}
               onChange={(e) =>
@@ -415,6 +470,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
                 間隔（日数）
               </label>
               <input
+                ref={intervalRef}
                 type="number"
                 min="2"
                 max="365"
@@ -480,7 +536,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 曜日（複数選択可）
               </label>
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-7 gap-2" ref={selectedDaysRef}>
                 {[0, 1, 2, 3, 4, 5, 6].map((day) => (
                   <label
                     key={day}
@@ -556,6 +612,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <input
+                  ref={hourInputRef}
                   type="number"
                   min="0"
                   max="23"
@@ -577,6 +634,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 <input
+                  ref={minuteInputRef}
                   type="number"
                   min="0"
                   max="59"

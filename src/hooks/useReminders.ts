@@ -92,8 +92,7 @@ export const useReminders = (
   const addReminder = async (
     reminderData: Omit<Reminder, "id" | "createdAt" | "timezone">,
   ) => {
-    const tempId = `new-${generateId()}`;
-    setProcessingIds((prev) => ({ ...prev, [tempId]: "saving" }));
+    setProcessingIds((prev) => ({ ...prev, new: "saving" }));
 
     try {
       const newReminder: Reminder = {
@@ -127,7 +126,7 @@ export const useReminders = (
     } finally {
       setProcessingIds((prev) => {
         const newIds = { ...prev };
-        delete newIds[tempId];
+        delete newIds["new"];
         return newIds;
       });
     }

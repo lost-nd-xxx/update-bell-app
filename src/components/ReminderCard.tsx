@@ -15,6 +15,7 @@ import {
   formatRelativeTime,
   generateScheduleDescription,
   extractDomain,
+  normalizeUrl,
 } from "../utils/helpers";
 
 interface ReminderCardProps {
@@ -36,11 +37,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
   const scheduleDescription = generateScheduleDescription(reminder.schedule);
   const domain = extractDomain(reminder.url);
   const isDeleting = processingIds[reminder.id] === "deleting";
-
-  const handleUrlClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    window.open(reminder.url, "_blank", "noopener,noreferrer,nofollow");
-  };
+  const isSaving = processingIds[reminder.id] === "saving";
 
   return (
     <div
@@ -52,7 +49,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
             : "border-purple-500 bg-white dark:bg-gray-800"
       }`}
     >
-      {isDeleting && (
+      {(isDeleting || isSaving) && (
         <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 flex items-center justify-center rounded-lg z-10">
           <Loader2 className="animate-spin text-gray-500" size={32} />
         </div>
@@ -70,23 +67,39 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
             )}
           </div>
 
-          <button
-            onClick={handleUrlClick}
-            disabled={isDeleting}
+          <a
+            href={reminder.url}
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline text-sm group disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span className="truncate">{domain}</span>
+            <span className="truncate">
+              {domain}
+              {(() => {
+                try {
+                  const normalizedUrl = normalizeUrl(reminder.url);
+                  const urlObj = new URL(normalizedUrl);
+                  if (urlObj.pathname !== "/" || urlObj.search || urlObj.hash) {
+                    return " ...";
+                  }
+                } catch (_e) {
+                  void _e; // ESLint: '_e' is defined but never used. を回避
+                  // 無効なURLの場合、エラーは無視して省略表示しない
+                }
+                return "";
+              })()}
+            </span>
             <ExternalLink
               size={14}
               className="flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity"
             />
-          </button>
+          </a>
         </div>
 
         <div className="flex items-center gap-1 sm:ml-4">
           <button
             onClick={() => onTogglePause(!reminder.isPaused)}
-            disabled={isDeleting}
+            disabled={isDeleting || isSaving}
             className={`p-2 rounded-lg transition-colors border disabled:opacity-50 disabled:cursor-not-allowed ${
               reminder.isPaused
                 ? "border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30"
@@ -99,7 +112,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
 
           <button
             onClick={onEdit}
-            disabled={isDeleting}
+            disabled={isDeleting || isSaving}
             className="p-2 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="編集"
           >
@@ -108,7 +121,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
 
           <button
             onClick={onDelete}
-            disabled={isDeleting}
+            disabled={isDeleting || isSaving}
             className="p-2 border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="削除"
           >
@@ -151,7 +164,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
 
         {reminder.tags && reminder.tags.length > 0 && (
           <div className="flex items-center gap-1 flex-wrap">
-            <Tag size={16} className="text-gray-400 flex-shrink-0" />
+            <Tag size={16} className="flex-shrink-0" />
             <div className="flex gap-1 flex-wrap">
               {reminder.tags.map((tag) => (
                 <span
