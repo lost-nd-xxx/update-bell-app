@@ -88,7 +88,12 @@ export default async function handler(request, response) {
 
     const pendingReminders = reminderKeys
       .map((key, index) => ({ key, data: remindersData[index] }))
-      .filter((rem) => rem.data && rem.data.status === "pending");
+      .filter(
+        (rem) =>
+          rem.data &&
+          rem.data.status === "pending" &&
+          rem.data.isPaused !== true,
+      );
 
     if (pendingReminders.length === 0) {
       console.log(

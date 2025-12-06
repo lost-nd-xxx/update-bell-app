@@ -277,12 +277,19 @@ export const useReminders = (
         return;
       }
 
+      const remindersToProcessForServer = (remindersToSync || reminders).map(
+        (rem) => {
+          const { tags: _tags, subscription: _subscription, ...rest } = rem;
+          return rest;
+        },
+      );
+
       const response = await fetch("/api/bulk-sync-reminders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: currentUserId,
-          reminders: remindersToProcess,
+          reminders: remindersToProcessForServer,
         }),
       });
 
