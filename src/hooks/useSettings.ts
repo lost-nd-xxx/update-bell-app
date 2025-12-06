@@ -173,6 +173,9 @@ export const useSettings = (
       // currentNotificationPermissionが"granted"の場合は、プッシュ通知設定を維持
     }
 
+    // 常に現在のブラウザの許可状態を正とする
+    finalSettings.notifications.permission = currentNotificationPermission;
+
     setSettings(finalSettings);
 
     return { settings: finalSettings, pushNotificationFallback };

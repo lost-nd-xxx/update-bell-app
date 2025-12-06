@@ -301,7 +301,13 @@ const Settings: React.FC<SettingsProps> = ({
   };
 
   const confirmSwitchToLocal = async () => {
+    // サーバー上のデータを削除
     await deleteAllUserReminders();
+    // ブラウザのプッシュ購読を解除
+    if (subscription) {
+      await unsubscribeFromPushNotifications();
+    }
+    // アプリの設定をローカル通知に更新
     updateSettings({
       notifications: { ...settings.notifications, method: "local" },
     });
