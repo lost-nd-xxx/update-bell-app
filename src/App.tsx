@@ -206,7 +206,6 @@ const App: React.FC = () => {
             onDelete={async (id) => {
               try {
                 await deleteReminder(id);
-                addToast("リマインダーを削除しました。", "success");
               } catch (error) {
                 addToast(
                   `リマインダーの削除に失敗しました: ${getErrorMessage(error)}`,

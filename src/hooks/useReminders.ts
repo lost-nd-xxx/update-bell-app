@@ -84,14 +84,20 @@ export const useReminders = (
         isPaused: reminderData.isPaused || false,
       };
 
-      let nextReminders: Reminder[] = [];
-      setReminders((prev) => {
-        nextReminders = [...prev, newReminder];
-        return nextReminders;
-      });
+      const nextReminders = [...reminders, newReminder]; // ここで新しい配列を構築
+      setReminders(nextReminders); // その新しい配列で状態を更新
 
       if (settings.notifications.method === "push") {
+        console.log(
+          "[useReminders] Push method detected. Syncing with server...",
+        );
         await syncRemindersToServer(nextReminders);
+      } else {
+        console.log(
+          "[useReminders] Local method detected. Skipping server sync.",
+          "Current method:",
+          settings.notifications.method,
+        );
       }
 
       return newReminder;
@@ -116,14 +122,22 @@ export const useReminders = (
 
       const updatedReminder = { ...originalReminder, ...updates };
 
-      let nextReminders: Reminder[] = [];
-      setReminders((prev) => {
-        nextReminders = prev.map((r) => (r.id === id ? updatedReminder : r));
-        return nextReminders;
-      });
+      const nextReminders = reminders.map((r) =>
+        r.id === id ? updatedReminder : r,
+      ); // ここで新しい配列を構築
+      setReminders(nextReminders); // その新しい配列で状態を更新
 
       if (settings.notifications.method === "push") {
+        console.log(
+          "[useReminders] Push method detected. Syncing with server...",
+        );
         await syncRemindersToServer(nextReminders);
+      } else {
+        console.log(
+          "[useReminders] Local method detected. Skipping server sync.",
+          "Current method:",
+          settings.notifications.method,
+        );
       }
     } catch (error) {
       addToast(`リマインダーの更新に失敗: ${getErrorMessage(error)}`, "error");
