@@ -7,13 +7,12 @@ import {
   debounce,
   getErrorMessage,
 } from "../utils/helpers";
-import { usePushNotifications } from "./usePushNotifications";
-import { ToastType } from "../components/ToastMessage"; // 追加
+import { ToastType } from "../components/ToastMessage";
 
 export const useReminders = (
   settings: AppSettings,
   userId: string | null,
-  addToast: (message: string, type?: ToastType, duration?: number) => void, // 変更
+  addToast: (message: string, type?: ToastType, duration?: number) => void,
 ) => {
   const [reminders, setReminders] = useState<Reminder[]>(() => {
     const saved = localStorage.getItem("update-bell-data");
@@ -31,21 +30,19 @@ export const useReminders = (
     }
     return [];
   });
-  const [deletingIds, setDeletingIds] = useState<string[]>([]);
+  const [processingIds, setProcessingIds] = useState<
+    Record<string, "deleting" | "saving">
+  >({});
 
-  // usePushNotificationsから現在の購読情報を取得
-  const { subscription } = usePushNotifications(addToast);
   const userIdRef = useRef(userId);
   useEffect(() => {
     userIdRef.current = userId;
   }, [userId]);
 
-  // リマインダーをlocalStorageに保存
   useEffect(() => {
     localStorage.setItem("update-bell-data", JSON.stringify(reminders));
   }, [reminders]);
 
-  // ローカル通知のスケジューリング（App.tsxから移動）
   const scheduleLocalNotification = useCallback(() => {
     if (
       !("serviceWorker" in navigator) ||
@@ -66,150 +63,75 @@ export const useReminders = (
     }
   }, [reminders]);
 
-  // debounceされたローカル通知スケジューラーの参照
   const debouncedLocalScheduler = useRef(
     debounce((..._args: unknown[]) => {
-      // _args に修正
       scheduleLocalNotification();
     }, 200),
   ).current;
 
-  // プッシュ通知の予約
-  const schedulePushNotification = async (
-    reminder: Reminder,
-    currentSubscription: PushSubscription | null,
-  ) => {
-    const currentUserId = userIdRef.current;
-    console.log(
-      "schedulePushNotification called for reminder:",
-      reminder.id,
-      "userId:",
-      currentUserId,
-    );
-    if (!currentUserId) {
-      console.log("schedulePushNotification: userId is null, throwing error.");
-      throw new Error("ユーザーIDが利用できません。");
-    }
-
-    // `calculateNextScheduledNotification` を使って次の通知時刻を計算
-    const nextNotification = calculateNextScheduledNotification([reminder]);
-    if (!nextNotification) {
-      console.log(
-        "schedulePushNotification: No next notification time calculated, returning.",
-      );
-      // TODO: サーバー側で予約済みの通知があればキャンセルするAPIを呼ぶ
-      return;
-    }
-
-    try {
-      console.log(
-        "schedulePushNotification: Making fetch call to /api/schedule-reminder",
-      );
-      const response = await fetch("/api/schedule-reminder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: currentUserId,
-          reminder: {
-            userId: currentUserId,
-            reminderId: reminder.id,
-            message: reminder.title,
-            scheduledTime: nextNotification.scheduleTime,
-            url: reminder.url,
-            status: reminder.status || "pending",
-            subscription: currentSubscription,
-            schedule: reminder.schedule,
-            baseDate: reminder.baseDate,
-          },
-        }),
-      });
-      console.log(
-        "schedulePushNotification: Fetch response received, status:",
-        response.status,
-      );
-
-      if (!response.ok) {
-        const errorData = await response
-          .json()
-          .catch(() => ({ message: "不明なエラー" }));
-        console.log(
-          "schedulePushNotification: Response not ok, throwing error.",
-        );
-        throw new Error(
-          `リマインダーの保存に失敗しました (Status: ${response.status}): ${errorData.message || errorData.error}`,
-        );
-      }
-      console.log("schedulePushNotification: Fetch call successful.");
-    } catch (error) {
-      throw new Error(
-        `リマインダーの保存に失敗しました: ${(error as Error).message}`,
-      );
-    }
-  };
-
   const addReminder = async (
     reminderData: Omit<Reminder, "id" | "createdAt" | "timezone">,
   ) => {
-    console.log("addReminder called with:", reminderData);
-    const newReminder: Reminder = {
-      ...reminderData,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      isPaused: reminderData.isPaused || false,
-    };
+    const tempId = `new-${generateId()}`;
+    setProcessingIds((prev) => ({ ...prev, [tempId]: "saving" }));
 
-    setReminders((prev) => [...prev, newReminder]);
-    console.log("addReminder finished, new reminder:", newReminder);
+    try {
+      const newReminder: Reminder = {
+        ...reminderData,
+        id: generateId(),
+        createdAt: new Date().toISOString(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        isPaused: reminderData.isPaused || false,
+      };
 
-    if (settings.notifications.method === "push") {
-      try {
-        await schedulePushNotification(newReminder, subscription);
-      } catch (error) {
-        addToast(
-          `プッシュ通知のスケジュールに失敗: ${getErrorMessage(error)}`,
-          "error",
-        );
+      if (settings.notifications.method === "push") {
+        // バルク同期に任せる
       }
+
+      setReminders((prev) => [...prev, newReminder]);
+      return newReminder;
+    } catch (error) {
+      addToast(`リマインダーの追加に失敗: ${getErrorMessage(error)}`, "error");
+      return null;
+    } finally {
+      setProcessingIds((prev) => {
+        const newIds = { ...prev };
+        delete newIds[tempId];
+        return newIds;
+      });
     }
-    return newReminder;
   };
 
   const updateReminder = async (id: string, updates: Partial<Reminder>) => {
-    console.log("updateReminder called for id:", id, "with updates:", updates);
-    let updatedReminder: Reminder | null = null;
-    setReminders((prev) => {
-      const newReminders = prev.map((reminder) => {
-        if (reminder.id === id) {
-          updatedReminder = { ...reminder, ...updates };
-          return updatedReminder;
-        }
-        return reminder;
-      });
-      console.log(
-        "updateReminder finished, updated reminder:",
-        updatedReminder,
-      );
-      return newReminders;
-    });
+    setProcessingIds((prev) => ({ ...prev, [id]: "saving" }));
+    try {
+      const originalReminder = reminders.find((r) => r.id === id);
+      if (!originalReminder)
+        throw new Error("対象のリマインダーが見つかりません。");
 
-    if (updatedReminder && settings.notifications.method === "push") {
-      try {
-        await schedulePushNotification(updatedReminder, subscription);
-      } catch (error) {
-        addToast(
-          `プッシュ通知の更新に失敗: ${getErrorMessage(error)}`,
-          "error",
-        );
+      const updatedReminder = { ...originalReminder, ...updates };
+
+      if (settings.notifications.method === "push") {
+        // バルク同期に任せる
       }
+
+      setReminders((prev) =>
+        prev.map((r) => (r.id === id ? updatedReminder : r)),
+      );
+    } catch (error) {
+      addToast(`リマインダーの更新に失敗: ${getErrorMessage(error)}`, "error");
+    } finally {
+      setProcessingIds((prev) => {
+        const newIds = { ...prev };
+        delete newIds[id];
+        return newIds;
+      });
     }
   };
 
   const deleteReminder = async (id: string) => {
-    console.log("deleteReminder called for id:", id);
-    setDeletingIds((prev: string[]) => [...prev, id]);
+    setProcessingIds((prev) => ({ ...prev, [id]: "deleting" }));
     try {
-      // ローカル通知の場合は全キャンセルしてから再スケジュール
       if (
         settings.notifications.method === "local" &&
         navigator.serviceWorker.controller
@@ -218,103 +140,43 @@ export const useReminders = (
           type: "CANCEL_ALL_REMINDERS",
         });
       }
-      const currentUserId = userIdRef.current;
-      // プッシュ通知の場合は、サーバーに削除を通知するAPIを呼ぶ
-      if (settings.notifications.method === "push" && currentUserId) {
-        try {
-          const response = await fetch("/api/delete-reminder", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: currentUserId, reminderId: id }),
-          });
 
-          if (!response.ok) {
-            const errorData = await response
-              .json()
-              .catch(() => ({ message: "不明なエラー" }));
-            throw new Error(
-              `リマインダーの削除に失敗しました (Status: ${response.status}): ${errorData.message || errorData.error}`,
-            );
-          }
-          console.log("deleteReminder: Server request successful for id:", id);
-        } catch (error) {
-          console.error(
-            `[Frontend] Failed to request server to delete reminder ${id}:`,
-            error,
-          );
-          addToast(
-            `リマインダーの削除に失敗しました: ${getErrorMessage(error)}`,
-            "error",
+      const currentUserId = userIdRef.current;
+      if (settings.notifications.method === "push" && currentUserId) {
+        const response = await fetch("/api/delete-reminder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: currentUserId, reminderId: id }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response
+            .json()
+            .catch(() => ({ message: "不明なエラー" }));
+          throw new Error(
+            `サーバー上のリマインダー削除に失敗しました (Status: ${response.status}): ${errorData.message || errorData.error}`,
           );
         }
       }
 
       setReminders((prev) => prev.filter((reminder) => reminder.id !== id));
-      console.log("deleteReminder finished, reminders updated.");
+      addToast("リマインダーを削除しました。", "success");
+    } catch (error) {
+      addToast(`リマインダーの削除に失敗: ${getErrorMessage(error)}`, "error");
     } finally {
-      setDeletingIds((prev: string[]) =>
-        prev.filter((deletingId: string) => deletingId !== id),
-      );
-    }
-  };
-
-  const bulkUpdateReminders = (
-    updates: Array<{ id: string; data: Partial<Reminder> }>,
-  ) => {
-    console.log("bulkUpdateReminders called with updates:", updates);
-    const updatedReminders: Reminder[] = [];
-    setReminders((prev) =>
-      prev.map((reminder) => {
-        const update = updates.find((u) => u.id === reminder.id);
-        if (update) {
-          const newReminder = { ...reminder, ...update.data };
-          updatedReminders.push(newReminder);
-          return newReminder;
-        }
-        return reminder;
-      }),
-    );
-    // バルク更新では個別のプッシュ通知は行わない
-    console.log(
-      "bulkUpdateReminders finished, updated reminders count:",
-      updatedReminders.length,
-    );
-  };
-
-  useEffect(() => {
-    console.log(
-      "useReminders useEffect triggered with settings.notifications.method:",
-      settings.notifications.method,
-      "reminders count:",
-      reminders.length,
-    );
-    if (settings.notifications.method === "local") {
-      debouncedLocalScheduler();
-    }
-    // プッシュ通知の一括同期は行わない
-  }, [reminders, settings.notifications.method, debouncedLocalScheduler]);
-  // --- ここまで通知スケジューリングロジックをuseEffectに移動 ---
-
-  // (元のフックの他の関数はそのまま)
-  const duplicateReminder = (id: string): void => {
-    const original = reminders.find((r) => r.id === id);
-    if (original) {
-      const reminderData: Omit<
-        Reminder,
-        "id" | "createdAt" | "timezone" | "lastNotified" | "pausedAt"
-      > = {
-        title: original.title,
-        url: original.url,
-        schedule: original.schedule,
-        tags: original.tags,
-        isPaused: original.isPaused,
-      };
-      addReminder({
-        ...reminderData,
-        title: `${original.title} (コピー)`,
+      setProcessingIds((prev) => {
+        const newIds = { ...prev };
+        delete newIds[id];
+        return newIds;
       });
     }
   };
+
+  useEffect(() => {
+    if (settings.notifications.method === "local") {
+      debouncedLocalScheduler();
+    }
+  }, [reminders, settings.notifications.method, debouncedLocalScheduler]);
 
   const getReminder = (id: string): Reminder | undefined => {
     return reminders.find((r) => r.id === id);
@@ -351,42 +213,56 @@ export const useReminders = (
   };
 
   const getStats = () => {
-    const total = reminders.length;
-    const active = getActiveReminders().length;
-    const paused = getPausedReminders().length;
-    const withNotifications = reminders.filter((r) => r.lastNotified).length;
-
     return {
-      total,
-      active,
-      paused,
-      withNotifications,
+      total: reminders.length,
+      active: getActiveReminders().length,
+      paused: getPausedReminders().length,
+      withNotifications: reminders.filter((r) => r.lastNotified).length,
       totalTags: getAllTags().length,
     };
   };
 
-  const syncLocalRemindersToServer = async () => {
+  const syncRemindersToServer = async (remindersToSync?: Reminder[]) => {
     const currentUserId = userIdRef.current;
     if (!currentUserId) {
       throw new Error("ユーザーIDが利用できません。");
     }
-    if (reminders.length === 0) {
-      console.log("No local reminders to sync.");
-      return;
-    }
 
-    const response = await fetch("/api/bulk-sync-reminders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: currentUserId, reminders }),
-    });
+    setProcessingIds((prev) => ({ ...prev, bulk_sync: "saving" }));
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        `サーバーとの同期に失敗しました: ${errorData.message || response.statusText}`,
-      );
+    try {
+      const remindersToProcess = remindersToSync || reminders;
+
+      if (remindersToProcess.length === 0) {
+        return;
+      }
+
+      const response = await fetch("/api/bulk-sync-reminders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUserId,
+          reminders: remindersToProcess,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          `サーバーとの同期に失敗しました: ${errorData.message || response.statusText}`,
+        );
+      }
+    } finally {
+      setProcessingIds((prev) => {
+        const newIds = { ...prev };
+        delete newIds.bulk_sync;
+        return newIds;
+      });
     }
+  };
+
+  const overwriteReminders = (newReminders: Reminder[]) => {
+    setReminders(newReminders);
   };
 
   return {
@@ -394,9 +270,7 @@ export const useReminders = (
     addReminder,
     updateReminder,
     deleteReminder,
-    deletingIds,
-    duplicateReminder,
-    bulkUpdateReminders,
+    processingIds,
     getReminder,
     getActiveReminders,
     getPausedReminders,
@@ -404,6 +278,7 @@ export const useReminders = (
     getRemindersByTag,
     searchReminders,
     getStats,
-    syncLocalRemindersToServer,
+    syncRemindersToServer,
+    overwriteReminders,
   };
 };

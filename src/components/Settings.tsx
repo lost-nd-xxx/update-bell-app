@@ -38,13 +38,12 @@ interface SettingsProps {
   };
   reminders: Reminder[];
   onBack: () => void;
-  onImportReminders?: (reminders: Reminder[]) => {
-    added: number;
-    updated: number;
-  };
+  onImportReminders?: (
+    reminders: Reminder[],
+  ) => Promise<{ added: number; updated: number }>;
   onImportTheme?: (theme: "light" | "dark" | "system") => void;
   addToast: (message: string, type?: ToastType, duration?: number) => void;
-  syncLocalRemindersToServer: () => Promise<void>;
+  syncRemindersToServer: () => Promise<void>;
 }
 
 interface ExtendedNavigator extends Navigator {
@@ -62,7 +61,7 @@ const Settings: React.FC<SettingsProps> = ({
   onImportReminders,
   onImportTheme,
   addToast,
-  syncLocalRemindersToServer,
+  syncRemindersToServer,
 }) => {
   const [isImporting, setIsImporting] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -140,7 +139,7 @@ const Settings: React.FC<SettingsProps> = ({
       let importResult = { added: 0, updated: 0 };
 
       if (validReminders.length > 0 && onImportReminders) {
-        importResult = onImportReminders(validReminders);
+        importResult = await onImportReminders(validReminders);
       }
       if (data.theme && onImportTheme) {
         onImportTheme(data.theme);
@@ -149,7 +148,7 @@ const Settings: React.FC<SettingsProps> = ({
         const { pushNotificationFallback } = importSettings(data.settings);
         if (pushNotificationFallback) {
           addToast(
-            "プッシュ通知が利用できないため、ローカル通知に切り替えました。",
+            "プッシュ通知が利用できない、または許可されていないため、ローカル通知に切り替えました。",
             "warning",
           );
         }
@@ -265,16 +264,13 @@ const Settings: React.FC<SettingsProps> = ({
     } else if (oldMethod === "local" && newMethod === "push") {
       setIsSyncing(true);
       try {
-        await syncLocalRemindersToServer();
+        await syncRemindersToServer();
         addToast("ローカルデータをサーバーに同期しました。", "success");
         updateSettings({
           notifications: { ...settings.notifications, method: newMethod },
         });
       } catch (error) {
-        addToast(
-          `サーバーとの同期に失敗しました: ${getErrorMessage(error)}`,
-          "error",
-        );
+        addToast(getErrorMessage(error), "error");
       } finally {
         setIsSyncing(false);
       }

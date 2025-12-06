@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Plus, AlertTriangle, Clock, Calendar } from "lucide-react";
+import { X, Plus, AlertTriangle, Clock, Calendar, Loader2 } from "lucide-react";
 import { Reminder, Schedule, DateFilterType, ScheduleType } from "../types";
 import {
   isValidUrl,
@@ -18,12 +18,14 @@ interface CreateReminderProps {
     },
   ) => void;
   onCancel: () => void;
+  processingIds: Record<string, "deleting" | "saving">;
 }
 
 const CreateReminder: React.FC<CreateReminderProps> = ({
   editingReminder,
   onSave,
   onCancel,
+  processingIds,
 }) => {
   const [formData, setFormData] = useState({
     title: "",
@@ -52,6 +54,11 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
     null,
   );
 
+  const isSaving =
+    (editingReminder?.id
+      ? processingIds[editingReminder.id]
+      : processingIds["new"]) === "saving";
+
   useEffect(() => {
     if (editingReminder) {
       setFormData({
@@ -71,7 +78,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
       });
       setHourInput(editingReminder.schedule.hour.toString().padStart(2, "0"));
       setMinuteInput(
-        editingReminder.schedule.minute.toString().padStart(2, "0"),
+        editingReminder.schedule.minute.toString().padStart(2, "00"),
       );
     } else {
       // 新規作成時のデフォルト値を設定
@@ -272,12 +279,13 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
         <button
           onClick={onCancel}
           className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-full border border-gray-500/50"
+          disabled={isSaving}
         >
           <X size={20} />
         </button>
       </div>
 
-      <div className="space-y-6">
+      <fieldset disabled={isSaving} className="space-y-6">
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -341,7 +349,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
               <option value="daily">毎日</option>
               <option value="interval">数日ごと</option>
               <option value="specific_days">毎週〇曜日</option>
-              <option value="weekly">〇週間ごと</option>
+              <option value="weekly">N週間ごと</option>
               <option value="monthly">毎月第〇週</option>
             </select>
           </div>
@@ -710,18 +718,29 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
         <div className="flex gap-4 pt-4">
           <button
             onClick={handleSubmit}
-            className="btn btn-primary flex-1 text-black dark:text-white font-bold rounded-lg border border-gray-500/20 pt-4 pb-4"
+            className="btn btn-primary flex-1 text-black dark:text-white font-bold rounded-lg border border-gray-500/20 pt-4 pb-4 flex items-center justify-center"
+            disabled={isSaving}
           >
-            {editingReminder ? "更新" : "作成"}
+            {isSaving ? (
+              <>
+                <Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5" />
+                <span>保存中...</span>
+              </>
+            ) : editingReminder ? (
+              "更新"
+            ) : (
+              "作成"
+            )}
           </button>
           <button
             onClick={onCancel}
             className="btn btn-secondary flex-1 text-black dark:text-white font-bold rounded-lg border border-gray-500/20 pt-4 pb-4"
+            disabled={isSaving}
           >
             キャンセル
           </button>
         </div>
-      </div>
+      </fieldset>
     </div>
   );
 };

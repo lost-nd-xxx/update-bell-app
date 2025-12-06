@@ -34,9 +34,9 @@ const App: React.FC = () => {
     addReminder,
     updateReminder,
     deleteReminder,
-    deletingIds,
-    bulkUpdateReminders,
-    syncLocalRemindersToServer,
+    processingIds,
+    overwriteReminders,
+    syncRemindersToServer,
   } = useReminders(settings, userId, addToast);
 
   const [theme, setTheme] = useTheme();
@@ -144,46 +144,45 @@ const App: React.FC = () => {
     setTheme(importedTheme);
   };
 
-  const handleImportReminders = (
+  const handleImportReminders = async (
     importedReminders: Reminder[],
-  ): { added: number; updated: number } => {
-    const newReminders: Reminder[] = [];
-    const updates: Array<{ id: string; data: Partial<Reminder> }> = [];
+  ): Promise<{ added: number; updated: number }> => {
+    const newReminders: Reminder[] = [...reminders];
+    let addedCount = 0;
+    let updatedCount = 0;
 
     importedReminders.forEach((imported) => {
-      const existing = reminders.find((r) => r.url === imported.url);
-
-      if (existing) {
-        updates.push({
-          id: existing.id,
-          data: {
-            ...imported,
-            id: existing.id,
-            createdAt: imported.createdAt || existing.createdAt,
-          },
-        });
-      } else {
-        newReminders.push({
+      const existingIndex = newReminders.findIndex((r) => r.id === imported.id);
+      if (existingIndex !== -1) {
+        newReminders[existingIndex] = {
+          ...newReminders[existingIndex],
           ...imported,
-          id: Date.now().toString(36) + Math.random().toString(36).substr(2),
-          createdAt: imported.createdAt || new Date().toISOString(),
-          timezone:
-            imported.timezone ||
-            Intl.DateTimeFormat().resolvedOptions().timeZone,
-        });
+        };
+        updatedCount++;
+      } else {
+        newReminders.push(imported);
+        addedCount++;
       }
     });
 
-    if (updates.length > 0) {
-      bulkUpdateReminders(updates);
+    overwriteReminders(newReminders);
+
+    if (settings.notifications.method === "push") {
+      try {
+        await syncRemindersToServer(newReminders);
+        addToast(
+          "インポートされたリマインダーをサーバーと同期しました。",
+          "success",
+        );
+      } catch (error) {
+        addToast(
+          `サーバーとの同期に失敗しました: ${getErrorMessage(error)}`,
+          "error",
+        );
+      }
     }
 
-    newReminders.forEach((reminder) => {
-      const { ...reminderData } = reminder;
-      addReminder(reminderData);
-    });
-
-    return { added: newReminders.length, updated: updates.length };
+    return { added: addedCount, updated: updatedCount };
   };
 
   return (
@@ -215,7 +214,7 @@ const App: React.FC = () => {
             reminders={reminders}
             filter={appState.filter}
             sort={appState.sort}
-            deletingIds={deletingIds}
+            processingIds={processingIds}
             onFilterChange={handleFilterChange}
             onSortChange={handleSortChange}
             onEdit={(reminder) => handleViewChange("create", reminder)}
@@ -248,6 +247,7 @@ const App: React.FC = () => {
             editingReminder={appState.editingReminder}
             onSave={handleReminderSave}
             onCancel={() => handleViewChange("dashboard")}
+            processingIds={processingIds}
           />
         )}
 
@@ -263,7 +263,7 @@ const App: React.FC = () => {
             onImportReminders={handleImportReminders}
             onImportTheme={handleImportTheme}
             addToast={addToast}
-            syncLocalRemindersToServer={syncLocalRemindersToServer}
+            syncRemindersToServer={syncRemindersToServer}
           />
         )}
       </main>

@@ -17,7 +17,7 @@ interface DashboardProps {
   notificationPermission?: string;
   onNavigateToSettings?: () => void;
   onClearAllTags: () => void;
-  deletingIds: string[];
+  processingIds: Record<string, "deleting" | "saving">;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -32,7 +32,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   onCreateNew,
   notificationPermission,
   onNavigateToSettings,
-  deletingIds,
+  processingIds,
 }) => {
   const [showNotificationInfo, setShowNotificationInfo] = useState(false);
 
@@ -258,7 +258,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             <ReminderCard
               key={reminder.id}
               reminder={reminder}
-              deletingIds={deletingIds}
+              processingIds={processingIds}
               onEdit={() => onEdit(reminder)}
               onDelete={() => onDelete(reminder.id)}
               onTogglePause={(isPaused) => onTogglePause(reminder.id, isPaused)}

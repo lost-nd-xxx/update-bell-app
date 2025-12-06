@@ -134,22 +134,43 @@ export const useSettings = (
   const importSettings = (
     importedSettings: AppSettings,
   ): { settings: AppSettings; pushNotificationFallback: boolean } => {
-    let finalSettings = { ...importedSettings };
+    let finalSettings = {
+      ...defaultSettings, // デフォルト設定をベースにする
+      ...importedSettings,
+      notifications: {
+        ...defaultSettings.notifications,
+        ...(importedSettings.notifications || {}),
+      },
+      ui: {
+        ...defaultSettings.ui,
+        ...(importedSettings.ui || {}),
+      },
+    };
     let pushNotificationFallback = false;
 
-    // プッシュ通知がサポートされていない環境でプッシュ設定をインポートしようとした場合
-    if (
-      finalSettings.notifications.method === "push" &&
-      !("PushManager" in window)
-    ) {
-      finalSettings = {
-        ...finalSettings,
-        notifications: {
-          ...finalSettings.notifications,
-          method: "local",
-        },
-      };
-      pushNotificationFallback = true;
+    // 現在の通知許可状態を取得
+    const currentNotificationPermission =
+      "Notification" in window ? Notification.permission : "unsupported";
+
+    // インポートされた設定がプッシュ通知で、かつ
+    // 1. ブラウザがプッシュ通知をサポートしていない、または
+    // 2. ブラウザの通知許可が得られていない（denied or default）
+    // の場合、ローカル通知にフォールバックする
+    if (finalSettings.notifications.method === "push") {
+      if (
+        !("PushManager" in window) || // プッシュ通知自体がブラウザでサポートされていない
+        currentNotificationPermission !== "granted" // 通知が許可されていない
+      ) {
+        finalSettings = {
+          ...finalSettings,
+          notifications: {
+            ...finalSettings.notifications,
+            method: "local", // ローカル通知にフォールバック
+          },
+        };
+        pushNotificationFallback = true;
+      }
+      // currentNotificationPermissionが"granted"の場合は、プッシュ通知設定を維持
     }
 
     setSettings(finalSettings);

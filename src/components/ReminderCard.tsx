@@ -22,7 +22,7 @@ interface ReminderCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onTogglePause: (isPaused: boolean) => void;
-  deletingIds: string[];
+  processingIds: Record<string, "deleting" | "saving">;
 }
 
 const ReminderCard: React.FC<ReminderCardProps> = ({
@@ -30,11 +30,11 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
   onEdit,
   onDelete,
   onTogglePause,
-  deletingIds,
+  processingIds,
 }) => {
   const scheduleDescription = generateScheduleDescription(reminder.schedule);
   const domain = extractDomain(reminder.url);
-  const isDeleting = deletingIds.includes(reminder.id);
+  const isDeleting = processingIds[reminder.id] === "deleting";
 
   const handleUrlClick = (e: React.MouseEvent) => {
     e.preventDefault();
