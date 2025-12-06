@@ -259,13 +259,31 @@ const Settings: React.FC<SettingsProps> = ({
     const oldMethod = settings.notifications.method;
     if (newMethod === oldMethod) return;
 
-    if (oldMethod === "push" && newMethod === "local") {
+    if (newMethod === "local" && oldMethod === "push") {
       setIsSwitchingToLocalConfirmOpen(true);
-    } else if (oldMethod === "local" && newMethod === "push") {
+      return; // ダイアログの応答を待つ
+    }
+
+    if (newMethod === "push") {
+      // ユーザーがまだプッシュ通知を購読していない場合
+      if (!subscription) {
+        // 最初に購読を試みる
+        const success = await subscribeToPushNotifications();
+        if (!success) {
+          addToast(
+            "プッシュ通知の有効化がキャンセルされたか、失敗しました。",
+            "error",
+          );
+          return; // 購読に失敗したらここで処理を中断
+        }
+      }
+
+      // 購読が成功または既存の場合、同期処理へ
       setIsSyncing(true);
       try {
         await syncRemindersToServer();
         addToast("ローカルデータをサーバーに同期しました。", "success");
+        // 同期成功後に設定を更新
         updateSettings({
           notifications: { ...settings.notifications, method: newMethod },
         });
@@ -275,6 +293,7 @@ const Settings: React.FC<SettingsProps> = ({
         setIsSyncing(false);
       }
     } else {
+      // localへの切り替えなど、他のケース
       updateSettings({
         notifications: { ...settings.notifications, method: newMethod },
       });
@@ -288,9 +307,28 @@ const Settings: React.FC<SettingsProps> = ({
     });
   };
 
-  const getNotificationStatusText = () => {
-    switch (settings.notifications.permission) {
-      case "granted":
+  const getNotificationStatusText = (
+    permission: NotificationPermission | "unsupported",
+    isPushEnabled: boolean,
+    isSubscribed: boolean,
+  ) => {
+    if (isPushEnabled) {
+      if (permission === "granted") {
+        return (
+          <div className="flex items-center gap-2">
+            <CheckCircle
+              className="text-green-600 dark:text-green-400"
+              size={16}
+            />
+            <span>
+              {isSubscribed ? "許可済み (購読中)" : "許可済み (未購読)"}
+            </span>
+          </div>
+        );
+      }
+    } else {
+      // ローカル通知の場合
+      if (permission === "granted") {
         return (
           <div className="flex items-center gap-2">
             <CheckCircle
@@ -300,6 +338,10 @@ const Settings: React.FC<SettingsProps> = ({
             <span>許可済み</span>
           </div>
         );
+      }
+    }
+
+    switch (permission) {
       case "denied":
         return (
           <div className="flex items-center gap-2">
@@ -413,7 +455,11 @@ const Settings: React.FC<SettingsProps> = ({
                 通知許可状態
               </span>
               <div className="text-sm text-gray-600 dark:text-gray-400">
-                {getNotificationStatusText()}
+                {getNotificationStatusText(
+                  settings.notifications.permission,
+                  settings.notifications.method === "push",
+                  !!subscription,
+                )}
               </div>
             </div>
 
@@ -507,10 +553,6 @@ const Settings: React.FC<SettingsProps> = ({
                   <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                     {subscription ? (
                       <div>
-                        <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300 pb-2">
-                          <CheckCircle size={16} />
-                          <span>このブラウザのプッシュ通知は有効です。</span>
-                        </div>
                         <button
                           onClick={unsubscribeFromPushNotifications}
                           disabled={isSubscribing}

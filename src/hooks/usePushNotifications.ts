@@ -45,22 +45,22 @@ export const usePushNotifications = (
     getExistingSubscription();
   }, [addToast]);
 
-  const subscribeToPushNotifications = async () => {
+  const subscribeToPushNotifications = async (): Promise<boolean> => {
+    // 戻り値の型を追加
     if (!VAPID_PUBLIC_KEY) {
       addToast(
         "アプリケーションの設定に問題があります。VAPID公開鍵が設定されていません。",
         "error",
-      ); // 変更
-      return;
+      );
+      return false; // 失敗
     }
 
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      addToast("このブラウザはプッシュ通知に対応していません。", "error"); // 変更
-      return;
+      addToast("このブラウザはプッシュ通知に対応していません。", "error");
+      return false; // 失敗
     }
 
     setIsSubscribing(true);
-    // setError(null); // 削除
 
     try {
       const registration = await navigator.serviceWorker.ready;
@@ -75,21 +75,22 @@ export const usePushNotifications = (
         body: JSON.stringify({ userId, subscription: sub }),
       });
       setSubscription(sub);
-      addToast("プッシュ通知を有効にしました。", "success"); // 追加
+      addToast("プッシュ通知を有効にしました。", "success");
+      return true; // 成功
     } catch (err) {
-      // console.error(err); // 削除
       if (err instanceof Error && err.name === "NotAllowedError") {
         addToast(
           "通知がブロックされています。ブラウザの設定を確認してください。",
           "error",
-        ); // 変更
+        );
       } else {
         addToast(
           `プッシュ通知の有効化に失敗しました: ${getErrorMessage(err)}`,
           "error",
-        ); // 変更
+        );
       }
       setSubscription(null);
+      return false; // 失敗
     } finally {
       setIsSubscribing(false);
     }
