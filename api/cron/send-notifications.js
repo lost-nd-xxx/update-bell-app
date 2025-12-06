@@ -419,8 +419,18 @@ export default async function handler(request, response) {
     }
 
     // トランザクションを実行
-    await Promise.all([updateTx.exec(), deleteTx.exec()]);
-    console.log("[CRON] Update and delete transactions executed.");
+    const transactions = [];
+    if (updateTx.commands.length > 0) {
+      transactions.push(updateTx.exec());
+    }
+    if (deleteTx.commands.length > 0) {
+      transactions.push(deleteTx.exec());
+    }
+
+    if (transactions.length > 0) {
+      await Promise.all(transactions);
+      console.log("[CRON] Update and delete transactions executed.");
+    }
 
     // 5. 期限切れの購読情報をクリーンアップ
     if (allExpiredEndpoints.length > 0) {

@@ -34,6 +34,7 @@ const App: React.FC = () => {
     addReminder,
     updateReminder,
     deleteReminder,
+    deletingIds,
     bulkUpdateReminders,
   } = useReminders(settings, userId, addToast);
 
@@ -213,6 +214,7 @@ const App: React.FC = () => {
             reminders={reminders}
             filter={appState.filter}
             sort={appState.sort}
+            deletingIds={deletingIds}
             onFilterChange={handleFilterChange}
             onSortChange={handleSortChange}
             onEdit={(reminder) => handleViewChange("create", reminder)}

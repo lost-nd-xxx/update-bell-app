@@ -31,6 +31,7 @@ export const useReminders = (
     }
     return [];
   });
+  const [deletingIds, setDeletingIds] = useState<string[]>([]);
 
   // usePushNotificationsから現在の購読情報を取得
   const { subscription } = usePushNotifications(addToast);
@@ -206,48 +207,55 @@ export const useReminders = (
 
   const deleteReminder = async (id: string) => {
     console.log("deleteReminder called for id:", id);
-    // ローカル通知の場合は全キャンセルしてから再スケジュール
-    if (
-      settings.notifications.method === "local" &&
-      navigator.serviceWorker.controller
-    ) {
-      navigator.serviceWorker.controller.postMessage({
-        type: "CANCEL_ALL_REMINDERS",
-      });
-    }
-    const currentUserId = userIdRef.current;
-    // プッシュ通知の場合は、サーバーに削除を通知するAPIを呼ぶ
-    if (settings.notifications.method === "push" && currentUserId) {
-      try {
-        const response = await fetch("/api/delete-reminder", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: currentUserId, reminderId: id }),
+    setDeletingIds((prev: string[]) => [...prev, id]);
+    try {
+      // ローカル通知の場合は全キャンセルしてから再スケジュール
+      if (
+        settings.notifications.method === "local" &&
+        navigator.serviceWorker.controller
+      ) {
+        navigator.serviceWorker.controller.postMessage({
+          type: "CANCEL_ALL_REMINDERS",
         });
+      }
+      const currentUserId = userIdRef.current;
+      // プッシュ通知の場合は、サーバーに削除を通知するAPIを呼ぶ
+      if (settings.notifications.method === "push" && currentUserId) {
+        try {
+          const response = await fetch("/api/delete-reminder", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: currentUserId, reminderId: id }),
+          });
 
-        if (!response.ok) {
-          const errorData = await response
-            .json()
-            .catch(() => ({ message: "不明なエラー" }));
-          throw new Error(
-            `リマインダーの削除に失敗しました (Status: ${response.status}): ${errorData.message || errorData.error}`,
+          if (!response.ok) {
+            const errorData = await response
+              .json()
+              .catch(() => ({ message: "不明なエラー" }));
+            throw new Error(
+              `リマインダーの削除に失敗しました (Status: ${response.status}): ${errorData.message || errorData.error}`,
+            );
+          }
+          console.log("deleteReminder: Server request successful for id:", id);
+        } catch (error) {
+          console.error(
+            `[Frontend] Failed to request server to delete reminder ${id}:`,
+            error,
+          );
+          addToast(
+            `リマインダーの削除に失敗しました: ${getErrorMessage(error)}`,
+            "error",
           );
         }
-        console.log("deleteReminder: Server request successful for id:", id);
-      } catch (error) {
-        console.error(
-          `[Frontend] Failed to request server to delete reminder ${id}:`,
-          error,
-        );
-        addToast(
-          `リマインダーの削除に失敗しました: ${getErrorMessage(error)}`,
-          "error",
-        );
       }
-    }
 
-    setReminders((prev) => prev.filter((reminder) => reminder.id !== id));
-    console.log("deleteReminder finished, reminders updated.");
+      setReminders((prev) => prev.filter((reminder) => reminder.id !== id));
+      console.log("deleteReminder finished, reminders updated.");
+    } finally {
+      setDeletingIds((prev: string[]) =>
+        prev.filter((deletingId: string) => deletingId !== id),
+      );
+    }
   };
 
   const bulkUpdateReminders = (
@@ -362,6 +370,7 @@ export const useReminders = (
     addReminder,
     updateReminder,
     deleteReminder,
+    deletingIds,
     duplicateReminder,
     bulkUpdateReminders,
     getReminder,
