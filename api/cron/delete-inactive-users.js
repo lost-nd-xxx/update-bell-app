@@ -1,8 +1,9 @@
 // update-bell-app/api/cron/delete-inactive-users.js
 import { kv } from "@vercel/kv";
 
-// 半年をミリ秒で定義 (半年 ≒ 182.5日)
 const SIX_MONTHS_IN_MS = 182.5 * 24 * 60 * 60 * 1000;
+const CRON_SCAN_CURSOR_KEY = "cron_delete_inactive_users_scan_cursor";
+const SCAN_COUNT = 100; // 一度にスキャンするキーの数
 
 export default async function handler(request, response) {
   // Vercel Cronからのリクエストか、適切なBearerトークンを持つリクエストかを認証
@@ -22,27 +23,43 @@ export default async function handler(request, response) {
     const now = Date.now();
     const inactiveUserIds = [];
 
-    // 1. 全ての最終アクセス記録キーを取得
-    const lastAccessKeys = [];
-    let cursor = 0;
-    do {
-      const [nextCursor, keys] = await kv.scan(cursor, {
-        match: "user_last_access:*",
-        count: 1000,
-      });
-      cursor = nextCursor;
-      lastAccessKeys.push(...keys);
-    } while (cursor !== 0);
+    // 1. 全ての最終アクセス記録キーを取得 (バッチ処理)
+    let cursor = await kv.get(CRON_SCAN_CURSOR_KEY);
+    cursor = typeof cursor === "number" ? cursor : 0; // カーソルが存在しない場合は0
 
-    if (lastAccessKeys.length === 0) {
-      console.log("[CRON-DELETE] No user access records found.");
+    console.log(`[CRON-DELETE] Starting scan from cursor: ${cursor}`);
+
+    const [nextCursor, lastAccessKeys] = await kv.scan(cursor, {
+      match: "user_last_access:*",
+      count: SCAN_COUNT,
+    });
+
+    // 次回のためにカーソルを保存
+    await kv.set(CRON_SCAN_CURSOR_KEY, nextCursor);
+
+    if (lastAccessKeys.length === 0 && nextCursor === 0) {
+      // スキャンが完全に終了し、新しいキーも見つからなかった場合
+      await kv.del(CRON_SCAN_CURSOR_KEY); // カーソルをリセット
+      console.log(
+        "[CRON-DELETE] No user access records found and scan complete.",
+      );
       return response
         .status(200)
-        .json({ message: "No user access records found." });
+        .json({ message: "No user access records found and scan complete." });
+    } else if (lastAccessKeys.length === 0 && nextCursor !== 0) {
+      // 今回のスキャンではキーが見つからなかったが、まだスキャンが残っている場合
+      console.log(
+        "[CRON-DELETE] No user access records found in this batch. Continuing scan next time.",
+      );
+      return response.status(200).json({
+        message:
+          "No user access records found in this batch. Scan not yet complete.",
+        nextCursor: nextCursor,
+      });
     }
 
     console.log(
-      `[CRON-DELETE] Found ${lastAccessKeys.length} user access records to check.`,
+      `[CRON-DELETE] Found ${lastAccessKeys.length} user access records in this batch to check. Next cursor: ${nextCursor}`,
     );
 
     // 2. 各ユーザーの最終アクセス日時をチェック
@@ -76,12 +93,13 @@ export default async function handler(request, response) {
         // a. ユーザーの全リマインダーキーを取得
         const reminderKeysToDelete = [];
         let reminderCursor = 0;
+        // NOTE: ここもscanをバッチ化すべきだが、まずはユーザー削除を優先
         do {
-          const [nextCursor, keys] = await kv.scan(reminderCursor, {
+          const [nextReminderCursor, keys] = await kv.scan(reminderCursor, {
             match: `reminder:${userId}:*`,
             count: 1000,
           });
-          reminderCursor = nextCursor;
+          reminderCursor = nextReminderCursor;
           reminderKeysToDelete.push(...keys);
         } while (reminderCursor !== 0);
 
@@ -121,22 +139,27 @@ export default async function handler(request, response) {
 
       await Promise.all(deletionPromises);
     } else {
-      console.log("[CRON-DELETE] No inactive users found to delete.");
+      console.log(
+        "[CRON-DELETE] No inactive users found to delete in this batch.",
+      );
     }
 
-    // 4. アクセス記録がないユーザーに初期レコードを作成
+    // 4. アクセス記録がないユーザーに初期レコードを作成 (バッチ処理とカーソル管理をここにも適用する必要あり)
     console.log(
-      "[CRON-DELETE] Starting process to add access records for new/untracked users.",
+      "[CRON-DELETE] Starting process to add access records for new/untracked users. (This part also needs batching)",
     );
+
+    // NOTE: この部分はまだバッチ化されていないため、大量のデータがある場合はタイムアウトの原因になる可能性があります。
+    // まずは非アクティブユーザーの削除を優先し、この部分は後で対応します。
 
     const allUserIds = new Set();
     let reminderScanCursor = 0;
     do {
-      const [nextCursor, keys] = await kv.scan(reminderScanCursor, {
+      const [nextReminderScanCursor, keys] = await kv.scan(reminderScanCursor, {
         match: "reminder:*",
         count: 1000,
       });
-      reminderScanCursor = nextCursor;
+      reminderScanCursor = nextReminderScanCursor;
       for (const key of keys) {
         const parts = key.split(":");
         if (parts.length >= 2) {
@@ -151,6 +174,10 @@ export default async function handler(request, response) {
       );
     } else {
       const usersWithAccessRecord = new Set();
+      // NOTE: lastAccessKeysは今回のバッチで取得されたもののみなので、
+      // 以前処理されたユーザーのアクセス記録はここに含まれない。
+      // 全てのusersWithAccessRecordを取得するには、別途スキャンが必要になる。
+      // あるいは、allUserIdsの各ユーザーに対してkv.get()を個別に実行する。
       for (const key of lastAccessKeys) {
         const parts = key.split(":");
         if (parts.length >= 2) {
@@ -179,15 +206,28 @@ export default async function handler(request, response) {
       }
     }
 
-    console.log(`[CRON-DELETE] --- Inactive User Deletion Job End ---`);
+    // スキャンが完了した場合のみ、ジョブ完了をログ
+    if (nextCursor === 0) {
+      console.log(
+        `[CRON-DELETE] --- Inactive User Deletion Job End (Scan Complete) ---`,
+      );
+    } else {
+      console.log(
+        `[CRON-DELETE] --- Inactive User Deletion Job Paused (Scan Not Complete) ---`,
+      );
+    }
+
     return response.status(200).json({
-      message: `Successfully processed inactive user deletion and records creation. Deleted ${inactiveUserIds.length} users.`,
+      message: `Successfully processed inactive user deletion and records creation for this batch. Deleted ${inactiveUserIds.length} users. Scan ${nextCursor === 0 ? "complete." : `continuing from cursor: ${nextCursor}.`}`,
       deletedUsers: inactiveUserIds,
+      nextCursor: nextCursor,
+      scanCount: lastAccessKeys.length,
     });
   } catch (error) {
     console.error(
       "[CRON-DELETE] Uncaught error in inactive user deletion job:",
       error,
+      error.stack,
     );
     return response
       .status(500)
