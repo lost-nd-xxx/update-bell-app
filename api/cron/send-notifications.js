@@ -49,6 +49,39 @@ async function callSendWebPush(subscriptions, payloads) {
   return response.json();
 }
 
+/**
+ * リマインダーデータが処理に必要な最小限の構造を満たしているかチェックする型ガード
+ * @param {any} data チェック対象のデータ
+ * @returns {boolean}
+ */
+function isReminder(data) {
+  // messageプロパティもチェック対象に加える
+  return (
+    data &&
+    typeof data.userId === "string" &&
+    typeof data.message === "string" &&
+    typeof data.schedule === "object" &&
+    data.schedule !== null &&
+    data.status === "pending" &&
+    data.isPaused !== true
+  );
+}
+
+/**
+ * 通知購読情報が正しい形式かチェックする
+ * @param {any} sub
+ * @returns {boolean}
+ */
+function isSubscription(sub) {
+  return (
+    sub &&
+    typeof sub.endpoint === "string" &&
+    sub.keys &&
+    typeof sub.keys.p256dh === "string" &&
+    typeof sub.keys.auth === "string"
+  );
+}
+
 // --- ヘルパー関数 (ここまで) ---
 
 /**
@@ -88,12 +121,7 @@ export default async function handler(request, response) {
 
     const pendingReminders = reminderKeys
       .map((key, index) => ({ key, data: remindersData[index] }))
-      .filter(
-        (rem) =>
-          rem.data &&
-          rem.data.status === "pending" &&
-          rem.data.isPaused !== true,
-      );
+      .filter((rem) => isReminder(rem.data));
 
     if (pendingReminders.length === 0) {
       console.log(
@@ -127,15 +155,20 @@ export default async function handler(request, response) {
     for (const userId in remindersByUser) {
       const userReminders = remindersByUser[userId];
       const subscriptionKey = `user:${userId}:subscriptions`;
-      const subscriptions = (await kv.get(subscriptionKey)) || [];
+      const subscriptionsData = (await kv.get(subscriptionKey)) || [];
+
+      // 型ガードを適用
+      const subscriptions = Array.isArray(subscriptionsData)
+        ? subscriptionsData.filter(isSubscription)
+        : [];
 
       console.log(
-        `[CRON] User ${userId} has ${userReminders.length} reminders and ${subscriptions.length} subscriptions.`,
+        `[CRON] User ${userId} has ${userReminders.length} reminders and ${subscriptions.length} valid subscriptions.`,
       );
 
       if (subscriptions.length === 0) {
         console.warn(
-          `[CRON] No subscriptions for user ${userId}. Deleting ${userReminders.length} reminders.`,
+          `[CRON] No valid subscriptions for user ${userId}. Deleting ${userReminders.length} reminders.`,
         );
         const keysToDelete = userReminders.map((rem) => rem.key);
         deleteTx.del(...keysToDelete);

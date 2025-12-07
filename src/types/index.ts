@@ -34,7 +34,7 @@ export interface Reminder {
   pausedAt?: string | null; // 一時停止開始日時
   timezone: string; // 作成時のタイムゾーン
   baseDate?: string; // 基準日 (ISO 8601 形式)
-  status?: "pending" | "completed"; // リマインダーの状態
+  status?: "pending"; // リマインダーの状態
   subscription?: PushSubscription | null; // プッシュ通知の購読情報 (Optional)
   nextNotificationTime?: Date | null; // 次回通知日時 (追加)
 }
