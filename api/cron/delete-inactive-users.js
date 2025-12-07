@@ -28,6 +28,7 @@ export default async function handler(request, response) {
     do {
       const [nextCursor, keys] = await kv.scan(cursor, {
         match: "user_last_access:*",
+        count: 1000,
       });
       cursor = nextCursor;
       lastAccessKeys.push(...keys);
@@ -69,7 +70,7 @@ export default async function handler(request, response) {
       console.log(
         `[CRON-DELETE] Found ${inactiveUserIds.length} inactive users to delete.`,
       );
-      for (const userId of inactiveUserIds) {
+      const deletionPromises = inactiveUserIds.map(async (userId) => {
         console.log(`[CRON-DELETE] Deleting data for inactive user: ${userId}`);
 
         // a. ユーザーの全リマインダーキーを取得
@@ -78,6 +79,7 @@ export default async function handler(request, response) {
         do {
           const [nextCursor, keys] = await kv.scan(reminderCursor, {
             match: `reminder:${userId}:*`,
+            count: 1000,
           });
           reminderCursor = nextCursor;
           reminderKeysToDelete.push(...keys);
@@ -115,7 +117,9 @@ export default async function handler(request, response) {
         console.log(
           `[CRON-DELETE] Successfully deleted data for user ${userId}.`,
         );
-      }
+      });
+
+      await Promise.all(deletionPromises);
     } else {
       console.log("[CRON-DELETE] No inactive users found to delete.");
     }
@@ -130,6 +134,7 @@ export default async function handler(request, response) {
     do {
       const [nextCursor, keys] = await kv.scan(reminderScanCursor, {
         match: "reminder:*",
+        count: 1000,
       });
       reminderScanCursor = nextCursor;
       for (const key of keys) {

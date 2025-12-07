@@ -2791,7 +2791,7 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEAL
 
 ---
 
-## jws@4.0.0
+## jws@4.0.1
 
 *   **License:** MIT
 *   **Repository:** [https://github.com/brianloveswords/node-jws](https://github.com/brianloveswords/node-jws)

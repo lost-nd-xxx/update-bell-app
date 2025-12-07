@@ -3,15 +3,26 @@ name: Vercel Cron Jobs
 on:
   schedule:
     # 5分ごとに通知送信ジョブを実行
-    - cron: '*/5 * * * *'
+    - cron: "*/5 * * * *"
     # 毎週日曜の 00:00 (UTC) に非アクティブユーザー削除ジョブを実行
-    - cron: '0 0 * * 0'
+    - cron: "0 0 * * 0"
   workflow_dispatch: # 手動実行も可能にする
+    inputs:
+      job_to_run:
+        description: "Select which cron job to run manually"
+        required: true
+        default: "none"
+        type: choice
+        options:
+          - "none"
+          - "notification"
+          - "delete-inactive-users"
 
 jobs:
   trigger_notification_cron:
-    # 5分ごとのスケジュールの場合のみ実行
-    if: github.event.schedule == '*/5 * * * *'
+    # 5分ごとのスケジュール
+    # または手動実行で 'notification' が選択された場合に実行
+    if: github.event.schedule == '*/5 * * * *' || (github.event_name == 'workflow_dispatch' && github.event.inputs.job_to_run == 'notification')
     runs-on: ubuntu-latest
     steps:
       - name: Call Send Notifications Cron API
@@ -21,8 +32,9 @@ jobs:
             --header 'Authorization: Bearer ${{ secrets.CRON_SECRET }}'
 
   trigger_delete_inactive_users_cron:
-    # 毎週日曜の 00:00 (UTC) のスケジュールの場合のみ実行
-    if: github.event.schedule == '0 0 * * 0'
+    # 毎週日曜の 00:00 (UTC) のスケジュール
+    # または手動実行で 'delete-inactive-users' が選択された場合に実行
+    if: github.event.schedule == '0 0 * * 0' || (github.event_name == 'workflow_dispatch' && github.event.inputs.job_to_run == 'delete-inactive-users')
     runs-on: ubuntu-latest
     steps:
       - name: Call Delete Inactive Users Cron API
@@ -30,4 +42,3 @@ jobs:
           curl -v --fail --request POST \
             --url '${{ secrets.VERCEL_URL }}/api/cron/delete-inactive-users' \
             --header 'Authorization: Bearer ${{ secrets.CRON_SECRET }}'
-
