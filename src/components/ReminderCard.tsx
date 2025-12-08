@@ -9,6 +9,7 @@ import {
   Clock,
   Calendar,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { Reminder } from "../types";
 import {
@@ -24,7 +25,7 @@ interface ReminderCardProps {
   onDelete: () => void;
   onTogglePause: (isPaused: boolean) => void;
   processingIds: Record<string, "deleting" | "saving">;
-  nextNotificationTime?: Date | null; // 追加
+  nextNotificationTime?: Date | null;
 }
 
 const ReminderCard: React.FC<ReminderCardProps> = ({
@@ -38,15 +39,19 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
   const domain = extractDomain(reminder.url);
   const isDeleting = processingIds[reminder.id] === "deleting";
   const isSaving = processingIds[reminder.id] === "saving";
+  const isFailedAndPaused =
+    reminder.isPaused && (reminder.retryCount || 0) >= 3;
 
   return (
     <div
       className={`card p-6 border-l-4 transition-all hover:shadow-md relative ${
         isDeleting
           ? "border-gray-300 bg-gray-100 dark:bg-gray-800/50"
-          : reminder.isPaused
-            ? "border-yellow-500 bg-yellow-50/50 dark:bg-yellow-900/10"
-            : "border-purple-500 bg-white dark:bg-gray-800"
+          : isFailedAndPaused
+            ? "border-red-500 bg-red-50/50 dark:bg-red-900/10"
+            : reminder.isPaused
+              ? "border-yellow-500 bg-yellow-50/50 dark:bg-yellow-900/10"
+              : "border-purple-500 bg-white dark:bg-gray-800"
       }`}
     >
       {(isDeleting || isSaving) && (
@@ -83,8 +88,7 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
                     return " ...";
                   }
                 } catch (_e) {
-                  void _e; // ESLint: '_e' is defined but never used. を回避
-                  // 無効なURLの場合、エラーは無視して省略表示しない
+                  void _e;
                 }
                 return "";
               })()}
@@ -129,6 +133,17 @@ const ReminderCard: React.FC<ReminderCardProps> = ({
           </button>
         </div>
       </div>
+
+      {isFailedAndPaused && (
+        <div className="mt-2 mb-4 p-3 rounded-md bg-red-100 dark:bg-red-900/30">
+          <div className="flex items-start gap-2 text-red-700 dark:text-red-300">
+            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
+            <p className="text-sm font-medium">
+              通知の失敗が続いたため、自動で一時停止されました。
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
         <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">

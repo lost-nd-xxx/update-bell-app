@@ -302,6 +302,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
       pausedAt: formData.isPaused
         ? editingReminder?.pausedAt || new Date().toISOString()
         : null,
+      status: "pending" as const,
     };
 
     onSave(reminderData);

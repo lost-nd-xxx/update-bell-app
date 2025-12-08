@@ -289,7 +289,8 @@ export const useReminders = (
 
       const remindersToProcessForServer = (remindersToSync || reminders).map(
         (rem) => {
-          const { tags: _tags, subscription: _subscription, ...rest } = rem;
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { tags: _tags, ...rest } = rem;
           return rest;
         },
       );

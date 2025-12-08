@@ -78,6 +78,29 @@
 - **状態管理**: カスタムフック（`useReminders`, `useSettings`, `useTheme`, `useTimezone`, `useToast`）
 - **バックアップ**: UIからの手動エクスポートを推奨
 
+### データモデル
+
+#### `Reminder` オブジェクト
+
+アプリケーションの中核となるデータモデルです。
+
+| フィールド名           | 型                            | 説明                                                                                                                        |
+| ---------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `id`                   | `string`                      | 一意のID                                                                                                                    |
+| `title`                | `string`                      | リマインダーのタイトル                                                                                                      |
+| `url`                  | `string`                      | 通知時に開くURL                                                                                                             |
+| `schedule`             | `Schedule`                    | 通知の周期と時刻を定義するオブジェクト                                                                                      |
+| `tags`                 | `string[]`                    | 分類用のタグ配列                                                                                                            |
+| `createdAt`            | `string` (ISO)                | 作成日時                                                                                                                    |
+| `isPaused`             | `boolean`                     | ユーザーによる一時停止状態。`true`の場合、通知は送信されない。                                                              |
+| `pausedAt`             | `string` (ISO) / `null`       | 最後に一時停止された日時                                                                                                    |
+| `status`               | `"pending"` / `"failed"`      | **システム内部の処理状態**。<br>• `pending`: 通常の状態。<br>• `failed`: 通知送信に失敗した状態。リトライ処理の対象となる。 |
+| `retryCount`           | `number`                      | 通知の連続失敗回数。成功すると0にリセットされる。                                                                           |
+| `timezone`             | `string`                      | 作成時のタイムゾーン                                                                                                        |
+| `lastNotified`         | `string` (ISO) / `null`       | 最後に通知が送信された日時                                                                                                  |
+| `baseDate`             | `string` (ISO) / `undefined`  | （将来用）周期計算の基準日                                                                                                  |
+| `nextNotificationTime` | `Date` / `null` / `undefined` | （フロントエンド専用）計算された次回の通知予定日時                                                                          |
+
 ---
 
 ## 開発者向け情報
@@ -95,7 +118,7 @@
   - **Vercel KV**: リマインダーとPush購読情報のデータストア。
 
 - **GitHub Actions**:
-  - **Cronジョブ**: 定期的にVercel上の通知処理APIを呼び出し、リマインダー通知をトリガーします。
+  - **Cronジョブ**: 定期的にVercel上の通知処理APIを呼び出し、リマインダー通知をトリガーします。通知送信に失敗した場合は、数回のリトライ処理も行います。
     （GitHub Actionsのスケジュールは5分間隔に設定されていますが、実行はベストエフォートであり、プラットフォームの負荷状況によっては遅延や実行の欠落が発生する可能性があります。詳細は[GitHubの公式ドキュメント](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)をご確認ください。）
 
 Cloudflareの`nodejs_compat`環境では`web-push`ライブラリの依存関係を解決できなかった技術的制約がありましたが、現在はVercel上で全てのバックエンド機能が動作し、GitHub ActionsがCronジョブを担っています。

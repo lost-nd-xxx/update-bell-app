@@ -99,10 +99,10 @@ export default async function handler(request, response) {
       }
     }
 
-    // statusは常にpendingとして保存
     const reminderToStore = {
       ...reminder,
       status: "pending",
+      retryCount: 0,
     };
 
     // Vercel KVのトランザクションを開始

@@ -1,7 +1,8 @@
+// api/utils/notification-helpers.js
+
 // 1ステップだけ次の候補日時へ進めるヘルパー関数
 const advanceToNext = (date, schedule) => {
   const newDate = new Date(date);
-
   switch (schedule.type) {
     case "daily":
     case "interval":
@@ -14,11 +15,9 @@ const advanceToNext = (date, schedule) => {
       newDate.setDate(newDate.getDate() + 1);
       break;
     case "monthly":
-      // 月末を正しく処理するため、一度翌月の1日に設定
       newDate.setMonth(newDate.getMonth() + 1, 1);
       break;
     default:
-      // 不明なタイプの場合は日付を進めず、ループを終了させる
       newDate.setDate(newDate.getDate() + 1);
   }
   return newDate;
@@ -30,34 +29,29 @@ const applyDayFilter = (date, schedule) => {
   const isSpecificDays = schedule.type === "specific_days";
 
   if (dateFilter === "all" && !isSpecificDays) {
-    return true; // フィルターなし
+    return true;
   }
-
   const dayOfWeek = date.getDay();
-
   if (isSpecificDays) {
-    return selectedDays.includes(dayOfWeek);
+    return selectedDays?.includes(dayOfWeek) ?? false;
   }
-
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
   if (dateFilter === "weekdays") return !isWeekend;
   if (dateFilter === "weekends") return isWeekend;
-
   return true;
 };
 
 // 月の第N週の特定曜日を計算する
 const getNthDayOfMonth = (year, month, schedule) => {
   const { weekOfMonth, dayOfWeek, hour, minute } = schedule;
-  // 月の最初の該当日を探す
-  let d = new Date(year, month, 1, hour, minute, 0, 0);
+  if (weekOfMonth === undefined || dayOfWeek === undefined) return null;
+
+  const d = new Date(year, month, 1, hour, minute, 0, 0);
   while (d.getDay() !== dayOfWeek) {
     d.setDate(d.getDate() + 1);
   }
-  // 第N週まで進める
   d.setDate(d.getDate() + (weekOfMonth - 1) * 7);
 
-  // 月が変わってしまったら（例: 第5週が存在しない月）、その月は該当なし
   return d.getMonth() === month ? d : null;
 };
 
@@ -69,20 +63,17 @@ export const calculateNextNotificationTime = (
   let candidate = new Date(startPoint);
   candidate.setHours(schedule.hour, schedule.minute, 0, 0);
 
-  // 'monthly' スケジュールの場合、最初の候補を計算
   if (schedule.type === "monthly") {
     let monthlyCandidate = getNthDayOfMonth(
       candidate.getFullYear(),
       candidate.getMonth(),
       schedule,
     );
-
-    // 最初の候補が過去なら、来月から探し直す
     if (
       !monthlyCandidate ||
       monthlyCandidate.getTime() <= startPoint.getTime()
     ) {
-      let nextMonth = new Date(startPoint);
+      const nextMonth = new Date(startPoint);
       nextMonth.setMonth(nextMonth.getMonth() + 1, 1);
       monthlyCandidate = getNthDayOfMonth(
         nextMonth.getFullYear(),
@@ -93,16 +84,16 @@ export const calculateNextNotificationTime = (
     candidate = monthlyCandidate;
   }
 
-  if (!candidate) return null; // monthlyで見つからなかった場合
+  if (!candidate) return null;
 
   let attempts = 0;
-  const maxAttempts = 365; // 1年先まで探して見つからなければ諦める
+  const maxAttempts = 365;
 
   while (
     candidate.getTime() <= startPoint.getTime() ||
     !applyDayFilter(candidate, schedule)
   ) {
-    if (attempts++ > maxAttempts) return null; // 無限ループ防止
+    if (attempts++ > maxAttempts) return null;
     candidate = advanceToNext(candidate, schedule);
 
     if (schedule.type === "monthly") {
@@ -114,11 +105,9 @@ export const calculateNextNotificationTime = (
       if (monthlyCandidate) {
         candidate = monthlyCandidate;
       } else {
-        // 該当月になければ次の月へ
         candidate.setMonth(candidate.getMonth() + 1, 1);
       }
     }
-    // 時刻を再設定
     candidate.setHours(schedule.hour, schedule.minute, 0, 0);
   }
 

@@ -29,14 +29,14 @@ export interface Reminder {
   schedule: Schedule;
   tags: string[];
   createdAt: string; // ISO 8601 形式
-  lastNotified?: string | null; // 最終通知日時
-  isPaused: boolean; // 一時停止状態
-  pausedAt?: string | null; // 一時停止開始日時
-  timezone: string; // 作成時のタイムゾーン
-  baseDate?: string; // 基準日 (ISO 8601 形式)
-  status?: "pending"; // リマインダーの状態
-  subscription?: PushSubscription | null; // プッシュ通知の購読情報 (Optional)
-  nextNotificationTime?: Date | null; // 次回通知日時 (追加)
+  isPaused: boolean;
+  pausedAt?: string | null;
+  status: "pending" | "failed"; // リマインダーの処理状態
+  retryCount?: number; // リトライ回数
+  timezone: string;
+  lastNotified?: string | null;
+  baseDate?: string;
+  nextNotificationTime?: Date | null;
 }
 
 // アプリケーション設定

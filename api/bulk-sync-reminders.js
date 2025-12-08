@@ -94,6 +94,7 @@ export default async function handler(request, response) {
         ...reminder,
         userId,
         status: "pending",
+        retryCount: 0,
       };
 
       // 1. リマインダー本体を保存
