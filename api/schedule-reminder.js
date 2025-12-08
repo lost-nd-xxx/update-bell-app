@@ -66,8 +66,8 @@ export default async function handler(request, response) {
       reminder.title.length > TITLE_MAX_LENGTH ||
       typeof reminder.url !== "string" ||
       reminder.url.length > URL_MAX_LENGTH ||
-      !Array.isArray(reminder.tags) ||
-      reminder.tags.some(
+      (reminder.tags && !Array.isArray(reminder.tags)) || // tagsが存在する場合のみ配列かチェック
+      (reminder.tags || []).some(
         (tag) => typeof tag !== "string" || tag.length > TAG_MAX_LENGTH,
       ) ||
       !reminder.scheduledTime ||
