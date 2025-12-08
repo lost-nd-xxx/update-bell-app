@@ -243,6 +243,7 @@ const App: React.FC = () => {
             onSave={handleReminderSave}
             onCancel={() => handleViewChange("dashboard")}
             processingIds={processingIds}
+            totalReminders={reminders.length}
           />
         )}
 

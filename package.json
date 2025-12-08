@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
+    "@upstash/ratelimit": "^2.0.7",
     "@vercel/kv": "^3.0.0",
     "lucide-react": "^0.263.1",
     "react": "^18.2.0",

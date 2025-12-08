@@ -19,14 +19,30 @@ interface CreateReminderProps {
   ) => void;
   onCancel: () => void;
   processingIds: Record<string, "deleting" | "saving">;
+  totalReminders: number;
 }
+
+const TITLE_MAX_LENGTH = 200;
+const URL_MAX_LENGTH = 2000;
+const TAG_MAX_LENGTH = 50;
+const TAGS_PER_REMINDER_MAX = 20;
+const TOTAL_REMINDERS_MAX = 1000;
 
 const CreateReminder: React.FC<CreateReminderProps> = ({
   editingReminder,
   onSave,
   onCancel,
   processingIds,
+  totalReminders,
 }) => {
+  const [isLimitExceeded, setIsLimitExceeded] = useState(false);
+
+  useEffect(() => {
+    if (!editingReminder && totalReminders >= TOTAL_REMINDERS_MAX) {
+      setIsLimitExceeded(true);
+    }
+  }, [editingReminder, totalReminders]);
+
   const [formData, setFormData] = useState({
     title: "",
     url: "",
@@ -176,10 +192,14 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
 
     if (!formData.title.trim()) {
       newErrors.title = "タイトルは必須です";
+    } else if (formData.title.length > TITLE_MAX_LENGTH) {
+      newErrors.title = `タイトルは${TITLE_MAX_LENGTH}文字以内で入力してください`;
     }
 
     if (!formData.url.trim()) {
       newErrors.url = "URLは必須です";
+    } else if (formData.url.length > URL_MAX_LENGTH) {
+      newErrors.url = `URLは${URL_MAX_LENGTH}文字以内で入力してください`;
     } else if (!isValidUrl(normalizeUrl(formData.url))) {
       newErrors.url = "有効なURLを入力してください";
     }
@@ -295,13 +315,31 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
   };
 
   const addTag = () => {
+    const newErrors = { ...errors };
     const tag = tagInput.trim();
+
+    if (formData.tags.length >= TAGS_PER_REMINDER_MAX) {
+      newErrors.tag = `1つのリマインダーに追加できるタグは${TAGS_PER_REMINDER_MAX}個までです`;
+      setErrors(newErrors);
+      return;
+    }
+
+    if (tag.length > TAG_MAX_LENGTH) {
+      newErrors.tag = `タグは${TAG_MAX_LENGTH}文字以内で入力してください`;
+      setErrors(newErrors);
+      return;
+    }
+
     if (tag && !formData.tags.includes(tag)) {
       setFormData((prev) => ({
         ...prev,
         tags: [...prev.tags, tag],
       }));
       setTagInput("");
+      if (newErrors.tag) {
+        delete newErrors.tag;
+        setErrors(newErrors);
+      }
     }
   };
 
@@ -310,6 +348,11 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
       ...prev,
       tags: prev.tags.filter((tag) => tag !== tagToRemove),
     }));
+    const newErrors = { ...errors };
+    if (newErrors.tag) {
+      delete newErrors.tag;
+      setErrors(newErrors);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -342,16 +385,52 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
         </button>
       </div>
 
-      <fieldset disabled={isSaving} className="space-y-6">
+      {isLimitExceeded && (
+        <div
+          className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md relative mb-6"
+          role="alert"
+        >
+          <div className="flex">
+            <div className="py-1">
+              <AlertTriangle className="h-6 w-6 text-red-500 mr-4" />
+            </div>
+            <div>
+              <p className="font-bold">リマインダー数の上限到達</p>
+              <p className="text-sm">
+                リマインダーの最大数 ({TOTAL_REMINDERS_MAX}
+                件) に達したため、新しいリマインダーを作成できません。
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <fieldset disabled={isSaving || isLimitExceeded} className="space-y-6">
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              タイトル *
-            </label>
+            <div className="flex justify-between items-center mb-2">
+              <label
+                htmlFor="title"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                タイトル *
+              </label>
+              <span
+                className={`text-xs ${
+                  formData.title.length > TITLE_MAX_LENGTH
+                    ? "text-red-500"
+                    : "text-gray-500"
+                }`}
+              >
+                {formData.title.length}/{TITLE_MAX_LENGTH}
+              </span>
+            </div>
             <input
+              id="title"
               ref={titleRef}
               type="text"
               value={formData.title}
+              maxLength={TITLE_MAX_LENGTH}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, title: e.target.value }))
               }
@@ -367,13 +446,29 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              URL *
-            </label>
+            <div className="flex justify-between items-center mb-2">
+              <label
+                htmlFor="url"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                URL *
+              </label>
+              <span
+                className={`text-xs ${
+                  formData.url.length > URL_MAX_LENGTH
+                    ? "text-red-500"
+                    : "text-gray-500"
+                }`}
+              >
+                {formData.url.length}/{URL_MAX_LENGTH}
+              </span>
+            </div>
             <input
+              id="url"
               ref={urlRef}
               type="url"
               value={formData.url}
+              maxLength={URL_MAX_LENGTH}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, url: e.target.value }))
               }
@@ -711,35 +806,64 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label
+            htmlFor="tag-input"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+          >
             タグ
           </label>
-          <div className="flex gap-2 mb-3">
-            <input
-              type="text"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addTag();
-                }
-              }}
-              className="input flex-1"
-              placeholder="タグを追加"
-            />
+          <div className="flex items-start gap-2 mb-1">
+            <div className="flex-1">
+              <input
+                id="tag-input"
+                type="text"
+                value={tagInput}
+                maxLength={TAG_MAX_LENGTH}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addTag();
+                  }
+                }}
+                className={`input w-full ${errors.tag ? "border-red-500" : ""}`}
+                placeholder="タグを追加"
+              />
+            </div>
             <button
               type="button"
               onClick={addTag}
-              className="btn btn-secondary text-black dark:text-white rounded-full border border-gray-500/20 p-1"
-              disabled={!tagInput.trim()}
+              className="btn btn-secondary shrink-0 text-black dark:text-white rounded-full border border-gray-500/20 p-1"
+              disabled={
+                !tagInput.trim() ||
+                formData.tags.length >= TAGS_PER_REMINDER_MAX
+              }
+              aria-label="タグを追加"
             >
               <Plus size={16} />
             </button>
           </div>
+          <div className="flex justify-between items-center px-1">
+            <div
+              className={`text-sm ${
+                errors.tag ? "text-red-600 dark:text-red-400" : "h-5"
+              }`}
+            >
+              {errors.tag && <p>{errors.tag}</p>}
+            </div>
+            <span
+              className={`text-xs ${
+                tagInput.length > TAG_MAX_LENGTH
+                  ? "text-red-500"
+                  : "text-gray-500"
+              }`}
+            >
+              {tagInput.length}/{TAG_MAX_LENGTH}
+            </span>
+          </div>
 
           {formData.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 mt-2">
               {formData.tags.map((tag) => (
                 <span
                   key={tag}
@@ -749,6 +873,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
                   <button
                     onClick={() => removeTag(tag)}
                     className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 ml-1"
+                    aria-label={`タグ ${tag} を削除`}
                   >
                     <X size={14} />
                   </button>

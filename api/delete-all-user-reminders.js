@@ -1,9 +1,19 @@
 // update-bell-app/api/delete-all-user-reminders.js
 import { kv } from "@vercel/kv";
+import { checkRateLimit } from "./utils/ratelimit.js";
 
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     return response.status(405).json({ error: "Method Not Allowed" });
+  }
+
+  // --- レートリミットチェック ---
+  const { success, limit, remaining, reset } = await checkRateLimit(request);
+  if (!success) {
+    response.setHeader("RateLimit-Limit", limit);
+    response.setHeader("RateLimit-Remaining", remaining);
+    response.setHeader("RateLimit-Reset", new Date(reset).toISOString());
+    return response.status(429).json({ error: "Too Many Requests" });
   }
 
   const { userId } = request.body;

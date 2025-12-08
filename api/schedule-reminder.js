@@ -1,5 +1,6 @@
 // update-bell-app/api/schedule-reminder.js
 import { kv } from "@vercel/kv";
+import { checkRateLimit } from "./utils/ratelimit.js";
 
 // --- 型ガード関数 (ここから) ---
 const isScheduleType = (type) => {
@@ -39,24 +40,45 @@ export default async function handler(request, response) {
     return response.status(405).send("Method Not Allowed");
   }
 
+  // --- レートリミットチェック ---
+  const { success, limit, remaining, reset } = await checkRateLimit(request);
+  if (!success) {
+    response.setHeader("RateLimit-Limit", limit);
+    response.setHeader("RateLimit-Remaining", remaining);
+    response.setHeader("RateLimit-Reset", new Date(reset).toISOString());
+    return response.status(429).json({ error: "Too Many Requests" });
+  }
+
   try {
     const { reminder, userId } = request.body;
+
+    // --- 制限値の定義 ---
+    const TITLE_MAX_LENGTH = 200;
+    const URL_MAX_LENGTH = 2000;
+    const TAG_MAX_LENGTH = 50;
 
     // バリデーション
     if (
       !reminder ||
       !userId ||
-      !reminder.reminderId ||
+      typeof reminder.reminderId !== "string" ||
+      typeof reminder.title !== "string" ||
+      reminder.title.length > TITLE_MAX_LENGTH ||
+      typeof reminder.url !== "string" ||
+      reminder.url.length > URL_MAX_LENGTH ||
+      !Array.isArray(reminder.tags) ||
+      reminder.tags.some(
+        (tag) => typeof tag !== "string" || tag.length > TAG_MAX_LENGTH,
+      ) ||
       !reminder.scheduledTime ||
-      !reminder.schedule || // scheduleの存在チェック
-      !isSchedule(reminder.schedule) // scheduleの構造チェック
+      !isSchedule(reminder.schedule)
     ) {
       console.error(
-        "[ERROR] schedule-reminder: Invalid or missing data.",
+        "[ERROR] schedule-reminder: Invalid, missing, or too long data.",
         request.body,
       );
       return response.status(400).json({
-        error: "Invalid or missing data provided.",
+        error: "Invalid, missing, or too long data provided.",
       });
     }
 
@@ -64,6 +86,18 @@ export default async function handler(request, response) {
     const userSubscriptionKey = `user:${userId}:subscriptions`;
     const userReminderKeysKey = `user:${userId}:reminder_keys`; // ユーザーごとのリマインダーキーセット
     const sortedSetKey = "reminders_by_time"; // Sorted Setのキー名
+
+    // --- 個数上限チェック ---
+    const TOTAL_REMINDERS_MAX = 1000;
+    const isExisting = await kv.sismember(userReminderKeysKey, reminderKey);
+    if (!isExisting) {
+      const currentCount = await kv.scard(userReminderKeysKey);
+      if (currentCount >= TOTAL_REMINDERS_MAX) {
+        return response.status(400).json({
+          error: `リマインダーの最大数 (${TOTAL_REMINDERS_MAX}件) に達しました。`,
+        });
+      }
+    }
 
     // statusは常にpendingとして保存
     const reminderToStore = {
