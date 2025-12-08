@@ -60,9 +60,9 @@ export default [
     },
   })),
 
-  // Configuration for scripts/convert-icons.js (Node.js environment)
+  // Configuration for scripts/ (Node.js environment)
   {
-    files: ["scripts/convert-icons.js"],
+    files: ["scripts/*.js"],
     languageOptions: {
       globals: {
         ...globals.node,

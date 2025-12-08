@@ -12,7 +12,6 @@ const rootDir = path.resolve(__dirname, "..");
 // license-checker を実行するコマンド
 const command = [
   "license-checker",
-  "--production", // production dependenciesのみ
   "--excludePrivatePackages", // プライベートパッケージを除外
   "--json", // JSON形式で出力
 ].join(" ");
@@ -64,9 +63,9 @@ exec(command, { cwd: rootDir }, (error, stdout, stderr) => {
     if (licenseInfo.publisher) {
       markdownContent += `*   **Publisher:** ${licenseInfo.publisher}\n`;
     }
-    markdownContent += `\n**License Text:**\n\n`;
+    markdownContent += `\n<details>\n<summary>License Text</summary>\n\n`;
     markdownContent += `\`\`\`\n${licenseText.trim()}\n\`\`\`\n`;
-    markdownContent += `\n---\n\n`;
+    markdownContent += `\n</details>\n\n---\n\n`;
   }
 
   // THIRD-PARTY-LICENSES.mdファイルに書き出す
