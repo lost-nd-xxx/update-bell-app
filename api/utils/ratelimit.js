@@ -1,7 +1,6 @@
 // api/utils/ratelimit.js
 import { kv } from "@vercel/kv";
 import { Ratelimit } from "@upstash/ratelimit";
-import { ip } from "@vercel/edge";
 
 let ratelimit;
 
@@ -33,7 +32,8 @@ export async function checkRateLimit(request) {
     return { success: true };
   }
 
-  const clientIp = ip(request) || "127.0.0.1";
+  const clientIp =
+    request.headers["x-forwarded-for"]?.split(",")[0] || "127.0.0.1";
   const { success, pending, limit, remaining, reset } = await ratelimit.limit(
     `ratelimit_${clientIp}`,
   );
