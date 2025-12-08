@@ -121,6 +121,8 @@ export const useReminders = (
 
       return newReminder;
     } catch (error) {
+      // If the error occurred during sync, we need to rollback the optimistic update
+      setRawReminders(rawReminders);
       addToast(`リマインダーの追加に失敗: ${getErrorMessage(error)}`, "error");
       return null;
     } finally {
@@ -159,6 +161,8 @@ export const useReminders = (
         );
       }
     } catch (error) {
+      // If the error occurred during sync, we need to rollback the optimistic update
+      setRawReminders(rawReminders);
       addToast(`リマインダーの更新に失敗: ${getErrorMessage(error)}`, "error");
     } finally {
       setProcessingIds((prev) => {
@@ -188,6 +192,12 @@ export const useReminders = (
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: currentUserId, reminderId: id }),
         });
+
+        if (response.status === 429) {
+          throw new Error(
+            "短時間に多くの操作が行われました。しばらく時間をおいてからお試しください。",
+          );
+        }
 
         if (!response.ok) {
           const errorData = await response
@@ -295,10 +305,18 @@ export const useReminders = (
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (response.status === 429) {
+          throw new Error(
+            "短時間に多くの操作が行われました。しばらく時間をおいてからお試しください。",
+          );
+        }
         throw new Error(
           `サーバーとの同期に失敗しました: ${errorData.message || response.statusText}`,
         );
       }
+    } catch (error) {
+      addToast(`同期エラー: ${getErrorMessage(error)}`, "error");
+      throw error; // エラーを再スローして呼び出し元で処理させる
     } finally {
       setProcessingIds((prev) => {
         const newIds = { ...prev };
