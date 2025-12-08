@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#7c3aed" />
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" fill="url(#grad1)" />
+  <!-- 波紋（2本・線幅8） -->
+  <g fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" transform="translate(10,40) scale(1.2)">
+    <path d="M64 0 A40 40 0 0 0 24 40" />
+    <path d="M64 20 A20 20 0 0 0 44 40" />
+  </g>
+  <!-- ベル本体（装飾突起なし・白） -->
+  <g transform="translate(40,40) scale(0.8)">
+    <path d="
+      M128 28
+      C92 28, 64 56, 64 92
+      L64 140
+      C64 160, 56 176, 44 184
+      C36 189, 36 200, 44 206
+      C48 209, 56 210, 64 210
+      L192 210
+      C200 210, 208 209, 212 206
+      C220 200, 220 189, 212 184
+      C200 176, 192 160, 192 140
+      L192 92
+      C192 56, 164 28, 128 28
+      Z
+      M104 210
+      C104 222, 116 232, 128 232
+      C140 232, 152 222, 152 210
+      Z
+    " fill="#ffffff"/>
+    <path d="
+      M128 16
+      A12 12 0 0 1 140 28
+      A12 12 0 0 1 116 28
+      A12 12 0 0 1 128 16
+      Z
+    " fill="#ffffff"/>
+  </g>
+</svg>

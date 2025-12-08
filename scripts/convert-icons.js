@@ -13,12 +13,12 @@ const __dirname = path.dirname(__filename);
 // 必要なPNGサイズ（PWA用）
 const iconSizes = [16, 32, 72, 96, 128, 144, 152, 180, 192, 384, 512];
 
-// SVGファイルパス（_workspaceフォルダ内）
+// SVGファイルパス（"_workspace/icons"フォルダ内）
 const svgFiles = {
   // 大きいサイズ用
-  large: "_workspace/icon-large.svg",
+  large: "_workspace/icons/icon-large.svg",
   // 極小サイズ用
-  small: "_workspace/icon-small.svg",
+  small: "_workspace/icons/icon-small.svg",
 };
 
 // 出力ディレクトリ
@@ -76,6 +76,7 @@ const generateIcon = async (size) => {
         quality: 100,
         compressionLevel: 9,
         palette: false, // フルカラー（RGB、アルファなし）
+        adaptiveFiltering: true,
       })
       .toFile(outputPath);
 
@@ -110,6 +111,7 @@ const generateMaskableIcon = async (size) => {
         quality: 100,
         compressionLevel: 9,
         palette: false,
+        adaptiveFiltering: true,
       })
       .toFile(outputPath);
 
@@ -176,7 +178,7 @@ const main = async () => {
 
     // icon-badge.png のコピー
     log("🔄 icon-badge.png をコピー中...");
-    const badgeSrc = "_workspace/icon-badge.png";
+    const badgeSrc = "_workspace/icons/icon-badge.png";
     const badgeDest = path.join(outputDir, "icon-badge.png");
     try {
       fs.copyFileSync(badgeSrc, badgeDest);
