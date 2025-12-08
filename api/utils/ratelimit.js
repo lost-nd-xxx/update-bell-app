@@ -33,7 +33,7 @@ export async function checkRateLimit(request) {
   }
 
   const clientIp =
-    request.headers["x-forwarded-for"]?.split(",")[0] || "127.0.0.1";
+    request.headers.get("x-forwarded-for")?.split(",")[0] || "127.0.0.1";
   const { success, pending, limit, remaining, reset } = await ratelimit.limit(
     `ratelimit_${clientIp}`,
   );
