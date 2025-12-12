@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Settings, Bell, BellOff, Info, X } from "lucide-react";
+import { Settings, Bell, BellOff, Info, X, HelpCircle } from "lucide-react";
 
 interface HeaderProps {
   onSettingsClick: () => void;
@@ -120,6 +120,17 @@ const Header: React.FC<HeaderProps> = ({
                 PWA版
               </div>
             )}
+
+            {/* ヘルプ（マニュアル）ボタン */}
+            <a
+              href="https://github.com/lost-nd-xxx/update-bell-app/blob/main/docs/MANUAL.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-lg border border-gray-500/10 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              title="使い方（マニュアル）を見る"
+            >
+              <HelpCircle size={20} />
+            </a>
 
             {/* 設定アイコン */}
             <button
