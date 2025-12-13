@@ -132,7 +132,7 @@ export default async function handler(request, response) {
     // ユーザーのサブスクリプションを更新
     if (reminder.subscription) {
       // getはトランザクション外で行う必要がある
-      let subscriptions = (await kv.get(userSubscriptionKey)) || [];
+      const subscriptions = (await kv.get(userSubscriptionKey)) || [];
 
       const existingSubscriptionIndex = subscriptions.findIndex(
         (sub) => sub.endpoint === reminder.subscription.endpoint,

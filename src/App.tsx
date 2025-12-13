@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { Reminder, AppState, GroupByType } from "./types";
-import { getErrorMessage } from "./utils/helpers";
+import { getErrorMessage, generateId } from "./utils/helpers"; // generateIdを追加
 import { useReminders } from "./hooks/useReminders";
 import { useSettings } from "./hooks/useSettings";
 import { useTheme } from "./hooks/useTheme";
@@ -27,7 +27,7 @@ declare global {
 const App: React.FC = () => {
   const { addToast } = useToastContext(); // ここに移動
   const { settings, updateSettings, importSettings } = useSettings(addToast);
-  const userId = useUserId();
+  const { userId } = useUserId();
 
   const {
     reminders,
@@ -154,15 +154,22 @@ const App: React.FC = () => {
     let updatedCount = 0;
 
     importedReminders.forEach((imported) => {
-      const existingIndex = newReminders.findIndex((r) => r.id === imported.id);
+      // 常に新しいIDを割り当てる
+      const newId = generateId();
+      const reminderWithNewId = { ...imported, id: newId };
+
+      const existingIndex = newReminders.findIndex(
+        (r) => r.id === reminderWithNewId.id,
+      ); // このfindIndexは常に-1になる
       if (existingIndex !== -1) {
+        // 基本的にはここには来ないが、念のため残す
         newReminders[existingIndex] = {
           ...newReminders[existingIndex],
-          ...imported,
+          ...reminderWithNewId,
         };
         updatedCount++;
       } else {
-        newReminders.push(imported);
+        newReminders.push(reminderWithNewId);
         addedCount++;
       }
     });

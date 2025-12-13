@@ -2,8 +2,58 @@
 import { kv } from "@vercel/kv";
 
 const SIX_MONTHS_IN_MS = 182.5 * 24 * 60 * 60 * 1000;
-const CRON_SCAN_CURSOR_KEY = "cron_delete_inactive_users_scan_cursor";
+const CRON_LAST_ACCESS_SCAN_CURSOR_KEY =
+  "cron_delete_inactive_users_last_access_scan_cursor";
+const CRON_REMINDER_SCAN_CURSOR_KEY =
+  "cron_delete_inactive_users_reminder_scan_cursor";
+const TEMP_ALL_USER_IDS_KEY = "cron_delete_inactive_users_temp_all_user_ids";
+const TEMP_USERS_WITH_ACCESS_RECORD_KEY =
+  "cron_delete_inactive_users_temp_users_with_access_record";
 const SCAN_COUNT = 100; // 一度にスキャンするキーの数
+
+/**
+ * KVをスキャンし、指定されたパターンにマッチするキーからuserIdを抽出し、
+ * 一時的なKVセットに保存します。カーソルをKVに保存・読み込みします。
+ *
+ * @param {string} cursorKey - カーソルを保存するKVキー
+ * @param {string} tempSetKey - 収集したuserIdを保存するKVセットキー
+ * @param {string} matchPattern - スキャンするキーのパターン (例: "reminder:*")
+ * @param {number} scanCount - 一度にスキャンするキーの数
+ * @returns {Promise<{scanComplete: boolean, nextCursor: number}>}
+ */
+async function scanKeysAndStoreUserIds(
+  cursorKey,
+  tempSetKey,
+  matchPattern,
+  scanCount,
+) {
+  let cursor = await kv.get(cursorKey);
+  cursor = typeof cursor === "number" ? cursor : 0;
+
+  console.log(
+    `[CRON-DELETE][SCAN] Starting scan for ${matchPattern} from cursor: ${cursor}`,
+  );
+
+  const [nextCursor, keys] = await kv.scan(cursor, {
+    match: matchPattern,
+    count: scanCount,
+  });
+
+  if (keys.length > 0) {
+    const userIds = keys.map((key) => key.split(":")[1]).filter(Boolean); // userIdを抽出
+    if (userIds.length > 0) {
+      await kv.sadd(tempSetKey, ...userIds); // 一時セットにuserIdを追加
+    }
+  }
+
+  await kv.set(cursorKey, nextCursor); // 次回のためにカーソルを保存
+
+  const scanComplete = nextCursor === 0;
+  console.log(
+    `[CRON-DELETE][SCAN] Scanned ${keys.length} keys for ${matchPattern}. Next cursor: ${nextCursor}. Complete: ${scanComplete}`,
+  );
+  return { scanComplete, nextCursor };
+}
 
 export default async function handler(request, response) {
   // Vercel Cronからのリクエストか、適切なBearerトークンを持つリクエストかを認証
@@ -23,8 +73,8 @@ export default async function handler(request, response) {
     const now = Date.now();
     const inactiveUserIds = [];
 
-    // 1. 全ての最終アクセス記録キーを取得 (バッチ処理)
-    let cursor = await kv.get(CRON_SCAN_CURSOR_KEY);
+    // 1. ユーザーの最終アクセス記録キーをスキャン (バッチ処理)
+    let cursor = await kv.get(CRON_LAST_ACCESS_SCAN_CURSOR_KEY);
     cursor = typeof cursor === "number" ? cursor : 0; // カーソルが存在しない場合は0
 
     console.log(`[CRON-DELETE] Starting scan from cursor: ${cursor}`);
@@ -35,11 +85,11 @@ export default async function handler(request, response) {
     });
 
     // 次回のためにカーソルを保存
-    await kv.set(CRON_SCAN_CURSOR_KEY, nextCursor);
+    await kv.set(CRON_LAST_ACCESS_SCAN_CURSOR_KEY, nextCursor);
 
     if (lastAccessKeys.length === 0 && nextCursor === 0) {
       // スキャンが完全に終了し、新しいキーも見つからなかった場合
-      await kv.del(CRON_SCAN_CURSOR_KEY); // カーソルをリセット
+      await kv.del(CRON_LAST_ACCESS_SCAN_CURSOR_KEY); // カーソルをリセット
       console.log(
         "[CRON-DELETE] No user access records found and scan complete.",
       );
@@ -130,6 +180,13 @@ export default async function handler(request, response) {
           `[CRON-DELETE] Queued deletion of last access record for user ${userId}.`,
         );
 
+        // f. 公開鍵を削除 (追加)
+        const publicKeyKey = `user:${userId}:public_key`;
+        tx.del(publicKeyKey);
+        console.log(
+          `[CRON-DELETE] Queued deletion of public key for user ${userId}.`,
+        );
+
         // トランザクションを実行
         await tx.exec();
         console.log(
@@ -144,49 +201,48 @@ export default async function handler(request, response) {
       );
     }
 
-    // 4. アクセス記録がないユーザーに初期レコードを作成 (バッチ処理とカーソル管理をここにも適用する必要あり)
+    // 4. アクセス記録がないユーザーに初期レコードを作成する処理 (バッチ化)
     console.log(
-      "[CRON-DELETE] Starting process to add access records for new/untracked users. (This part also needs batching)",
+      "[CRON-DELETE] Starting process to add access records for new/untracked users.",
     );
 
-    // NOTE: この部分はまだバッチ化されていないため、大量のデータがある場合はタイムアウトの原因になる可能性があります。
-    // まずは非アクティブユーザーの削除を優先し、この部分は後で対応します。
+    // reminder:* からuserIdを収集
+    const {
+      scanComplete: reminderScanComplete,
+      nextCursor: nextReminderCursor,
+    } = await scanKeysAndStoreUserIds(
+      CRON_REMINDER_SCAN_CURSOR_KEY,
+      TEMP_ALL_USER_IDS_KEY,
+      "reminder:*",
+      SCAN_COUNT,
+    );
 
-    const allUserIds = new Set();
-    let reminderScanCursor = 0;
-    do {
-      const [nextReminderScanCursor, keys] = await kv.scan(reminderScanCursor, {
-        match: "reminder:*",
-        count: 1000,
-      });
-      reminderScanCursor = nextReminderScanCursor;
-      for (const key of keys) {
-        const parts = key.split(":");
-        if (parts.length >= 2) {
-          allUserIds.add(parts[1]);
-        }
-      }
-    } while (reminderScanCursor !== 0);
+    // user_last_access:* からuserIdを収集
+    const {
+      scanComplete: lastAccessScanComplete,
+      nextCursor: nextLastAccessCursor,
+    } = await scanKeysAndStoreUserIds(
+      CRON_LAST_ACCESS_SCAN_CURSOR_KEY, // CRON_SCAN_CURSOR_KEYから変更
+      TEMP_USERS_WITH_ACCESS_RECORD_KEY,
+      "user_last_access:*",
+      SCAN_COUNT,
+    );
 
-    if (allUserIds.size === 0) {
-      console.log(
-        "[CRON-DELETE] No users found from reminder keys. Skipping access record creation.",
+    // 両方のスキャンが完了した場合のみ、初期レコード作成とクリーンアップを実行
+    if (reminderScanComplete && lastAccessScanComplete) {
+      console.log("[CRON-DELETE] All user scans are complete. Processing...");
+
+      const allUserIdsSet = new Set(
+        (await kv.smembers(TEMP_ALL_USER_IDS_KEY)) || [],
       );
-    } else {
-      const usersWithAccessRecord = new Set();
-      // NOTE: lastAccessKeysは今回のバッチで取得されたもののみなので、
-      // 以前処理されたユーザーのアクセス記録はここに含まれない。
-      // 全てのusersWithAccessRecordを取得するには、別途スキャンが必要になる。
-      // あるいは、allUserIdsの各ユーザーに対してkv.get()を個別に実行する。
-      for (const key of lastAccessKeys) {
-        const parts = key.split(":");
-        if (parts.length >= 2) {
-          usersWithAccessRecord.add(parts[1]);
-        }
-      }
+      const usersWithAccessRecordSet = new Set(
+        (await kv.smembers(TEMP_USERS_WITH_ACCESS_RECORD_KEY)) || [],
+      );
 
       const usersWithoutAccessRecord = new Set(
-        [...allUserIds].filter((id) => !usersWithAccessRecord.has(id)),
+        [...allUserIdsSet].filter(
+          (userId) => !usersWithAccessRecordSet.has(userId),
+        ),
       );
 
       if (usersWithoutAccessRecord.size > 0) {
@@ -197,31 +253,61 @@ export default async function handler(request, response) {
         const timestamp = Date.now();
         for (const userId of usersWithoutAccessRecord) {
           const lastAccessKey = `user_last_access:${userId}`;
-          creationTx.set(lastAccessKey, timestamp, { nx: true });
+          creationTx.set(lastAccessKey, timestamp, { nx: true }); // nx: true で既存は上書きしない
+          // Public Key も初期登録しておく (オプションだが、整合性を保つため)
+          // ただし、この段階では公開鍵は不明なので、クライアントからの初回リクエスト時に登録されるTOFUに任せる。
         }
         await creationTx.exec();
         console.log("[CRON-DELETE] Finished creating initial access records.");
       } else {
         console.log("[CRON-DELETE] All existing users have access records.");
       }
+
+      // クリーンアップ
+      await kv.del(CRON_REMINDER_SCAN_CURSOR_KEY);
+      await kv.del(CRON_LAST_ACCESS_SCAN_CURSOR_KEY);
+      await kv.del(TEMP_ALL_USER_IDS_KEY);
+      await kv.del(TEMP_USERS_WITH_ACCESS_RECORD_KEY);
+      console.log("[CRON-DELETE] Cleanup of temporary scan data complete.");
+    } else {
+      console.log(
+        "[CRON-DELETE] User scans not yet complete. Will continue in next run.",
+      );
     }
 
-    // スキャンが完了した場合のみ、ジョブ完了をログ
-    if (nextCursor === 0) {
+    // レスポンスのmessageとnextCursorを調整
+    const isJobComplete =
+      reminderScanComplete && lastAccessScanComplete && nextCursor === 0;
+
+    if (isJobComplete) {
       console.log(
-        `[CRON-DELETE] --- Inactive User Deletion Job End (Scan Complete) ---`,
+        `[CRON-DELETE] --- Inactive User Deletion Job End (All Scans Complete) ---`,
       );
     } else {
       console.log(
-        `[CRON-DELETE] --- Inactive User Deletion Job Paused (Scan Not Complete) ---`,
+        `[CRON-DELETE] --- Inactive User Deletion Job Paused (Scans Not Complete) ---`,
       );
     }
 
     return response.status(200).json({
-      message: `Successfully processed inactive user deletion and records creation for this batch. Deleted ${inactiveUserIds.length} users. Scan ${nextCursor === 0 ? "complete." : `continuing from cursor: ${nextCursor}.`}`,
+      message: `Processed inactive user deletion and records creation for this batch. Deleted ${inactiveUserIds.length} users. All scans ${isJobComplete ? "complete." : "continuing in next run."}`,
       deletedUsers: inactiveUserIds,
-      nextCursor: nextCursor,
-      scanCount: lastAccessKeys.length,
+      // 次のカーソル情報は、ジョブ全体の完了状態を示すために調整する
+      jobComplete: isJobComplete,
+      scanStatus: {
+        lastAccessScan: {
+          complete: lastAccessScanComplete,
+          nextCursor: nextLastAccessCursor,
+        },
+        reminderScan: {
+          complete: reminderScanComplete,
+          nextCursor: nextReminderCursor,
+        },
+      },
+      inactiveUserDeletionScan: {
+        complete: nextCursor === 0,
+        nextCursor: nextCursor,
+      },
     });
   } catch (error) {
     console.error(

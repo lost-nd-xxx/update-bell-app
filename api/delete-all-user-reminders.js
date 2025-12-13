@@ -1,10 +1,11 @@
 // update-bell-app/api/delete-all-user-reminders.js
 import { kv } from "@vercel/kv";
 import { checkRateLimit } from "./utils/ratelimit.js";
+import { verifySignature } from "./utils/auth.js";
 
 export default async function handler(request, response) {
   if (request.method !== "POST") {
-    return response.status(405).json({ error: "Method Not Allowed" });
+    return response.status(405).send("Method Not Allowed");
   }
 
   // --- レートリミットチェック ---
@@ -16,13 +17,21 @@ export default async function handler(request, response) {
     return response.status(429).json({ error: "Too Many Requests" });
   }
 
-  const { userId } = request.body;
-
-  if (!userId) {
-    return response.status(400).json({ error: "userId is required" });
+  // --- 署名検証 (認証) ---
+  const authResult = await verifySignature(request, request.body);
+  if (!authResult.success) {
+    return response
+      .status(authResult.status || 401)
+      .json({ error: authResult.error });
   }
 
   try {
+    const { userId } = request.body;
+
+    if (!userId) {
+      return response.status(400).json({ error: "userId is required" });
+    }
+
     console.log(`[API] Starting to delete all data for userId: ${userId}`);
 
     const userReminderKeysKey = `user:${userId}:reminder_keys`;
@@ -66,7 +75,7 @@ export default async function handler(request, response) {
       message: `Successfully deleted all data for user ${userId}`,
     });
   } catch (error) {
-    console.error(`[API] Error deleting data for userId: ${userId}`, error);
+    console.error("[API] Error deleting user data:", error);
     return response.status(500).json({ error: "Internal Server Error" });
   }
 }

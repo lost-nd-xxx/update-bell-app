@@ -68,7 +68,7 @@ const Settings: React.FC<SettingsProps> = ({
     useState(false);
   const [isDeletingServerData, setIsDeletingServerData] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const userId = useUserId();
+  const { userId, getAuthHeaders } = useUserId(); // ここで変更
 
   const {
     subscribeToPushNotifications,
@@ -236,10 +236,16 @@ const Settings: React.FC<SettingsProps> = ({
     }
     setIsDeletingServerData(true);
     try {
+      const requestBody = { userId };
+      const authHeaders = await getAuthHeaders(requestBody);
+
       const response = await fetch("/api/delete-all-user-reminders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(authHeaders as Record<string, string>),
+        },
+        body: JSON.stringify(requestBody),
       });
       if (!response.ok) {
         throw new Error("サーバーデータの削除に失敗しました。");
@@ -847,6 +853,18 @@ const Settings: React.FC<SettingsProps> = ({
               <span className="text-gray-900 dark:text-white">
                 {process.env.APP_VERSION}
               </span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">更新履歴</span>
+              <a
+                href="https://github.com/lost-nd-xxx/update-bell-app/blob/main/docs/CHANGELOG.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                内容を確認 <ExternalLink size={12} />
+              </a>
             </div>
 
             <div className="flex justify-between">

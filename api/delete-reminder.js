@@ -1,6 +1,7 @@
 // update-bell-app/api/delete-reminder.js
 import { kv } from "@vercel/kv";
 import { checkRateLimit } from "./utils/ratelimit.js";
+import { verifySignature } from "./utils/auth.js";
 
 export default async function handler(request, response) {
   if (request.method !== "POST") {
@@ -14,6 +15,14 @@ export default async function handler(request, response) {
     response.setHeader("RateLimit-Remaining", remaining);
     response.setHeader("RateLimit-Reset", new Date(reset).toISOString());
     return response.status(429).json({ error: "Too Many Requests" });
+  }
+
+  // --- 署名検証 (認証) ---
+  const authResult = await verifySignature(request, request.body);
+  if (!authResult.success) {
+    return response
+      .status(authResult.status || 401)
+      .json({ error: authResult.error });
   }
 
   try {

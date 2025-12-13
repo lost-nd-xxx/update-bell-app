@@ -80,6 +80,21 @@ export default [
     },
   },
 
+  // Configuration for API folder (Node.js environment)
+  {
+    files: ["api/**/*.js"], // apiフォルダ以下の全ての.jsファイル
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+      ecmaVersion: 2022, // Node.jsの最近のバージョンに合わせてecmaVersionを更新
+      sourceType: "module", // APIファイルがESM形式であることを想定
+    },
+    rules: {
+      "no-unused-vars": "warn", // APIでは未使用変数を警告する
+    },
+  },
+
   // Ignore patterns
   {
     ignores: [

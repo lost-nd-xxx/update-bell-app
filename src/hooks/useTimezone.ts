@@ -64,10 +64,19 @@ export const useTimezone = (
     if (adjustTime) {
       // 時刻を調整する場合
       affectedReminders.forEach((reminder) => {
+        const { hour, minute } = convertTimeToTimezone(
+          reminder.schedule.hour,
+          reminder.schedule.minute,
+          reminder.timezone, // 元のタイムゾーン
+          current, // 新しいタイムゾーン
+        );
         updateReminder(reminder.id, {
           timezone: current,
-          // 注意: 実際の時刻調整ロジックは複雑になるため、
-          // ここでは単純にタイムゾーンのみを更新
+          schedule: {
+            ...reminder.schedule,
+            hour,
+            minute,
+          },
         });
       });
     } else {

@@ -1,6 +1,7 @@
 // update-bell-app/api/save-subscription.js
 import { kv } from "@vercel/kv";
 import { checkRateLimit } from "./utils/ratelimit.js";
+import { verifySignature } from "./utils/auth.js";
 
 export default async function handler(request, response) {
   if (request.method !== "POST") {
@@ -16,6 +17,14 @@ export default async function handler(request, response) {
     return response.status(429).json({ error: "Too Many Requests" });
   }
 
+  // --- 署名検証 (認証) ---
+  const authResult = await verifySignature(request, request.body);
+  if (!authResult.success) {
+    return response
+      .status(authResult.status || 401)
+      .json({ error: authResult.error });
+  }
+
   try {
     const { userId, subscription } = request.body;
 
@@ -26,7 +35,7 @@ export default async function handler(request, response) {
     }
 
     const key = `user:${userId}:subscriptions`;
-    let subscriptions = (await kv.get(key)) || [];
+    const subscriptions = (await kv.get(key)) || [];
 
     // 既に登録されているSubscriptionかチェック
     const isAlreadySubscribed = subscriptions.some(

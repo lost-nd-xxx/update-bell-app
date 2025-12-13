@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"; // useMemo を追加
 import { Reminder, AppSettings } from "../types";
+import { useUserId } from "../contexts/UserIdContext"; // useUserIdをインポート
 import {
   generateId,
   isReminder,
@@ -12,9 +13,20 @@ import { ToastType } from "../components/ToastMessage";
 
 export const useReminders = (
   settings: AppSettings,
-  userId: string | null,
+  // userId引数は削除し、内部でuseUserIdを使う方が依存関係が綺麗だが、
+  // 既存コードの互換性のため残すか？ -> 元のコードでは引数でuserIdを受け取っていたが、
+  // App.tsxでuseUserIdの結果を渡していた。
+  // ここではuseUserIdを内部で呼び出す形に変えるのがベストだが、引数を変えるとApp.tsxも修正必要。
+  // 今回はApp.tsxでの呼び出し元も修正する方針で進めるか、
+  // あるいはApp.tsxからgetAuthHeadersも渡してもらうか。
+  // -> useUserIdをhooks内で呼ぶのがReact流儀。
+  // ただし、カスタムフックの引数として渡されているuserIdを使っている箇所がある。
+  // 引数のuserIdはnullの可能性もある。
+  userId: string | null, // 引数は残すが、認証にはContextから取得したものを使う
   addToast: (message: string, type?: ToastType, duration?: number) => void,
 ) => {
+  const { getAuthHeaders } = useUserId(); // ここで取得
+
   const [rawReminders, setRawReminders] = useState<Reminder[]>(() => {
     const saved = localStorage.getItem("update-bell-data");
     if (saved) {
@@ -187,10 +199,16 @@ export const useReminders = (
 
       const currentUserId = userIdRef.current;
       if (settings.notifications.method === "push" && currentUserId) {
+        const requestBody = { userId: currentUserId, reminderId: id };
+        const authHeaders = await getAuthHeaders(requestBody);
+
         const response = await fetch("/api/delete-reminder", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: currentUserId, reminderId: id }),
+          headers: {
+            "Content-Type": "application/json",
+            ...(authHeaders as Record<string, string>),
+          },
+          body: JSON.stringify(requestBody),
         });
 
         if (response.status === 429) {
@@ -295,13 +313,19 @@ export const useReminders = (
         },
       );
 
+      const requestBody = {
+        userId: currentUserId,
+        reminders: remindersToProcessForServer,
+      };
+      const authHeaders = await getAuthHeaders(requestBody);
+
       const response = await fetch("/api/bulk-sync-reminders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: currentUserId,
-          reminders: remindersToProcessForServer,
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(authHeaders as Record<string, string>),
+        },
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
