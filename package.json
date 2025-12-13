@@ -1,6 +1,6 @@
 {
   "name": "update-bell-app",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "type": "module",
   "description": "URLを添えてリマインド通知するアプリ",
   "keywords": [
