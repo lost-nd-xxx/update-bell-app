@@ -1,5 +1,6 @@
 // update-bell-app/api/track-access.js
 import { kv } from "@vercel/kv";
+import { checkRateLimit } from "./_utils/ratelimit.js";
 
 export default async function handler(request, response) {
   if (request.method !== "POST") {

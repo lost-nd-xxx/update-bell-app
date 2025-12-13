@@ -1,7 +1,7 @@
 // api/delete-subscription.js
 import { kv } from "@vercel/kv";
-import { checkRateLimit } from "./utils/ratelimit.js";
-import { verifySignature } from "./utils/auth.js";
+import { checkRateLimit } from "./_utils/ratelimit.js";
+import { verifySignature } from "./_utils/auth.js";
 
 export default async function handler(request, response) {
   if (request.method !== "POST") {

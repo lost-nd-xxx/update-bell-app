@@ -1,8 +1,8 @@
 // update-bell-app/api/bulk-sync-reminders.js
 import { kv } from "@vercel/kv";
-import { calculateNextNotificationTime } from "./utils/notification-helpers.js";
-import { checkRateLimit } from "./utils/ratelimit.js";
-import { verifySignature } from "./utils/auth.js";
+import { calculateNextNotificationTime } from "./_utils/notification-helpers.js";
+import { checkRateLimit } from "./_utils/ratelimit.js";
+import { verifySignature } from "./_utils/auth.js";
 
 export default async function handler(request, response) {
   if (request.method !== "POST") {

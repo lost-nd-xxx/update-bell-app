@@ -1,8 +1,8 @@
 // update-bell-app/api/cron/send-notifications.js
 import { kv } from "@vercel/kv";
-import { calculateNextNotificationTime } from "../utils/notification-helpers.js";
-import { isReminder } from "../utils/type-guards.js";
-import { webPush } from "../utils/web-push.js"; // web-pushを別ファイルからインポート
+import { calculateNextNotificationTime } from "../_utils/notification-helpers.js";
+import { isReminder } from "../_utils/type-guards.js";
+import { webPush } from "../_utils/web-push.js"; // web-pushを別ファイルからインポート
 
 const RETRY_LIMIT = 3; // リトライ回数の上限
 

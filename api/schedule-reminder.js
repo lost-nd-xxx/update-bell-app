@@ -1,6 +1,6 @@
 // update-bell-app/api/schedule-reminder.js
 import { kv } from "@vercel/kv";
-import { checkRateLimit } from "./utils/ratelimit.js";
+import { checkRateLimit } from "./_utils/ratelimit.js";
 
 // --- 型ガード関数 (ここから) ---
 const isScheduleType = (type) => {
