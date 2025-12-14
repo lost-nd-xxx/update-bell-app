@@ -13,6 +13,8 @@
   "private": true,
   "scripts": {
     "dev": "vite",
+    "dev:https": "vite",
+    "dev:vercel": "vite --mode vercel-dev",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint src",

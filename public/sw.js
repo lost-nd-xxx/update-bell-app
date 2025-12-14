@@ -1,8 +1,15 @@
-// public/sw.js - setTimeout-based scheduling
-const CACHE_NAME = "update-bell-v2.1.0";
-const DEBUG_MODE = false;
+const CACHE_NAME = "update-bell-v2.2.0";
+const ASSETS_TO_CACHE = [
+  "/",
+  "/index.html",
+  "/icon-192x192.png",
+  "/icon-badge.png",
+  "/manifest.json",
+  // Vite generates hashed filenames for JS/CSS, so strict caching list is hard.
+  // Instead, we will cache visited requests dynamically (Stale-While-Revalidate or Cache-First)
+];
 
-let notificationTimer = null;
+const DEBUG_MODE = false;
 
 const debugLog = (message, data) => {
   if (DEBUG_MODE) {
@@ -11,152 +18,74 @@ const debugLog = (message, data) => {
 };
 
 self.addEventListener("install", (event) => {
-  debugLog("Install event v2.1.0");
-  event.waitUntil(self.skipWaiting());
+  debugLog("Install event v2.2.0");
+  event.waitUntil(
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => {
+        return cache.addAll(ASSETS_TO_CACHE);
+      })
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener("activate", (event) => {
-  debugLog("Activate event v2.1.0");
-  event.waitUntil(self.clients.claim());
+  debugLog("Activate event v2.2.0");
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keyList) => {
+        return Promise.all(
+          keyList.map((key) => {
+            if (key !== CACHE_NAME) {
+              debugLog("Removing old cache", key);
+              return caches.delete(key);
+            }
+          }),
+        );
+      })
+      .then(() => self.clients.claim()),
+  );
 });
 
-const showNotification = (reminder) => {
-  debugLog("通知を表示します:", reminder.title);
-  self.registration
-    .showNotification(reminder.title, {
-      body: `リマインダー: ${reminder.title}`,
-      icon: "/icon-192x192.png",
-      badge: "/icon-badge.png", // This should be a monochrome icon
-      tag: `reminder-${reminder.id}`,
-      data: {
-        url: reminder.url,
-        reminderId: reminder.id,
-      },
-    })
-    .then(() => {
-      // Notify clients that notification was shown
-      self.clients.matchAll().then((clients) => {
-        clients.forEach((client) => {
-          client.postMessage({
-            type: "NOTIFICATION_EXECUTED",
-            payload: { executedReminderId: reminder.id },
-          });
-        });
-      });
-    });
-};
+// --- Fetch Strategy: Stale-While-Revalidate for most, Network-First for API ---
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
 
-const scheduleNextNotification = (reminder, scheduleTime) => {
-  if (notificationTimer) {
-    clearTimeout(notificationTimer);
-    debugLog("既存のタイマーをキャンセルしました。");
-  }
-
-  const now = Date.now();
-  const delay = scheduleTime - now;
-
-  if (delay <= 0) {
-    debugLog("スケジュール時刻が過去です。通知をすぐに実行します。", {
-      reminder,
-      scheduleTime,
-    });
-    showNotification(reminder);
+  // Skip non-GET requests and API requests (except maybe static assets in public)
+  if (event.request.method !== "GET" || url.pathname.startsWith("/api/")) {
     return;
   }
 
-  debugLog(
-    `次の通知を予約しました: ${reminder.title} in ${Math.round(delay / 1000)}s`,
-  );
-
-  notificationTimer = setTimeout(() => {
-    showNotification(reminder);
-  }, delay);
-};
-
-const cancelAllNotifications = () => {
-  if (notificationTimer) {
-    clearTimeout(notificationTimer);
-    notificationTimer = null;
-    debugLog("すべての予約済み通知（タイマー）をキャンセルしました。");
-  }
-};
-
-self.addEventListener("message", (event) => {
-  const { type, payload } = event.data;
-
-  debugLog(`メッセージ受信: ${type}`, payload);
-
-  switch (type) {
-    case "SCHEDULE_NEXT_REMINDER":
-      if (payload && payload.reminder && payload.scheduleTime) {
-        scheduleNextNotification(payload.reminder, payload.scheduleTime);
-      }
-      break;
-
-    case "CANCEL_ALL_REMINDERS":
-      cancelAllNotifications();
-      break;
-
-    case "TEST_NOTIFICATION":
-      setTimeout(() => {
-        self.registration.showNotification("おしらせベル テスト通知", {
-          body: "通知が正しく設定されています。",
-          icon: "/icon-192x192.png",
-          badge: "/icon-badge.png",
-          tag: "test-notification",
-        });
-      }, 5000);
-      break;
-
-    default:
-      debugLog(`未対応メッセージ: ${type}`);
-  }
-});
-
-self.addEventListener("notificationclick", (event) => {
-  debugLog("通知がクリックされました", event.notification.data);
-  event.notification.close();
-
-  const data = event.notification.data;
-  const urlToOpen = data?.url;
-  const trackingUrl = "/api/track-access"; // URLをハードコード
-  const userId = data?.userId;
-
-  const promises = [];
-
-  // ユーザーを目的のURLに遷移させる
-  if (urlToOpen) {
-    promises.push(clients.openWindow(urlToOpen));
+  // Skip browser extensions
+  if (!url.protocol.startsWith("http")) {
+    return;
   }
 
-  // アクセスを追跡するリクエストをバックグラウンドで送信
-  if (userId) {
-    // userIdがあれば追跡リクエストを送信
-    const trackingRequest = fetch(trackingUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ userId }),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          debugLog("トラッキングリクエストに失敗しました", response);
-        } else {
-          debugLog("トラッキングリクエストに成功しました");
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      const fetchPromise = fetch(event.request).then((networkResponse) => {
+        // Cache valid responses
+        if (
+          networkResponse &&
+          networkResponse.status === 200 &&
+          networkResponse.type === "basic"
+        ) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
         }
-      })
-      .catch((error) => {
-        debugLog("トラッキングリクエストでネットワークエラー", error);
+        return networkResponse;
       });
 
-    promises.push(trackingRequest);
-  }
-
-  if (promises.length > 0) {
-    event.waitUntil(Promise.all(promises));
-  }
+      // Return cached response immediately if available, while updating in background
+      return cachedResponse || fetchPromise;
+    }),
+  );
 });
+
+// --- Push Notifications (Server-Sent Only) ---
 
 self.addEventListener("push", (event) => {
   debugLog(
@@ -182,16 +111,84 @@ self.addEventListener("push", (event) => {
     badge: pushData.badge || "/icon-badge.png",
     tag: pushData.tag || "general-notification",
     data: {
-      url: pushData.url, // URLをdataに含めることで、notificationclickで利用
-      userId: pushData.userId, // 追跡APIで使うユーザーID
+      url: pushData.url,
+      userId: pushData.userId,
     },
   };
 
-  const notificationPromise = self.registration.showNotification(
-    title,
-    options,
-  );
-  event.waitUntil(notificationPromise);
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
-debugLog("Service Worker (v2.1.0) 起動完了");
+self.addEventListener("notificationclick", (event) => {
+  debugLog("Notification clicked", event.notification.data);
+  event.notification.close();
+
+  const data = event.notification.data;
+  const urlToOpen = data?.url;
+  const userId = data?.userId;
+
+  const promises = [];
+
+  // Open URL if present
+  if (urlToOpen) {
+    promises.push(
+      clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then((windowClients) => {
+          // Check if there is already a window/tab open with the target URL
+          for (let i = 0; i < windowClients.length; i++) {
+            const client = windowClients[i];
+            if (client.url === urlToOpen && "focus" in client) {
+              return client.focus();
+            }
+          }
+          if (clients.openWindow) {
+            return clients.openWindow(urlToOpen);
+          }
+        }),
+    );
+  } else {
+    // Just focus the app if no specific URL
+    promises.push(
+      clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then((windowClients) => {
+          if (windowClients.length > 0 && "focus" in windowClients[0]) {
+            return windowClients[0].focus();
+          }
+          if (clients.openWindow) {
+            return clients.openWindow("/");
+          }
+        }),
+    );
+  }
+
+  // Track access
+  if (userId) {
+    const trackingUrl = "/api/track-access";
+    // Using fetch keepalive or simpler fetch
+    promises.push(
+      fetch(trackingUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      }).catch((e) => debugLog("Tracking failed", e)),
+    );
+  }
+
+  event.waitUntil(Promise.all(promises));
+});
+
+self.addEventListener("message", (event) => {
+  const { type } = event.data;
+
+  if (type === "TEST_NOTIFICATION") {
+    debugLog("Showing test notification immediately.");
+    self.registration.showNotification("おしらせベル テスト通知", {
+      body: "通知は正常に機能しています。",
+      icon: "/icon-192x192.png",
+      badge: "/icon-badge.png",
+      tag: "test-notification",
+    });
+  }
+});

@@ -1,6 +1,6 @@
 import ConfirmationDialog from "./ConfirmationDialog";
 import { usePushNotifications } from "../hooks/usePushNotifications";
-import { ToastType } from "../components/ToastMessage"; // 変更
+import { ToastType } from "../components/ToastMessage";
 import { useUserId } from "../contexts/UserIdContext";
 import { AppSettings, Reminder, ExportData } from "../types";
 import {
@@ -64,11 +64,9 @@ const Settings: React.FC<SettingsProps> = ({
 }) => {
   const [isImporting, setIsImporting] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [isSwitchingToLocalConfirmOpen, setIsSwitchingToLocalConfirmOpen] =
-    useState(false);
   const [isDeletingServerData, setIsDeletingServerData] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const { userId, getAuthHeaders } = useUserId(); // ここで変更
+  const { userId, getAuthHeaders } = useUserId();
 
   const {
     subscribeToPushNotifications,
@@ -155,10 +153,9 @@ const Settings: React.FC<SettingsProps> = ({
       }
 
       // --- 必要であればサーバー同期 ---
-      if (settings.notifications.method === "push") {
-        await syncRemindersToServer();
-        addToast("インポート内容をサーバーと同期しました。", "info");
-      }
+      // ローカル通知オプション削除に伴い、常にPush通知（サーバー同期）を前提
+      await syncRemindersToServer();
+      addToast("インポート内容をサーバーと同期しました。", "info");
     } catch (error) {
       addToast(`インポート処理に失敗: ${getErrorMessage(error)}`, "error");
     } finally {
@@ -183,6 +180,32 @@ const Settings: React.FC<SettingsProps> = ({
       });
       if (permission === "granted") {
         addToast("通知の許可が得られました。", "success");
+        // 通知許可が得られたらプッシュ通知を購読する
+        setIsSyncing(true);
+        try {
+          await subscribeToPushNotifications();
+
+          try {
+            await syncRemindersToServer(); // 同期も行う
+            addToast(
+              "プッシュ通知を有効にし、データを同期しました。",
+              "success",
+            );
+          } catch (syncError) {
+            console.error("Sync failed:", syncError);
+            addToast(
+              "プッシュ通知は有効になりましたが、データの同期に失敗しました。",
+              "warning",
+            );
+          }
+        } catch (error) {
+          addToast(
+            `プッシュ通知の購読に失敗しました: ${getErrorMessage(error)}`,
+            "error",
+          );
+        } finally {
+          setIsSyncing(false);
+        }
       }
     } catch (error) {
       addToast(
@@ -193,30 +216,30 @@ const Settings: React.FC<SettingsProps> = ({
   };
 
   const sendTestNotification = async () => {
-    if (!("serviceWorker" in navigator)) {
-      addToast("このブラウザは通知をサポートしていません", "error");
-      return;
-    }
-    try {
-      // Service Workerの準備が整うのを待つ
-      const registration = await navigator.serviceWorker.ready;
-      if (registration.active) {
-        // アクティブなService Workerにメッセージを送信
-        registration.active.postMessage({
-          type: "TEST_NOTIFICATION",
-        });
-        addToast(
-          "テスト通知を送信しました。アプリを閉じてお待ちください。",
-          "info",
-        );
-      } else {
-        throw new Error("アクティブなService Workerが見つかりませんでした。");
-      }
-    } catch (error) {
+    if (
+      !("serviceWorker" in navigator) ||
+      !navigator.serviceWorker.controller
+    ) {
       addToast(
-        `テスト通知の送信に失敗しました: ${getErrorMessage(error)}`,
+        "このブラウザはService Workerをサポートしていないか、有効ではありません。",
         "error",
       );
+      return;
+    }
+
+    // Service Workerの準備が整うのを待つ
+    const registration = await navigator.serviceWorker.ready;
+    if (registration.active) {
+      // アクティブなService Workerにメッセージを送信
+      registration.active.postMessage({
+        type: "TEST_NOTIFICATION",
+      });
+      addToast(
+        "テスト通知を送信しました。ブラウザの通知をご確認ください。",
+        "info",
+      );
+    } else {
+      addToast("アクティブなService Workerが見つかりませんでした。", "error");
     }
   };
 
@@ -224,133 +247,60 @@ const Settings: React.FC<SettingsProps> = ({
     setIsDeleteConfirmOpen(true);
   };
 
-  const confirmClearAllData = () => {
-    localStorage.clear();
-    location.reload();
-  };
-
-  const deleteAllUserReminders = async () => {
-    if (!userId) {
-      addToast("ユーザーIDが取得できませんでした。", "error");
-      return;
-    }
+  const confirmClearAllData = async () => {
     setIsDeletingServerData(true);
     try {
-      const requestBody = { userId };
-      const authHeaders = await getAuthHeaders(requestBody);
+      // 1. サーバー上のデータを削除
+      if (userId) {
+        const requestBody = { userId };
+        const authHeaders = await getAuthHeaders(requestBody);
 
-      const response = await fetch("/api/delete-all-user-reminders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(authHeaders as Record<string, string>),
-        },
-        body: JSON.stringify(requestBody),
-      });
-      if (!response.ok) {
-        throw new Error("サーバーデータの削除に失敗しました。");
+        await fetch("/api/delete-all-user-reminders", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(authHeaders as Record<string, string>),
+          },
+          body: JSON.stringify(requestBody),
+        }).catch((e) => console.error("Failed to delete server data:", e));
       }
-      addToast("サーバー上のデータを削除しました。", "success");
+
+      // 2. ブラウザの購読解除
+      if (subscription) {
+        await unsubscribeFromPushNotifications().catch((e) =>
+          console.error("Failed to unsubscribe:", e),
+        );
+      }
+
+      // 3. ローカルデータ削除 & リロード
+      localStorage.clear();
+      location.reload();
     } catch (error) {
-      addToast(getErrorMessage(error), "error");
+      console.error("Error during clear all data:", error);
+      // エラーでもローカルは消す
+      localStorage.clear();
+      location.reload();
     } finally {
       setIsDeletingServerData(false);
-      setIsSwitchingToLocalConfirmOpen(false);
     }
-  };
-
-  const handleNotificationMethodChange = async (
-    newMethod: "local" | "push",
-  ) => {
-    const oldMethod = settings.notifications.method;
-    if (newMethod === oldMethod) return;
-
-    if (newMethod === "local" && oldMethod === "push") {
-      setIsSwitchingToLocalConfirmOpen(true);
-      return; // ダイアログの応答を待つ
-    }
-
-    if (newMethod === "push") {
-      setIsSyncing(true); // ★ UIロックを先に開始
-      try {
-        // ユーザーがまだプッシュ通知を購読していない場合
-        if (!subscription) {
-          // 最初に購読を試みる
-          const success = await subscribeToPushNotifications();
-          if (!success) {
-            addToast(
-              "プッシュ通知の有効化がキャンセルされたか、失敗しました。",
-              "error",
-            );
-            return; // 購読に失敗したらここで処理を中断
-          }
-        }
-
-        // 購読が成功または既存の場合、同期処理へ
-        await syncRemindersToServer();
-        addToast("ローカルデータをサーバーに同期しました。", "success");
-        // 同期成功後に設定を更新
-        updateSettings({
-          notifications: { ...settings.notifications, method: newMethod },
-        });
-      } catch (error) {
-        addToast(getErrorMessage(error), "error");
-      } finally {
-        setIsSyncing(false);
-      }
-    } else {
-      // localへの切り替えなど、他のケース
-      updateSettings({
-        notifications: { ...settings.notifications, method: newMethod },
-      });
-    }
-  };
-
-  const confirmSwitchToLocal = async () => {
-    // サーバー上のデータを削除
-    await deleteAllUserReminders();
-    // ブラウザのプッシュ購読を解除
-    if (subscription) {
-      await unsubscribeFromPushNotifications();
-    }
-    // アプリの設定をローカル通知に更新
-    updateSettings({
-      notifications: { ...settings.notifications, method: "local" },
-    });
   };
 
   const getNotificationStatusText = (
     permission: NotificationPermission | "unsupported",
-    isPushEnabled: boolean,
     isSubscribed: boolean,
   ) => {
-    if (isPushEnabled) {
-      if (permission === "granted") {
-        return (
-          <div className="flex items-center gap-2">
-            <CheckCircle
-              className="text-green-600 dark:text-green-400"
-              size={16}
-            />
-            <span>
-              {isSubscribed ? "許可済み (購読中)" : "許可済み (未購読)"}
-            </span>
-          </div>
-        );
-      }
-    } else {
-      // ローカル通知の場合
-      if (permission === "granted") {
-        return (
-          <div className="flex items-center gap-2">
-            <CheckCircle
-              className="text-green-600 dark:text-green-400"
-              size={16}
-            />
-            <span>許可済み</span>
-          </div>
-        );
-      }
+    if (permission === "granted") {
+      return (
+        <div className="flex items-center gap-2">
+          <CheckCircle
+            className="text-green-600 dark:text-green-400"
+            size={16}
+          />
+          <span>
+            {isSubscribed ? "許可済み (購読中)" : "許可済み (未購読)"}
+          </span>
+        </div>
+      );
     }
 
     switch (permission) {
@@ -368,7 +318,7 @@ const Settings: React.FC<SettingsProps> = ({
             <span>非対応</span>
           </div>
         );
-      default:
+      default: // "default" or "prompt"
         return (
           <div className="flex items-center gap-2">
             <AlertTriangle
@@ -417,30 +367,35 @@ const Settings: React.FC<SettingsProps> = ({
         }
         confirmText="すべて削除"
         confirmButtonVariant="danger"
-      />
-      <ConfirmationDialog
-        isOpen={isSwitchingToLocalConfirmOpen}
-        onClose={() => setIsSwitchingToLocalConfirmOpen(false)}
-        onConfirm={confirmSwitchToLocal}
-        title="通知方法の変更"
-        message={
-          <>
-            <p>
-              「ローカル通知」に切り替えると、サーバーに保存されているプッシュ通知用のデータがすべて削除されます。
-            </p>
-            <ul className="list-disc list-inside my-2 space-y-1">
-              <li>
-                アプリを閉じていても通知が届く機能は利用できなくなります。
-              </li>
-              <li>このブラウザ内のリマインダーは削除されません。</li>
-            </ul>
-            <p>よろしいですか？</p>
-          </>
-        }
-        confirmText="切り替える"
-        confirmButtonVariant="danger"
         isConfirming={isDeletingServerData}
       />
+      {/* ローカル通知廃止に伴い、isSwitchingToLocalConfirmOpen関連のダイアログは削除 */}
+      {/* 
+      // 以前のコードのコメントアウト部分
+      // <ConfirmationDialog
+      //   isOpen={isSwitchingToLocalConfirmOpen}
+      //   onClose={() => setIsSwitchingToLocalConfirmOpen(false)}
+      //   onConfirm={confirmSwitchToLocal}
+      //   title="通知方法の変更"
+      //   message={
+      //     <>
+      //       <p>
+      //         「ローカル通知」に切り替えると、サーバーに保存されているプッシュ通知用のデータがすべて削除されます。
+      //       </p>
+      //       <ul className="list-disc list-inside my-2 space-y-1">
+      //         <li>
+      //           アプリを閉じていても通知が届く機能は利用できなくなります。
+      //         </li>
+      //         <li>このブラウザ内のリマインダーは削除されません。</li>
+      //       </ul>
+      //       <p>よろしいですか？</p>
+      //     </>
+      //   }
+      //   confirmText="切り替える"
+      //   confirmButtonVariant="danger"
+      //   isConfirming={isDeletingServerData}
+      // />
+       */}
 
       <div className="flex items-center gap-4 mb-6">
         <button
@@ -469,119 +424,48 @@ const Settings: React.FC<SettingsProps> = ({
               <div className="text-sm text-gray-600 dark:text-gray-400">
                 {getNotificationStatusText(
                   settings.notifications.permission,
-                  settings.notifications.method === "push",
                   !!subscription,
                 )}
               </div>
             </div>
 
-            <div className="mt-4">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                通知方法
-              </label>
-              <div className="mt-2 space-y-2">
-                <div
-                  onClick={() => handleNotificationMethodChange("local")}
-                  className={`p-3 rounded-lg border-2 cursor-pointer transition-colors ${
-                    settings.notifications.method === "local"
-                      ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
-                      : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500"
-                  }`}
-                >
-                  <div className="flex items-center">
-                    <input
-                      type="radio"
-                      name="notification-method"
-                      id="notification-local"
-                      readOnly
-                      checked={settings.notifications.method === "local"}
-                      className="h-4 w-4 text-purple-600 border-gray-300 focus:ring-purple-500"
-                    />
-                    <label htmlFor="notification-local" className="ml-3 block">
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        ローカル通知 (シンプル)
-                      </span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        手軽・アプリを開いている時のみ
-                      </p>
-                    </label>
-                  </div>
-                </div>
-
-                <div
-                  onClick={() => {
-                    if (settings.notifications.permission === "granted") {
-                      handleNotificationMethodChange("push");
-                    }
-                  }}
-                  className={`relative p-3 rounded-lg border-2 transition-colors ${
-                    settings.notifications.permission !== "granted" || isSyncing
-                      ? "cursor-not-allowed opacity-60"
-                      : "cursor-pointer"
-                  } ${
-                    settings.notifications.method === "push"
-                      ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
-                      : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500"
-                  }`}
-                >
-                  {isSyncing && (
-                    <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 flex items-center justify-center rounded-lg z-10">
-                      <Loader2
-                        className="animate-spin text-gray-500"
-                        size={24}
-                      />
-                    </div>
-                  )}
-                  <div className="flex items-center">
-                    <input
-                      type="radio"
-                      name="notification-method"
-                      id="notification-push"
-                      readOnly
-                      checked={settings.notifications.method === "push"}
-                      disabled={
-                        settings.notifications.permission !== "granted" ||
-                        isSyncing
-                      }
-                      className="h-4 w-4 text-purple-600 border-gray-300 focus:ring-purple-500"
-                    />
-                    <label htmlFor="notification-push" className="ml-3 block">
-                      <span
-                        className={`text-sm font-medium ${settings.notifications.permission !== "granted" || isSyncing ? "text-gray-500" : "text-gray-900 dark:text-white"}`}
-                      >
-                        プッシュ通知 (高信頼性)
-                      </span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        アプリを閉じていても届く（遅延が生じる場合があります）
-                        {settings.notifications.permission !== "granted" &&
-                          " (最初に通知を許可してください)"}
-                      </p>
-                    </label>
-                  </div>
-                </div>
-              </div>
-              {settings.notifications.method === "push" &&
-                settings.notifications.permission === "granted" && (
-                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700" />
-                )}
-            </div>
-
             <div className="mt-4 flex flex-col sm:flex-row gap-3">
-              {settings.notifications.permission === "granted" && (
-                <button
-                  onClick={sendTestNotification}
-                  className="w-full sm:w-auto justify-center inline-flex items-center px-4 py-2 border-2 border-gray-200 dark:border-gray-700 text-sm font-medium rounded-lg text-black dark:text-white"
-                >
-                  通知をテスト
-                </button>
-              )}
+              {settings.notifications.permission === "granted" &&
+                subscription && (
+                  <button
+                    onClick={sendTestNotification}
+                    className="w-full sm:w-auto justify-center inline-flex items-center px-4 py-2 border-2 border-gray-200 dark:border-gray-700 text-sm font-medium rounded-lg text-black dark:text-white"
+                  >
+                    通知をテスト
+                  </button>
+                )}
+
+              {/* 許可済みだが未購読（ローカル通知からの移行など）の場合 */}
+              {settings.notifications.permission === "granted" &&
+                !subscription && (
+                  <button
+                    onClick={requestNotificationPermission}
+                    className="w-full sm:w-auto justify-center inline-flex items-center px-4 py-2 border-2 border-gray-200 dark:border-gray-700 text-sm font-medium rounded-lg text-black dark:text-white"
+                    disabled={isSyncing}
+                  >
+                    {isSyncing ? (
+                      <Loader2 className="animate-spin mr-2" size={16} />
+                    ) : null}
+                    プッシュ通知を有効にする
+                  </button>
+                )}
 
               {settings.notifications.permission !== "granted" && (
                 <button
                   onClick={requestNotificationPermission}
                   className="w-full sm:w-auto justify-center inline-flex items-center px-4 py-2 border-2 border-gray-200 dark:border-gray-700 text-sm font-medium rounded-lg text-black dark:text-white"
-                  disabled={settings.notifications.permission === "denied"}
+                  disabled={
+                    settings.notifications.permission === "denied" || isSyncing
+                  }
                 >
+                  {isSyncing ? (
+                    <Loader2 className="animate-spin mr-2" size={16} />
+                  ) : null}
                   通知を許可
                 </button>
               )}
@@ -724,39 +608,20 @@ const Settings: React.FC<SettingsProps> = ({
                   <strong>通知機能の制約について</strong>
                 </p>
                 <p className="mt-1 text-gray-600 dark:text-gray-400">
-                  選択した通知方法によって制約が異なります。
+                  プッシュ通知はアプリを閉じていても通知が届きますが、OSの省電力設定などの影響を受ける場合があります。
                 </p>
-                <div className="mt-2 text-gray-600 dark:text-gray-400">
-                  <strong className="block">
-                    ローカル通知 (シンプル) の場合:
-                  </strong>
-                  <ul className="list-disc list-inside ml-2">
-                    <li>
-                      通知を受け取るには、アプリ（PWA）がバックグラウンドで動作している必要があります。
-                    </li>
-                    <li>
-                      アプリを完全に終了した場合や、端末の省電力モードが強く働いている場合は、通知が届きません。
-                    </li>
-                  </ul>
-                  <strong className="mt-2 block">
-                    プッシュ通知 (高信頼性) の場合:
-                  </strong>
-                  <ul className="list-disc list-inside ml-2">
-                    <li>
-                      アプリを閉じていても通知が届きますが、OSの省電力設定などの影響を受ける場合があります。
-                    </li>
-                    <li>
-                      GitHub
-                      Actionsの実行タイミングにより、通知には数十分から数時間の遅延が生じる可能性があります。
-                    </li>
-                  </ul>
-                  <strong className="mt-2 block">推奨事項:</strong>
-                  <ul className="list-disc list-inside ml-2">
-                    <li>
-                      いずれの通知方法でも、PWAとしてインストールしてご利用いただくことを強く推奨します。
-                    </li>
-                  </ul>
-                </div>
+                <strong className="mt-2 block text-gray-600 dark:text-gray-400">
+                  推奨事項:
+                </strong>
+                <ul className="list-disc list-inside ml-2 text-gray-600 dark:text-gray-400">
+                  <li>
+                    PWAとしてインストールしてご利用いただくことを強く推奨します。
+                  </li>
+                  <li>
+                    GitHub
+                    Actionsの実行タイミングにより、通知には数分から数時間の遅延が生じる可能性があります。
+                  </li>
+                </ul>
               </div>
             </div>
 

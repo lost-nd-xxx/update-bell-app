@@ -87,8 +87,7 @@ Thumbs.db
 
 # ===== デバッグ関係 =====
 # mkcertで生成されるローカルHTTPS証明書ファイル
-localhost.pem
-localhost-key.pem
+*.pem
 
 # ===== クラウドプラットフォーム関連 =====
 # Vercel CLI の設定やキャッシュ
@@ -99,3 +98,9 @@ localhost-key.pem
 # ===== Gemini エージェント関連 =====
 # Gemini エージェントの作業ディレクトリ
 .gemini/
+
+.vercel
+.env*.local
+
+.vercel
+.env*.local

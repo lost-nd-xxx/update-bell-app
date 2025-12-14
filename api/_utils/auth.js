@@ -2,6 +2,8 @@
 import { kv } from "@vercel/kv";
 import crypto from "crypto";
 
+const getKvKey = (key) => `${process.env.KV_PREFIX || ""}${key}`;
+
 /**
  * リクエストの署名を検証します。
  *
@@ -73,7 +75,7 @@ export async function verifySignature(request, requestBody) {
     const message = `${timestamp}.${bodyString}`;
 
     // KVからユーザーの公開鍵を取得
-    const userPublicKeyKey = `user:${userId}:public_key`;
+    const userPublicKeyKey = getKvKey(`user:${userId}:public_key`);
     let storedPublicKey = await kv.get(userPublicKeyKey);
     const providedPublicKey = JSON.parse(publicKeyStr);
 

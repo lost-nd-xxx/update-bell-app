@@ -3,6 +3,8 @@ import { kv } from "@vercel/kv";
 import { checkRateLimit } from "./_utils/ratelimit.js";
 import { verifySignature } from "./_utils/auth.js";
 
+const getKvKey = (key) => `${process.env.KV_PREFIX || ""}${key}`;
+
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     return response.status(405).send("Method Not Allowed");
@@ -34,7 +36,7 @@ export default async function handler(request, response) {
 
     console.log(`[API] Starting to delete all data for userId: ${userId}`);
 
-    const userReminderKeysKey = `user:${userId}:reminder_keys`;
+    const userReminderKeysKey = getKvKey(`user:${userId}:reminder_keys`);
     const reminderKeys = await kv.smembers(userReminderKeysKey);
 
     if (reminderKeys.length === 0) {
@@ -42,7 +44,7 @@ export default async function handler(request, response) {
         `[API] No reminder keys found for user ${userId}. Deleting subscription if it exists.`,
       );
       // サブスクリプションだけでも削除を試みる
-      const subscriptionKey = `user:${userId}:subscriptions`;
+      const subscriptionKey = getKvKey(`user:${userId}:subscriptions`);
       await kv.del(subscriptionKey);
 
       return response
@@ -53,7 +55,7 @@ export default async function handler(request, response) {
     const multi = kv.multi();
 
     // reminders_by_time sorted set からリマインダーを削除
-    multi.zrem("reminders_by_time", ...reminderKeys);
+    multi.zrem(getKvKey("reminders_by_time"), ...reminderKeys);
 
     // 各リマインダーのハッシュデータを削除
     multi.del(...reminderKeys);
@@ -62,7 +64,7 @@ export default async function handler(request, response) {
     multi.del(userReminderKeysKey);
 
     // ユーザーのサブスクリプション情報も削除
-    const subscriptionKey = `user:${userId}:subscriptions`;
+    const subscriptionKey = getKvKey(`user:${userId}:subscriptions`);
     multi.del(subscriptionKey);
 
     await multi.exec();

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { Reminder, AppState, GroupByType } from "./types";
-import { getErrorMessage, generateId } from "./utils/helpers"; // generateIdを追加
+import { getErrorMessage } from "./utils/helpers";
 import { useReminders } from "./hooks/useReminders";
 import { useSettings } from "./hooks/useSettings";
 import { useTheme } from "./hooks/useTheme";
 import { useTimezone } from "./hooks/useTimezone";
-import { useUserId } from "./contexts/UserIdContext";
+// import { useUserId } from "./contexts/UserIdContext"; // userIdはuseReminders内部で取得されるため、ここでは不要に
 import { useToastContext } from "./contexts/ToastProvider";
 
 import Dashboard from "./components/Dashboard";
@@ -25,10 +25,11 @@ declare global {
 }
 
 const App: React.FC = () => {
-  const { addToast } = useToastContext(); // ここに移動
+  const { addToast } = useToastContext();
   const { settings, updateSettings, importSettings } = useSettings(addToast);
-  const { userId } = useUserId();
+  // const { userId } = useUserId(); // userIdはuseReminders内部で取得されるため、ここでは不要
 
+  // useRemindersフックの呼び出しから userId 引数を削除
   const {
     reminders,
     addReminder,
@@ -37,7 +38,7 @@ const App: React.FC = () => {
     processingIds,
     overwriteReminders,
     syncRemindersToServer,
-  } = useReminders(settings, userId, addToast);
+  } = useReminders(settings, addToast);
 
   const [theme, setTheme] = useTheme();
   const { timezoneChanged, handleTimezoneChange, dismissTimezoneChange } =
@@ -55,12 +56,9 @@ const App: React.FC = () => {
       field: "lastNotified",
       order: "desc",
     },
-    groupBy: "none", // 追加
+    groupBy: "none",
     isLoading: false,
-    // error: null, // error state はもうApp.tsxで直接管理しない
   });
-
-  // 通知スケジューリング関連のロジックは useReminders フックに移動したため削除
 
   useEffect(() => {
     // このuseEffectは、Service Workerからの `NOTIFICATION_EXECUTED` メッセージをリッスンするために残します
@@ -101,7 +99,6 @@ const App: React.FC = () => {
   };
 
   const handleReminderSave = async (
-    // async を追加
     reminderData: Omit<Reminder, "id" | "createdAt" | "timezone">,
   ) => {
     console.log("handleReminderSave called", reminderData);
@@ -148,33 +145,33 @@ const App: React.FC = () => {
   const handleImportReminders = async (
     importedReminders: Reminder[],
   ): Promise<{ added: number; updated: number }> => {
-    // ... (既存のコード)
-    const newReminders: Reminder[] = [...reminders];
+    const currentRemindersMap = new Map(reminders.map((r) => [r.id, r]));
     let addedCount = 0;
     let updatedCount = 0;
 
-    importedReminders.forEach((imported) => {
-      // 常に新しいIDを割り当てる
-      const newId = generateId();
-      const reminderWithNewId = { ...imported, id: newId };
+    const finalReminders: Reminder[] = [];
 
-      const existingIndex = newReminders.findIndex(
-        (r) => r.id === reminderWithNewId.id,
-      ); // このfindIndexは常に-1になる
-      if (existingIndex !== -1) {
-        // 基本的にはここには来ないが、念のため残す
-        newReminders[existingIndex] = {
-          ...newReminders[existingIndex],
-          ...reminderWithNewId,
-        };
+    importedReminders.forEach((imported) => {
+      if (currentRemindersMap.has(imported.id)) {
+        // 既存のリマインダーがあれば更新
+        finalReminders.push({
+          ...currentRemindersMap.get(imported.id),
+          ...imported,
+        });
         updatedCount++;
       } else {
-        newReminders.push(reminderWithNewId);
+        // なければ追加
+        finalReminders.push(imported);
         addedCount++;
       }
+      currentRemindersMap.delete(imported.id); // 処理済みのものをマップから削除
     });
 
-    overwriteReminders(newReminders);
+    // まだマップに残っているものは、インポートに含まれていない既存のリマインダーなのでそのまま残す
+    currentRemindersMap.forEach((r) => finalReminders.push(r));
+
+    // overwriteRemindersを使ってリストを一括更新
+    overwriteReminders(finalReminders);
 
     return { added: addedCount, updated: updatedCount };
   };
@@ -195,7 +192,7 @@ const App: React.FC = () => {
             : handleViewChange("settings")
         }
         onTitleClick={handleTitleClick}
-        notificationsEnabled={settings.notifications.enabled}
+        notificationsEnabled={settings.notifications.enabled} // notifications.enabledは常にtrueになる想定
         isSettingsView={appState.currentView === "settings"}
       />
 
@@ -215,11 +212,11 @@ const App: React.FC = () => {
             reminders={reminders}
             filter={appState.filter}
             sort={appState.sort}
-            groupBy={appState.groupBy} // 追加
+            groupBy={appState.groupBy}
             processingIds={processingIds}
             onFilterChange={handleFilterChange}
             onSortChange={handleSortChange}
-            onGroupByChange={handleGroupByChange} // 追加
+            onGroupByChange={handleGroupByChange}
             onEdit={(reminder) => handleViewChange("create", reminder)}
             onDelete={async (id) => {
               try {

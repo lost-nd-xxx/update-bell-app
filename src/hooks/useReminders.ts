@@ -1,31 +1,20 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react"; // useMemo を追加
+import { useState, useEffect, useMemo } from "react";
 import { Reminder, AppSettings } from "../types";
-import { useUserId } from "../contexts/UserIdContext"; // useUserIdをインポート
+import { useUserId } from "../contexts/UserIdContext";
 import {
   generateId,
   isReminder,
-  calculateNextScheduledNotification,
-  debounce,
   getErrorMessage,
-  calculateNextNotificationTime, // 追加
+  calculateNextNotificationTime,
 } from "../utils/helpers";
 import { ToastType } from "../components/ToastMessage";
 
+// userId引数は削除し、内部でuseUserIdから取得します
 export const useReminders = (
-  settings: AppSettings,
-  // userId引数は削除し、内部でuseUserIdを使う方が依存関係が綺麗だが、
-  // 既存コードの互換性のため残すか？ -> 元のコードでは引数でuserIdを受け取っていたが、
-  // App.tsxでuseUserIdの結果を渡していた。
-  // ここではuseUserIdを内部で呼び出す形に変えるのがベストだが、引数を変えるとApp.tsxも修正必要。
-  // 今回はApp.tsxでの呼び出し元も修正する方針で進めるか、
-  // あるいはApp.tsxからgetAuthHeadersも渡してもらうか。
-  // -> useUserIdをhooks内で呼ぶのがReact流儀。
-  // ただし、カスタムフックの引数として渡されているuserIdを使っている箇所がある。
-  // 引数のuserIdはnullの可能性もある。
-  userId: string | null, // 引数は残すが、認証にはContextから取得したものを使う
+  _settings: AppSettings, // 互換性のため残すが、内部では使用しない
   addToast: (message: string, type?: ToastType, duration?: number) => void,
 ) => {
-  const { getAuthHeaders } = useUserId(); // ここで取得
+  const { userId, getAuthHeaders } = useUserId();
 
   const [rawReminders, setRawReminders] = useState<Reminder[]>(() => {
     const saved = localStorage.getItem("update-bell-data");
@@ -33,9 +22,9 @@ export const useReminders = (
       try {
         const parsed = JSON.parse(saved);
         return Array.isArray(parsed) ? parsed.filter(isReminder) : [];
-      } catch (_error) {
+      } catch (error) {
         addToast(
-          `リマインダーデータの読み込みに失敗しました: ${getErrorMessage(_error)}`,
+          `リマインダーデータの読み込みに失敗しました: ${getErrorMessage(error)}`,
           "error",
         );
         return [];
@@ -43,14 +32,10 @@ export const useReminders = (
     }
     return [];
   });
+
   const [processingIds, setProcessingIds] = useState<
     Record<string, "deleting" | "saving">
   >({});
-
-  const userIdRef = useRef(userId);
-  useEffect(() => {
-    userIdRef.current = userId;
-  }, [userId]);
 
   // rawReminders が更新されるたびに nextNotificationTime を計算し、reminders を生成
   const reminders = useMemo(() => {
@@ -67,40 +52,6 @@ export const useReminders = (
     localStorage.setItem("update-bell-data", JSON.stringify(rawReminders));
   }, [rawReminders]);
 
-  const scheduleLocalNotification = useCallback(() => {
-    if (
-      !("serviceWorker" in navigator) ||
-      !navigator.serviceWorker.controller
-    ) {
-      return;
-    }
-    // nextNotificationTime が計算済みのため、それを直接利用
-    const activeRemindersWithNextTime = reminders.filter(
-      (r) => !r.isPaused && r.nextNotificationTime,
-    ) as (Reminder & { nextNotificationTime: Date })[];
-
-    const nextNotification = calculateNextScheduledNotification(
-      activeRemindersWithNextTime,
-    );
-
-    if (nextNotification) {
-      navigator.serviceWorker.controller.postMessage({
-        type: "SCHEDULE_NEXT_REMINDER",
-        payload: nextNotification,
-      });
-    } else {
-      navigator.serviceWorker.controller.postMessage({
-        type: "CANCEL_ALL_REMINDERS",
-      });
-    }
-  }, [reminders]);
-
-  const debouncedLocalScheduler = useRef(
-    debounce((..._args: unknown[]) => {
-      scheduleLocalNotification();
-    }, 200),
-  ).current;
-
   const addReminder = async (
     reminderData: Omit<Reminder, "id" | "createdAt" | "timezone">,
   ) => {
@@ -115,28 +66,38 @@ export const useReminders = (
         isPaused: reminderData.isPaused || false,
       };
 
+      // Optimistic Update
       const nextRawReminders = [...rawReminders, newReminder];
       setRawReminders(nextRawReminders);
 
-      if (settings.notifications.method === "push") {
-        console.log(
-          "[useReminders] Push method detected. Syncing with server...",
-        );
-        await syncRemindersToServer(nextRawReminders);
-      } else {
-        console.log(
-          "[useReminders] Local method detected. Skipping server sync.",
-          "Current method:",
-          settings.notifications.method,
-        );
+      if (userId) {
+        const requestBody = { userId, reminder: newReminder };
+        const authHeaders = await getAuthHeaders(requestBody);
+
+        const response = await fetch("/api/reminders", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(authHeaders as Record<string, string>),
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to save to server");
+        }
       }
 
       return newReminder;
     } catch (error) {
-      // If the error occurred during sync, we need to rollback the optimistic update
-      setRawReminders(rawReminders);
-      addToast(`リマインダーの追加に失敗: ${getErrorMessage(error)}`, "error");
-      return null;
+      setRawReminders(rawReminders); // Rollback
+      // トーストは呼び出し元(App.tsx)で出すか、ここで出すか。二重に出ないように注意。
+      // App.tsxでは catch ブロックで `addToast` している。
+      // ここで throw すると App.tsx の catch に行く。
+      // ここでの addToast は削除し、エラーを throw して App.tsx に任せるのが筋だが、
+      // Rollback はここで行う必要がある。
+      // エラーメッセージの詳細を含めて throw する。
+      throw error;
     } finally {
       setProcessingIds((prev) => {
         const newIds = { ...prev };
@@ -150,32 +111,32 @@ export const useReminders = (
     setProcessingIds((prev) => ({ ...prev, [id]: "saving" }));
     try {
       const originalReminder = rawReminders.find((r) => r.id === id);
-      if (!originalReminder)
-        throw new Error("対象のリマインダーが見つかりません。");
+      if (!originalReminder) throw new Error("Not found");
 
       const updatedReminder = { ...originalReminder, ...updates };
-
       const nextRawReminders = rawReminders.map((r) =>
         r.id === id ? updatedReminder : r,
       );
       setRawReminders(nextRawReminders);
 
-      if (settings.notifications.method === "push") {
-        console.log(
-          "[useReminders] Push method detected. Syncing with server...",
-        );
-        await syncRemindersToServer(nextRawReminders);
-      } else {
-        console.log(
-          "[useReminders] Local method detected. Skipping server sync.",
-          "Current method:",
-          settings.notifications.method,
-        );
+      if (userId) {
+        const requestBody = { userId, reminder: updatedReminder };
+        const authHeaders = await getAuthHeaders(requestBody);
+
+        const response = await fetch("/api/reminders", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(authHeaders as Record<string, string>),
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) throw new Error("Failed to update on server");
       }
     } catch (error) {
-      // If the error occurred during sync, we need to rollback the optimistic update
-      setRawReminders(rawReminders);
-      addToast(`リマインダーの更新に失敗: ${getErrorMessage(error)}`, "error");
+      setRawReminders(rawReminders); // Rollback
+      throw error;
     } finally {
       setProcessingIds((prev) => {
         const newIds = { ...prev };
@@ -187,23 +148,17 @@ export const useReminders = (
 
   const deleteReminder = async (id: string) => {
     setProcessingIds((prev) => ({ ...prev, [id]: "deleting" }));
+    const prevReminders = [...rawReminders];
     try {
-      if (
-        settings.notifications.method === "local" &&
-        navigator.serviceWorker.controller
-      ) {
-        navigator.serviceWorker.controller.postMessage({
-          type: "CANCEL_ALL_REMINDERS",
-        });
-      }
+      // Optimistic Update
+      setRawReminders((prev) => prev.filter((r) => r.id !== id));
 
-      const currentUserId = userIdRef.current;
-      if (settings.notifications.method === "push" && currentUserId) {
-        const requestBody = { userId: currentUserId, reminderId: id };
+      if (userId) {
+        const requestBody = { userId, reminderId: id };
         const authHeaders = await getAuthHeaders(requestBody);
 
-        const response = await fetch("/api/delete-reminder", {
-          method: "POST",
+        const response = await fetch("/api/reminders", {
+          method: "DELETE",
           headers: {
             "Content-Type": "application/json",
             ...(authHeaders as Record<string, string>),
@@ -211,26 +166,14 @@ export const useReminders = (
           body: JSON.stringify(requestBody),
         });
 
-        if (response.status === 429) {
-          throw new Error(
-            "短時間に多くの操作が行われました。しばらく時間をおいてからお試しください。",
-          );
-        }
-
         if (!response.ok) {
-          const errorData = await response
-            .json()
-            .catch(() => ({ message: "不明なエラー" }));
-          throw new Error(
-            `サーバー上のリマインダー削除に失敗しました (Status: ${response.status}): ${errorData.message || errorData.error}`,
-          );
+          throw new Error("Failed to delete from server");
         }
       }
-
-      setRawReminders((prev) => prev.filter((reminder) => reminder.id !== id));
       addToast("リマインダーを削除しました。", "success");
     } catch (error) {
-      addToast(`リマインダーの削除に失敗: ${getErrorMessage(error)}`, "error");
+      setRawReminders(prevReminders); // Rollback
+      throw error;
     } finally {
       setProcessingIds((prev) => {
         const newIds = { ...prev };
@@ -240,87 +183,25 @@ export const useReminders = (
     }
   };
 
-  useEffect(() => {
-    if (settings.notifications.method === "local") {
-      debouncedLocalScheduler();
-    }
-  }, [reminders, settings.notifications.method, debouncedLocalScheduler]);
-
-  const getReminder = (id: string): Reminder | undefined => {
-    return reminders.find((r) => r.id === id);
-  };
-
-  const getActiveReminders = (): Reminder[] => {
-    return reminders.filter((r) => !r.isPaused);
-  };
-
-  const getPausedReminders = (): Reminder[] => {
-    return reminders.filter((r) => r.isPaused);
-  };
-
-  const getAllTags = (): string[] => {
-    const tags = new Set<string>();
-    reminders.forEach((reminder) => {
-      reminder.tags.forEach((tag) => tags.add(tag));
-    });
-    return Array.from(tags).sort();
-  };
-
-  const getRemindersByTag = (tag: string): Reminder[] => {
-    return reminders.filter((r) => r.tags.includes(tag));
-  };
-
-  const searchReminders = (query: string): Reminder[] => {
-    const lowercaseQuery = query.toLowerCase();
-    return reminders.filter(
-      (reminder) =>
-        reminder.title.toLowerCase().includes(lowercaseQuery) ||
-        reminder.url.toLowerCase().includes(lowercaseQuery) ||
-        reminder.tags.some((tag) => tag.toLowerCase().includes(lowercaseQuery)),
-    );
-  };
-
-  const getStats = () => {
-    return {
-      total: reminders.length,
-      active: getActiveReminders().length,
-      paused: getPausedReminders().length,
-      withNotifications: reminders.filter((r) => r.lastNotified).length,
-      totalTags: getAllTags().length,
-    };
-  };
-
   const syncRemindersToServer = async (remindersToSync?: Reminder[]) => {
-    const currentUserId = userIdRef.current;
-    if (!currentUserId) {
-      throw new Error("ユーザーIDが利用できません。");
-    }
+    if (!userId) return; // 認証なしなら何もしない（ローカルのみ）
 
     setProcessingIds((prev) => ({ ...prev, bulk_sync: "saving" }));
-
     try {
-      const remindersToProcess = remindersToSync || reminders;
-
-      if (remindersToProcess.length === 0) {
-        return;
-      }
-
-      const remindersToProcessForServer = (remindersToSync || reminders).map(
-        (rem) => {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { tags: _tags, ...rest } = rem;
-          return rest;
-        },
-      );
+      const remindersToProcess = remindersToSync || rawReminders;
+      // Note: We strip 'tags' logic inside the component usually, but here we send full object.
+      // The API validates.
 
       const requestBody = {
-        userId: currentUserId,
-        reminders: remindersToProcessForServer,
+        userId,
+        reminders: remindersToProcess,
+        sync: true, // Flag for batch sync
       };
+
       const authHeaders = await getAuthHeaders(requestBody);
 
-      const response = await fetch("/api/bulk-sync-reminders", {
-        method: "POST",
+      const response = await fetch("/api/reminders", {
+        method: "PUT", // Batch sync uses PUT
         headers: {
           "Content-Type": "application/json",
           ...(authHeaders as Record<string, string>),
@@ -329,19 +210,12 @@ export const useReminders = (
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        if (response.status === 429) {
-          throw new Error(
-            "短時間に多くの操作が行われました。しばらく時間をおいてからお試しください。",
-          );
-        }
-        throw new Error(
-          `サーバーとの同期に失敗しました: ${errorData.message || response.statusText}`,
-        );
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Sync failed");
       }
     } catch (error) {
       addToast(`同期エラー: ${getErrorMessage(error)}`, "error");
-      throw error; // エラーを再スローして呼び出し元で処理させる
+      throw error;
     } finally {
       setProcessingIds((prev) => {
         const newIds = { ...prev };
@@ -350,6 +224,37 @@ export const useReminders = (
       });
     }
   };
+
+  const getReminder = (id: string) => reminders.find((r) => r.id === id);
+  const getActiveReminders = () => reminders.filter((r) => !r.isPaused);
+  const getPausedReminders = () => reminders.filter((r) => r.isPaused);
+
+  const getAllTags = () => {
+    const tags = new Set<string>();
+    reminders.forEach((r) => r.tags.forEach((t) => tags.add(t)));
+    return Array.from(tags).sort();
+  };
+
+  const getRemindersByTag = (tag: string) =>
+    reminders.filter((r) => r.tags.includes(tag));
+
+  const searchReminders = (query: string) => {
+    const q = query.toLowerCase();
+    return reminders.filter(
+      (r) =>
+        r.title.toLowerCase().includes(q) ||
+        r.url.toLowerCase().includes(q) ||
+        r.tags.some((t) => t.toLowerCase().includes(q)),
+    );
+  };
+
+  const getStats = () => ({
+    total: reminders.length,
+    active: getActiveReminders().length,
+    paused: getPausedReminders().length,
+    withNotifications: reminders.filter((r) => r.lastNotified).length,
+    totalTags: getAllTags().length,
+  });
 
   const overwriteReminders = (newReminders: Reminder[]) => {
     setRawReminders(newReminders);

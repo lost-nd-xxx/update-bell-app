@@ -2,7 +2,8 @@
 import { kv } from "@vercel/kv";
 import { calculateNextNotificationTime } from "../_utils/notification-helpers.js";
 import { isReminder } from "../_utils/type-guards.js";
-import { webPush } from "../_utils/web-push.js"; // web-pushを別ファイルからインポート
+import { webPush } from "../_utils/web-push.js";
+import { getKvKey, parseKvKey } from "../_utils/kv-utils.js"; // KVユーティリティをインポート
 
 const RETRY_LIMIT = 3; // リトライ回数の上限
 
@@ -20,8 +21,8 @@ export default async function handler(request, response) {
   console.log(
     `[CRON] --- Notification Cron Job Start (Time: ${new Date().toISOString()}) ---`,
   );
-  const now = Date.now();
-  const sortedSetKey = "reminders_by_time";
+  const now = Date.Now();
+  const sortedSetKey = getKvKey("reminders_by_time");
 
   try {
     // 1. Sorted Setから期限切れのリマインダーキーを取得
@@ -35,10 +36,11 @@ export default async function handler(request, response) {
     }
 
     // 2. リマインダー本体とサブスクリプション情報を取得
-    const remindersData =
-      reminderKeys.length > 0 ? await kv.mget(...reminderKeys) : [];
-    const userIds = [...new Set(reminderKeys.map((key) => key.split(":")[1]))];
-    const subKeys = userIds.map((id) => `user:${id}:subscriptions`);
+    // KVから取得したキーはプレフィックス付きなので、パースしてuserIdを抽出
+    const userIds = [
+      ...new Set(reminderKeys.map((key) => parseKvKey(key).split(":")[1])),
+    ];
+    const subKeys = userIds.map((id) => getKvKey(`user:${id}:subscriptions`));
     const subsData = subKeys.length > 0 ? await kv.mget(...subKeys) : [];
 
     const subscriptions = userIds.reduce((acc, userId, index) => {
@@ -50,7 +52,8 @@ export default async function handler(request, response) {
     const remindersToProcess = reminderKeys
       .map((key, index) => {
         const data = remindersData[index];
-        const userId = key.split(":")[1];
+        // parseKvKey でプレフィックスを除去してから split する
+        const userId = parseKvKey(key).split(":")[1];
         if (!data || !isReminder(data) || !subscriptions[userId]) {
           return null;
         }
@@ -63,8 +66,8 @@ export default async function handler(request, response) {
           console.log(`[CRON] Reminder ${key} reached retry limit. Pausing.`);
           // 上限に達したものは一時停止状態に更新
           const pausedReminder = { ...data, isPaused: true };
-          kv.set(key, pausedReminder);
-          kv.zrem(sortedSetKey, key); // Sorted Setからも削除
+          updateTx.set(key, pausedReminder); // updateTx を使う
+          updateTx.zrem(sortedSetKey, key); // Sorted Setからも削除
           return null;
         }
         return { key, userId, data, subscriptions: subscriptions[userId] };
@@ -140,7 +143,7 @@ export default async function handler(request, response) {
           const newSubs = subscriptions.filter(
             (sub) => !expiredSubs.includes(sub.endpoint),
           );
-          updateTx.set(`user:${userId}:subscriptions`, newSubs);
+          updateTx.set(getKvKey(`user:${userId}:subscriptions`), newSubs);
         }
       } catch (error) {
         // --- 失敗時の処理 ---

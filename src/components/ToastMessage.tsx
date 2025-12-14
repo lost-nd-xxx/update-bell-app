@@ -35,7 +35,7 @@ const ToastMessage: React.FC<ToastMessageProps> = ({
       IconComponent = Info;
       break;
     case "warning":
-      typeClasses = "bg-yellow-500 text-white";
+      typeClasses = "bg-yellow-500 text-gray-900"; // 修正: 白文字だと読みにくいため濃い灰色に変更
       IconComponent = AlertTriangle;
       break;
     default:
