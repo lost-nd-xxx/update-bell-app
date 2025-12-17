@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { Reminder, AppState, GroupByType } from "./types";
-import { getErrorMessage } from "./utils/helpers";
+import { getErrorMessage, generateId } from "./utils/helpers";
 import { useReminders } from "./hooks/useReminders";
 import { useSettings } from "./hooks/useSettings";
 import { useTheme } from "./hooks/useTheme";
 import { useTimezone } from "./hooks/useTimezone";
+import { usePushNotifications } from "./hooks/usePushNotifications";
 // import { useUserId } from "./contexts/UserIdContext"; // userIdはuseReminders内部で取得されるため、ここでは不要に
 import { useToastContext } from "./contexts/ToastProvider";
 
@@ -43,6 +44,9 @@ const App: React.FC = () => {
   const [theme, setTheme] = useTheme();
   const { timezoneChanged, handleTimezoneChange, dismissTimezoneChange } =
     useTimezone(reminders, updateReminder, addToast);
+
+  // プッシュ通知購読状態を管理
+  const { subscription } = usePushNotifications(addToast);
 
   const [appState, setAppState] = useState<AppState>({
     currentView: "dashboard",
@@ -85,6 +89,22 @@ const App: React.FC = () => {
     view: AppState["currentView"],
     editingReminder?: Reminder,
   ) => {
+    // リマインダー作成画面への遷移時にプッシュ通知購読をチェック
+    if (view === "create" && !subscription) {
+      addToast(
+        "リマインダーを作成するには、プッシュ通知の購読が必要です。設定画面から「通知をテスト」をクリックしてプッシュ通知を有効にしてください。",
+        "error",
+        8000,
+      );
+      // 設定画面へ遷移
+      setAppState((prev) => ({
+        ...prev,
+        currentView: "settings",
+        editingReminder: null,
+      }));
+      return;
+    }
+
     setAppState((prev) => ({
       ...prev,
       currentView: view,
@@ -145,35 +165,55 @@ const App: React.FC = () => {
   const handleImportReminders = async (
     importedReminders: Reminder[],
   ): Promise<{ added: number; updated: number }> => {
-    const currentRemindersMap = new Map(reminders.map((r) => [r.id, r]));
     let addedCount = 0;
-    let updatedCount = 0;
+    let skippedCount = 0;
 
-    const finalReminders: Reminder[] = [];
+    // 重複チェック関数: タイトル、URL、スケジュールが完全一致する場合は重複とみなす
+    const isDuplicate = (existing: Reminder, imported: Reminder): boolean => {
+      return (
+        existing.title === imported.title &&
+        existing.url === imported.url &&
+        JSON.stringify(existing.schedule) === JSON.stringify(imported.schedule)
+      );
+    };
+
+    const newReminders: Reminder[] = [];
 
     importedReminders.forEach((imported) => {
-      if (currentRemindersMap.has(imported.id)) {
-        // 既存のリマインダーがあれば更新
-        finalReminders.push({
-          ...currentRemindersMap.get(imported.id),
+      // 既存のリマインダーと重複チェック
+      const hasDuplicate = reminders.some((existing) =>
+        isDuplicate(existing, imported),
+      );
+
+      if (!hasDuplicate) {
+        // 重複していなければ、新しいIDを割り当てて追加
+        newReminders.push({
           ...imported,
+          id: generateId(), // 新しいIDを生成
+          lastNotified: null, // 通知履歴はリセット
+          status: "pending" as const, // ステータスもリセット
         });
-        updatedCount++;
-      } else {
-        // なければ追加
-        finalReminders.push(imported);
         addedCount++;
+      } else {
+        skippedCount++;
       }
-      currentRemindersMap.delete(imported.id); // 処理済みのものをマップから削除
     });
 
-    // まだマップに残っているものは、インポートに含まれていない既存のリマインダーなのでそのまま残す
-    currentRemindersMap.forEach((r) => finalReminders.push(r));
+    // 既存のリマインダーに追加
+    const finalReminders: Reminder[] = [...reminders, ...newReminders];
 
     // overwriteRemindersを使ってリストを一括更新
     overwriteReminders(finalReminders);
 
-    return { added: addedCount, updated: updatedCount };
+    // スキップされた重複がある場合は通知
+    if (skippedCount > 0) {
+      addToast(
+        `${skippedCount}件の重複するリマインダーはスキップされました。`,
+        "info",
+      );
+    }
+
+    return { added: addedCount, updated: 0 };
   };
 
   const handleGroupByChange = (groupBy: GroupByType) => {
@@ -238,6 +278,7 @@ const App: React.FC = () => {
             notificationPermission={settings.notifications.permission}
             onNavigateToSettings={() => handleViewChange("settings")}
             onClearAllTags={handleClearAllTags}
+            isPushSubscribed={!!subscription}
           />
         )}
 

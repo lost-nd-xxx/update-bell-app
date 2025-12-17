@@ -1,9 +1,10 @@
 // update-bell-app/api/track-access.js
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
 import { verifySignature } from "./_utils/auth.js";
 import { checkRateLimit } from "./_utils/ratelimit.js";
+import { getKvKey } from "./_utils/kv-utils.js";
 
-const getKvKey = (key) => `${process.env.KV_PREFIX || ""}${key}`;
+const kv = Redis.fromEnv();
 
 export default async function handler(request, response) {
   if (request.method !== "POST") {

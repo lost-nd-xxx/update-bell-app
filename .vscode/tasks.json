@@ -10,7 +10,7 @@
       "presentation": {
         "echo": true,
         "reveal": "always",
-        "focus": false,
+        "focus": true,
         "panel": "shared",
         "showReuseMessage": false
       },
@@ -18,18 +18,48 @@
       "detail": "型チェック + ESLint自動修正 + Prettier を一括実行"
     },
     {
-      "label": "開発サーバー起動",
+      "label": "ローカルAPIサーバー起動",
       "type": "shell",
       "command": "npm",
-      "args": ["run", "dev"],
-      "group": "build",
+      "args": ["run", "dev:api"],
+      "isBackground": true,
       "presentation": {
         "echo": true,
         "reveal": "always",
         "focus": false,
-        "panel": "dedicated"
+        "panel": "dedicated",
+        "group": "dev-servers"
       },
-      "detail": "Vite開発サーバーを起動"
+      "problemMatcher": [],
+      "detail": "ローカルAPIサーバー (Express) を起動",
+      "hide": true
+    },
+    {
+      "label": "Vite開発サーバー起動 (vercel-devモード)",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev:vercel"],
+      "isBackground": true,
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "group": "dev-servers"
+      },
+      "problemMatcher": [],
+      "detail": "Viteをvercel-devモードで起動し、ローカルAPIにプロキシ",
+      "hide": true
+    },
+    {
+      "label": "ローカル開発環境起動 (API + Vite)",
+      "dependsOn": [
+        "ローカルAPIサーバー起動",
+        "Vite開発サーバー起動 (vercel-devモード)"
+      ],
+      "dependsOrder": "parallel",
+      "problemMatcher": [],
+      "detail": "ローカルAPIサーバーとViteを同時起動"
     },
     {
       "label": "本番ビルド",
@@ -42,7 +72,7 @@
       "presentation": {
         "echo": true,
         "reveal": "always",
-        "focus": false,
+        "focus": true,
         "panel": "shared",
         "showReuseMessage": false
       },
@@ -58,12 +88,12 @@
       "presentation": {
         "echo": true,
         "reveal": "always",
-        "focus": false,
+        "focus": true,
         "panel": "shared",
         "showReuseMessage": false
       },
       "problemMatcher": [],
-      "detail": "サードパーティライセンスファイルを生成と更新"
+      "detail": "サードパーティライセンスファイルを生成・更新"
     }
   ]
 }

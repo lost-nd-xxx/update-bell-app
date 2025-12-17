@@ -1,14 +1,23 @@
 // update-bell-app/api/cron/delete-inactive-users.js
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
+import { getKvKey, parseKvKey } from "../_utils/kv-utils.js";
+import crypto from "crypto";
+
+const kv = Redis.fromEnv();
 
 const SIX_MONTHS_IN_MS = 182.5 * 24 * 60 * 60 * 1000;
-const CRON_LAST_ACCESS_SCAN_CURSOR_KEY =
-  "cron_delete_inactive_users_last_access_scan_cursor";
-const CRON_REMINDER_SCAN_CURSOR_KEY =
-  "cron_delete_inactive_users_reminder_scan_cursor";
-const TEMP_ALL_USER_IDS_KEY = "cron_delete_inactive_users_temp_all_user_ids";
-const TEMP_USERS_WITH_ACCESS_RECORD_KEY =
-  "cron_delete_inactive_users_temp_users_with_access_record";
+const CRON_LAST_ACCESS_SCAN_CURSOR_KEY = getKvKey(
+  "cron_delete_inactive_users_last_access_scan_cursor",
+);
+const CRON_REMINDER_SCAN_CURSOR_KEY = getKvKey(
+  "cron_delete_inactive_users_reminder_scan_cursor",
+);
+const TEMP_ALL_USER_IDS_KEY = getKvKey(
+  "cron_delete_inactive_users_temp_all_user_ids",
+);
+const TEMP_USERS_WITH_ACCESS_RECORD_KEY = getKvKey(
+  "cron_delete_inactive_users_temp_users_with_access_record",
+);
 const SCAN_COUNT = 100; // 一度にスキャンするキーの数
 
 /**
@@ -28,7 +37,9 @@ async function scanKeysAndStoreUserIds(
   scanCount,
 ) {
   let cursor = await kv.get(cursorKey);
-  cursor = typeof cursor === "number" ? cursor : 0;
+  // @upstash/redis の scan カーソルは文字列だが、初期値は 0 (数値または文字列) で扱える
+  // ただし、レスポンスのカーソルは文字列 "0" で終了を示す
+  cursor = cursor === null ? 0 : cursor;
 
   console.log(
     `[CRON-DELETE][SCAN] Starting scan for ${matchPattern} from cursor: ${cursor}`,
@@ -40,7 +51,9 @@ async function scanKeysAndStoreUserIds(
   });
 
   if (keys.length > 0) {
-    const userIds = keys.map((key) => key.split(":")[1]).filter(Boolean); // userIdを抽出
+    const userIds = keys
+      .map((key) => parseKvKey(key).split(":")[1])
+      .filter(Boolean); // userIdを抽出
     if (userIds.length > 0) {
       await kv.sadd(tempSetKey, ...userIds); // 一時セットにuserIdを追加
     }
@@ -48,7 +61,8 @@ async function scanKeysAndStoreUserIds(
 
   await kv.set(cursorKey, nextCursor); // 次回のためにカーソルを保存
 
-  const scanComplete = nextCursor === 0;
+  // @upstash/redis では nextCursor は文字列の "0" で終了
+  const scanComplete = nextCursor === "0" || nextCursor === 0;
   console.log(
     `[CRON-DELETE][SCAN] Scanned ${keys.length} keys for ${matchPattern}. Next cursor: ${nextCursor}. Complete: ${scanComplete}`,
   );
@@ -56,13 +70,29 @@ async function scanKeysAndStoreUserIds(
 }
 
 export default async function handler(request, response) {
-  // Vercel Cronからのリクエストか、適切なBearerトークンを持つリクエストかを認証
-  if (
-    process.env.CRON_SECRET &&
-    request.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
-    console.warn("[CRON-DELETE] Unauthorized access attempt.");
-    return response.status(401).json({ error: "Unauthorized" });
+  // 定数時間比較でタイミング攻撃を防ぐ
+  if (process.env.CRON_SECRET) {
+    const authHeader = request.headers.authorization || "";
+    const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
+
+    try {
+      const authBuffer = Buffer.from(authHeader, "utf8");
+      const expectedBuffer = Buffer.from(expectedAuth, "utf8");
+
+      // 長さが異なる場合は比較できないので拒否
+      if (authBuffer.length !== expectedBuffer.length) {
+        console.warn("[CRON-DELETE] Unauthorized access attempt.");
+        return response.status(401).json({ error: "Unauthorized" });
+      }
+
+      if (!crypto.timingSafeEqual(authBuffer, expectedBuffer)) {
+        console.warn("[CRON-DELETE] Unauthorized access attempt.");
+        return response.status(401).json({ error: "Unauthorized" });
+      }
+    } catch (error) {
+      console.warn("[CRON-DELETE] Unauthorized access attempt.");
+      return response.status(401).json({ error: "Unauthorized" });
+    }
   }
 
   console.log(
@@ -75,19 +105,21 @@ export default async function handler(request, response) {
 
     // 1. ユーザーの最終アクセス記録キーをスキャン (バッチ処理)
     let cursor = await kv.get(CRON_LAST_ACCESS_SCAN_CURSOR_KEY);
-    cursor = typeof cursor === "number" ? cursor : 0; // カーソルが存在しない場合は0
+    cursor = cursor === null ? 0 : cursor;
 
     console.log(`[CRON-DELETE] Starting scan from cursor: ${cursor}`);
 
     const [nextCursor, lastAccessKeys] = await kv.scan(cursor, {
-      match: "user_last_access:*",
+      match: getKvKey("user_last_access:*"),
       count: SCAN_COUNT,
     });
 
     // 次回のためにカーソルを保存
     await kv.set(CRON_LAST_ACCESS_SCAN_CURSOR_KEY, nextCursor);
 
-    if (lastAccessKeys.length === 0 && nextCursor === 0) {
+    const isScanFinished = nextCursor === "0" || nextCursor === 0;
+
+    if (lastAccessKeys.length === 0 && isScanFinished) {
       // スキャンが完全に終了し、新しいキーも見つからなかった場合
       await kv.del(CRON_LAST_ACCESS_SCAN_CURSOR_KEY); // カーソルをリセット
       console.log(
@@ -96,7 +128,7 @@ export default async function handler(request, response) {
       return response
         .status(200)
         .json({ message: "No user access records found and scan complete." });
-    } else if (lastAccessKeys.length === 0 && nextCursor !== 0) {
+    } else if (lastAccessKeys.length === 0 && !isScanFinished) {
       // 今回のスキャンではキーが見つからなかったが、まだスキャンが残っている場合
       console.log(
         "[CRON-DELETE] No user access records found in this batch. Continuing scan next time.",
@@ -113,7 +145,9 @@ export default async function handler(request, response) {
     );
 
     // 2. 各ユーザーの最終アクセス日時をチェック
-    const lastAccessTimestamps = await kv.mget(...lastAccessKeys);
+    // @upstash/redis の mget はキーが存在しない場合 null を返す
+    const lastAccessTimestamps =
+      lastAccessKeys.length > 0 ? await kv.mget(...lastAccessKeys) : [];
 
     for (let i = 0; i < lastAccessKeys.length; i++) {
       const key = lastAccessKeys[i];
@@ -127,7 +161,7 @@ export default async function handler(request, response) {
       }
 
       if (now - lastAccessTime > SIX_MONTHS_IN_MS) {
-        const userId = key.split(":")[1];
+        const userId = parseKvKey(key).split(":")[1];
         inactiveUserIds.push(userId);
       }
     }
@@ -146,18 +180,18 @@ export default async function handler(request, response) {
         // NOTE: ここもscanをバッチ化すべきだが、まずはユーザー削除を優先
         do {
           const [nextReminderCursor, keys] = await kv.scan(reminderCursor, {
-            match: `reminder:${userId}:*`,
+            match: getKvKey(`reminder:${userId}:*`),
             count: 1000,
           });
           reminderCursor = nextReminderCursor;
           reminderKeysToDelete.push(...keys);
-        } while (reminderCursor !== 0);
+        } while (reminderCursor !== "0" && reminderCursor !== 0);
 
         const tx = kv.multi();
 
         if (reminderKeysToDelete.length > 0) {
           // b. Sorted Setからリマインダーを削除
-          tx.zrem("reminders_by_time", ...reminderKeysToDelete);
+          tx.zrem(getKvKey("reminders_by_time"), ...reminderKeysToDelete);
 
           // c. リマインダー本体を削除
           tx.del(...reminderKeysToDelete);
@@ -167,21 +201,21 @@ export default async function handler(request, response) {
         }
 
         // d. 購読情報を削除
-        const subscriptionKey = `user:${userId}:subscriptions`;
+        const subscriptionKey = getKvKey(`user:${userId}:subscriptions`);
         tx.del(subscriptionKey);
         console.log(
           `[CRON-DELETE] Queued deletion of subscription for user ${userId}.`,
         );
 
         // e. 最終アクセス記録を削除
-        const lastAccessKey = `user_last_access:${userId}`;
+        const lastAccessKey = getKvKey(`user_last_access:${userId}`);
         tx.del(lastAccessKey);
         console.log(
           `[CRON-DELETE] Queued deletion of last access record for user ${userId}.`,
         );
 
         // f. 公開鍵を削除 (追加)
-        const publicKeyKey = `user:${userId}:public_key`;
+        const publicKeyKey = getKvKey(`user:${userId}:public_key`);
         tx.del(publicKeyKey);
         console.log(
           `[CRON-DELETE] Queued deletion of public key for user ${userId}.`,
@@ -277,7 +311,7 @@ export default async function handler(request, response) {
 
     // レスポンスのmessageとnextCursorを調整
     const isJobComplete =
-      reminderScanComplete && lastAccessScanComplete && nextCursor === 0;
+      reminderScanComplete && lastAccessScanComplete && isScanFinished;
 
     if (isJobComplete) {
       console.log(

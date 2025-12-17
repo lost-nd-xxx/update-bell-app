@@ -28,6 +28,7 @@ interface DashboardProps {
   onNavigateToSettings?: () => void;
   onClearAllTags: () => void;
   processingIds: Record<string, "deleting" | "saving">;
+  isPushSubscribed: boolean; // プッシュ通知購読状態
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -45,11 +46,15 @@ const Dashboard: React.FC<DashboardProps> = ({
   notificationPermission,
   onNavigateToSettings,
   processingIds,
+  isPushSubscribed, // プッシュ通知購読状態
 }) => {
   const [showNotificationInfo, setShowNotificationInfo] = useState(false);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set()); // 追加
   const [isTagFilterOpen, setIsTagFilterOpen] = useState(false); // タグフィルターの開閉状態
   const lastGroupByRef = useRef<GroupByType | undefined>(undefined); // groupByの以前の値を追跡
+
+  const [showPushSubscriptionInfo, setShowPushSubscriptionInfo] =
+    useState(false);
 
   useEffect(() => {
     const hasSeenInfo = localStorage.getItem(
@@ -60,9 +65,24 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   }, []);
 
+  useEffect(() => {
+    // プッシュ通知未購読かつ初回訪問時にバナーを表示
+    const hasSeenPushInfo = localStorage.getItem(
+      "update-bell-push-subscription-info-seen",
+    );
+    if (!isPushSubscribed && !hasSeenPushInfo) {
+      setShowPushSubscriptionInfo(true);
+    }
+  }, [isPushSubscribed]);
+
   const handleDismissNotificationInfo = () => {
     localStorage.setItem("update-bell-notification-info-seen", "true");
     setShowNotificationInfo(false);
+  };
+
+  const handleDismissPushSubscriptionInfo = () => {
+    localStorage.setItem("update-bell-push-subscription-info-seen", "true");
+    setShowPushSubscriptionInfo(false);
   };
 
   const filteredAndSortedReminders = useMemo(() => {
@@ -269,6 +289,38 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="max-w-2xl mx-auto">
+      {showPushSubscriptionInfo && !isPushSubscribed && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4 relative">
+          <button
+            onClick={handleDismissPushSubscriptionInfo}
+            className="absolute top-2 right-2 p-1 text-blue-600 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full border border-blue-200 dark:border-blue-800"
+            aria-label="閉じる"
+          >
+            <X size={16} />
+          </button>
+          <div className="flex items-start gap-3">
+            <Bell
+              className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5"
+              size={20}
+            />
+            <div className="text-sm flex-1">
+              <p className="font-medium text-blue-800 dark:text-blue-300 mb-1">
+                プッシュ通知の購読が必要です
+              </p>
+              <p className="text-blue-700 dark:text-blue-200 mb-3">
+                このアプリではリマインダーの通知にプッシュ通知を使用します。リマインダーを作成・編集するには、設定画面から「通知をテスト」をクリックしてプッシュ通知を有効にしてください。
+              </p>
+              <button
+                onClick={onNavigateToSettings}
+                className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 transition-colors underline"
+              >
+                設定画面へ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showNotificationInfo && reminders.length > 0 && (
         <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 relative">
           <button

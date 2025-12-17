@@ -97,12 +97,18 @@ const Settings: React.FC<SettingsProps> = ({
       ...settingsBase,
     };
 
+    // リマインダーからID、通知履歴、ステータスなどの内部状態を除外
+    const remindersToExport = reminders.map((reminder) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id, lastNotified, status, createdAt, ...reminderData } = reminder;
+      return reminderData;
+    });
+
     const data = {
       version: process.env.APP_VERSION || "1.0.0",
       exportDate: new Date().toISOString(),
-      reminders,
+      reminders: remindersToExport,
       settings: settingsToExport,
-      theme,
     };
 
     const filename = `update-bell-${
@@ -110,6 +116,28 @@ const Settings: React.FC<SettingsProps> = ({
     }.json`;
     downloadFile(JSON.stringify(data, null, 2), filename);
     addToast("データをエクスポートしました", "success");
+  };
+
+  const handleImportClick = (event: React.MouseEvent<HTMLLabelElement>) => {
+    // オフライン時はインポートを禁止
+    if (!navigator.onLine) {
+      event.preventDefault();
+      addToast(
+        "データのインポートにはオンライン接続が必要です。インターネットに接続してから再度お試しください。",
+        "error",
+      );
+      return;
+    }
+
+    // プッシュ通知未購読時はインポートを禁止
+    if (!subscription) {
+      event.preventDefault();
+      addToast(
+        "データのインポートにはプッシュ通知の購読が必要です。「通知をテスト」をクリックしてプッシュ通知を有効にしてください。",
+        "error",
+      );
+      return;
+    }
   };
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -142,12 +170,20 @@ const Settings: React.FC<SettingsProps> = ({
 
       // --- 設定のインポート (通知方法は除く) ---
       if (data.settings) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { notifications, ...otherSettings } = data.settings;
+        const {
+          notifications: _notifications,
+          theme: importedTheme,
+          ...otherSettings
+        } = data.settings;
         updateSettings(otherSettings);
+
+        // テーマのインポート
+        if (importedTheme && onImportTheme) {
+          onImportTheme(importedTheme);
+        }
       }
 
-      // --- テーマのインポート ---
+      // --- 後方互換性: 旧形式のエクスポート（トップレベルのtheme）にも対応 ---
       if (data.theme && onImportTheme) {
         onImportTheme(data.theme);
       }
@@ -544,7 +580,10 @@ const Settings: React.FC<SettingsProps> = ({
                   JSONファイルからリマインダーと設定を復元
                 </div>
               </div>
-              <label className="btn btn-secondary flex items-center justify-center gap-2 cursor-pointer text-black dark:text-white rounded-lg p-2 w-full sm:w-auto border-2 border-gray-200 dark:border-gray-600">
+              <label
+                onClick={handleImportClick}
+                className="btn btn-secondary flex items-center justify-center gap-2 cursor-pointer text-black dark:text-white rounded-lg p-2 w-full sm:w-auto border-2 border-gray-200 dark:border-gray-600"
+              >
                 <Upload size={16} />
                 {isImporting ? "インポート中..." : "インポート"}
                 <input

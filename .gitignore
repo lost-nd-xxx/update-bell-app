@@ -99,8 +99,5 @@ Thumbs.db
 # Gemini エージェントの作業ディレクトリ
 .gemini/
 
-.vercel
-.env*.local
-
-.vercel
-.env*.local
+# ===== Claude エージェント関連 =====
+CLAUDE.md

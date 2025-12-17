@@ -1,8 +1,9 @@
 // api/utils/auth.js
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
 import crypto from "crypto";
+import { getKvKey } from "./kv-utils.js";
 
-const getKvKey = (key) => `${process.env.KV_PREFIX || ""}${key}`;
+const kv = Redis.fromEnv();
 
 /**
  * リクエストの署名を検証します。
@@ -29,10 +30,29 @@ export async function verifySignature(request, requestBody) {
   }
 
   // ボディに含まれるuserIdとヘッダーのuserIdの一致確認（なりすまし防止の二重チェック）
-  const bodyUserId =
-    typeof requestBody === "string"
-      ? JSON.parse(requestBody).userId
-      : requestBody.userId;
+  let bodyUserId;
+  try {
+    bodyUserId =
+      typeof requestBody === "string"
+        ? JSON.parse(requestBody).userId
+        : requestBody.userId;
+  } catch (error) {
+    return {
+      success: false,
+      status: 400,
+      error: "Invalid JSON in request body",
+    };
+  }
+
+  // userIdの型検証
+  if (bodyUserId !== undefined && typeof bodyUserId !== "string") {
+    return {
+      success: false,
+      status: 400,
+      error: "userId must be a string",
+    };
+  }
+
   if (bodyUserId && bodyUserId !== userId) {
     return {
       success: false,
@@ -77,11 +97,85 @@ export async function verifySignature(request, requestBody) {
     // KVからユーザーの公開鍵を取得
     const userPublicKeyKey = getKvKey(`user:${userId}:public_key`);
     let storedPublicKey = await kv.get(userPublicKeyKey);
-    const providedPublicKey = JSON.parse(publicKeyStr);
+
+    // 公開鍵のJSONパースを安全に実行
+    let providedPublicKey;
+    try {
+      providedPublicKey = JSON.parse(publicKeyStr);
+
+      // 公開鍵の基本構造を検証
+      if (
+        !providedPublicKey ||
+        typeof providedPublicKey !== "object" ||
+        !providedPublicKey.kty ||
+        !providedPublicKey.crv
+      ) {
+        throw new Error("Invalid public key structure");
+      }
+    } catch (error) {
+      return {
+        success: false,
+        status: 400,
+        error: "Invalid public key format",
+      };
+    }
 
     if (!storedPublicKey) {
       // TOFU (Trust On First Use): 初回アクセス時に公開鍵を保存
-      // キーの形式バリデーションなどをここに入れるとより安全
+      // 公開鍵の詳細な検証を実施
+      try {
+        // EC鍵の場合の検証
+        if (providedPublicKey.kty === "EC") {
+          // P-256/P-384/P-521のみ許可
+          const allowedCurves = ["P-256", "P-384", "P-521"];
+          if (!allowedCurves.includes(providedPublicKey.crv)) {
+            return {
+              success: false,
+              status: 400,
+              error: "Unsupported EC curve",
+            };
+          }
+
+          // x, y座標が存在することを確認
+          if (!providedPublicKey.x || !providedPublicKey.y) {
+            return {
+              success: false,
+              status: 400,
+              error: "Invalid EC public key: missing coordinates",
+            };
+          }
+        }
+        // RSA鍵の場合の検証
+        else if (providedPublicKey.kty === "RSA") {
+          // n, eが存在することを確認
+          if (!providedPublicKey.n || !providedPublicKey.e) {
+            return {
+              success: false,
+              status: 400,
+              error: "Invalid RSA public key: missing modulus or exponent",
+            };
+          }
+        } else {
+          return {
+            success: false,
+            status: 400,
+            error: "Unsupported key type",
+          };
+        }
+
+        // crypto.createPublicKeyで実際にキーを作成してみる（検証）
+        crypto.createPublicKey({
+          key: providedPublicKey,
+          format: "jwk",
+        });
+      } catch (error) {
+        return {
+          success: false,
+          status: 400,
+          error: "Invalid public key: unable to parse",
+        };
+      }
+
       await kv.set(userPublicKeyKey, providedPublicKey);
       storedPublicKey = providedPublicKey;
     } else {

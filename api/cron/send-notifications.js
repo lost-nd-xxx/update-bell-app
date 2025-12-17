@@ -1,27 +1,44 @@
 // update-bell-app/api/cron/send-notifications.js
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
 import { calculateNextNotificationTime } from "../_utils/notification-helpers.js";
 import { isReminder } from "../_utils/type-guards.js";
 import { webPush } from "../_utils/web-push.js";
-import { getKvKey, parseKvKey } from "../_utils/kv-utils.js"; // KVユーティリティをインポート
+import { getKvKey, parseKvKey } from "../_utils/kv-utils.js";
+import crypto from "crypto";
 
-const RETRY_LIMIT = 3; // リトライ回数の上限
+const kv = Redis.fromEnv();
+const RETRY_LIMIT = 3;
 
 /**
  * Vercel Cron から呼び出されるハンドラ
  */
 export default async function handler(request, response) {
-  if (
-    process.env.CRON_SECRET &&
-    request.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
-    return response.status(401).json({ error: "Unauthorized" });
+  // 定数時間比較でタイミング攻撃を防ぐ
+  if (process.env.CRON_SECRET) {
+    const authHeader = request.headers.authorization || "";
+    const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
+
+    try {
+      const authBuffer = Buffer.from(authHeader, "utf8");
+      const expectedBuffer = Buffer.from(expectedAuth, "utf8");
+
+      // 長さが異なる場合は比較できないので拒否
+      if (authBuffer.length !== expectedBuffer.length) {
+        return response.status(401).json({ error: "Unauthorized" });
+      }
+
+      if (!crypto.timingSafeEqual(authBuffer, expectedBuffer)) {
+        return response.status(401).json({ error: "Unauthorized" });
+      }
+    } catch (error) {
+      return response.status(401).json({ error: "Unauthorized" });
+    }
   }
 
   console.log(
     `[CRON] --- Notification Cron Job Start (Time: ${new Date().toISOString()}) ---`,
   );
-  const now = Date.Now();
+  const now = Date.now();
   const sortedSetKey = getKvKey("reminders_by_time");
 
   try {
@@ -40,6 +57,11 @@ export default async function handler(request, response) {
     const userIds = [
       ...new Set(reminderKeys.map((key) => parseKvKey(key).split(":")[1])),
     ];
+
+    // リマインダーデータを取得
+    const remindersData =
+      reminderKeys.length > 0 ? await kv.mget(...reminderKeys) : [];
+
     const subKeys = userIds.map((id) => getKvKey(`user:${id}:subscriptions`));
     const subsData = subKeys.length > 0 ? await kv.mget(...subKeys) : [];
 
@@ -49,6 +71,9 @@ export default async function handler(request, response) {
     }, {});
 
     // 3. 処理対象リマインダーをフィルタリング＆整形
+    // updateTxを先に初期化
+    const updateTx = kv.multi();
+
     const remindersToProcess = reminderKeys
       .map((key, index) => {
         const data = remindersData[index];
@@ -80,8 +105,6 @@ export default async function handler(request, response) {
     }
 
     // 4. 通知送信とKVの更新
-    const updateTx = kv.multi();
-
     for (const { key, userId, data, subscriptions } of remindersToProcess) {
       const payload = JSON.stringify({
         title: data.title,

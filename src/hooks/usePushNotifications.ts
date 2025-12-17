@@ -72,7 +72,7 @@ export const usePushNotifications = (
       const body = { userId, subscription: sub };
       const authHeaders = await getAuthHeaders(body);
 
-      await fetch("/api/save-subscription", {
+      await fetch("/api/subscription", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -118,11 +118,15 @@ export const usePushNotifications = (
       await subscription.unsubscribe();
 
       // サーバーに購読解除を通知するAPIを呼ぶ
-      const body = { userId, endpoint: subscription.endpoint };
+      // DELETEメソッドだが、署名検証のためにBodyを含める
+      const body = {
+        userId,
+        subscription: { endpoint: subscription.endpoint },
+      };
       const authHeaders = await getAuthHeaders(body);
 
-      const response = await fetch("/api/delete-subscription", {
-        method: "POST",
+      const response = await fetch("/api/subscription", {
+        method: "DELETE",
         headers: {
           "Content-Type": "application/json",
           ...(authHeaders as Record<string, string>),
