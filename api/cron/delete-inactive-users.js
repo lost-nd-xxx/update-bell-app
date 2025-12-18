@@ -121,15 +121,17 @@ export default async function handler(request, response) {
 
     if (lastAccessKeys.length === 0 && isScanFinished) {
       // スキャンが完全に終了し、新しいキーも見つからなかった場合
-      // リマインダーが存在するユーザー全員に初期アクセスレコードを作成する
+      // リマインダーまたは購読情報が存在するユーザー全員に初期アクセスレコードを作成する
       await kv.del(CRON_LAST_ACCESS_SCAN_CURSOR_KEY); // カーソルをリセット
       console.log(
-        "[CRON-DELETE] No user access records found and scan complete. Creating initial access records for users with reminders.",
+        "[CRON-DELETE] No user access records found and scan complete. Creating initial access records for users with data.",
       );
 
-      // リマインダーキーをスキャンしてユーザーIDを収集
       const allUserIds = new Set();
+
+      // 1. リマインダーキーをスキャンしてユーザーIDを収集
       let reminderScanCursor = 0;
+      console.log("[CRON-DELETE] Scanning reminder keys...");
 
       do {
         const [nextReminderCursor, reminderKeys] = await kv.scan(
@@ -152,9 +154,42 @@ export default async function handler(request, response) {
         reminderScanCursor = nextReminderCursor;
       } while (reminderScanCursor !== 0 && reminderScanCursor !== "0");
 
+      console.log(
+        `[CRON-DELETE] Found ${allUserIds.size} users from reminder keys.`,
+      );
+
+      // 2. 購読情報キーをスキャンしてユーザーIDを収集
+      let subscriptionScanCursor = 0;
+      console.log("[CRON-DELETE] Scanning subscription keys...");
+
+      do {
+        const [nextSubCursor, subscriptionKeys] = await kv.scan(
+          subscriptionScanCursor,
+          {
+            match: getKvKey("user:*:subscriptions"),
+            count: SCAN_COUNT,
+          },
+        );
+
+        for (const key of subscriptionKeys) {
+          const parsed = parseKvKey(key);
+          const parts = parsed.split(":");
+          if (parts.length >= 2) {
+            const userId = parts[1];
+            allUserIds.add(userId);
+          }
+        }
+
+        subscriptionScanCursor = nextSubCursor;
+      } while (subscriptionScanCursor !== 0 && subscriptionScanCursor !== "0");
+
+      console.log(
+        `[CRON-DELETE] Total ${allUserIds.size} unique users found (reminders + subscriptions).`,
+      );
+
       if (allUserIds.size > 0) {
         console.log(
-          `[CRON-DELETE] Found ${allUserIds.size} users with reminders. Creating initial access records.`,
+          `[CRON-DELETE] Creating initial access records for ${allUserIds.size} users.`,
         );
         const creationTx = kv.multi();
         const timestamp = Date.now();
@@ -167,15 +202,12 @@ export default async function handler(request, response) {
           "[CRON-DELETE] Finished creating initial access records for all users.",
         );
         return response.status(200).json({
-          message:
-            "Initial access records created for all users with reminders.",
+          message: "Initial access records created for all users with data.",
           usersProcessed: allUserIds.size,
         });
       } else {
-        console.log("[CRON-DELETE] No users with reminders found.");
-        return response
-          .status(200)
-          .json({ message: "No users with reminders found." });
+        console.log("[CRON-DELETE] No users with data found.");
+        return response.status(200).json({ message: "No users with data found." });
       }
     } else if (lastAccessKeys.length === 0 && !isScanFinished) {
       // 今回のスキャンではキーが見つからなかったが、まだスキャンが残っている場合
