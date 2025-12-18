@@ -54,15 +54,29 @@ export default async function handler(request, response) {
 
     if (reminderKeys.length === 0) {
       console.log(
-        `[API] No reminder keys found for user ${sanitizedUserId}. Deleting subscription if it exists.`,
+        `[API] No reminder keys found for user ${sanitizedUserId}. Deleting subscription and access records if they exist.`,
       );
-      // サブスクリプションだけでも削除を試みる
-      const subscriptionKey = getKvKey(`user:${sanitizedUserId}:subscriptions`);
-      await kv.del(subscriptionKey);
+      // サブスクリプション、アクセス記録、公開鍵を削除
+      const multi = kv.multi();
 
-      return response
-        .status(200)
-        .json({ message: "No reminders to delete, subscription cleaned up." });
+      // リマインダーキーセット自体を削除
+      multi.del(userReminderKeysKey);
+
+      const subscriptionKey = getKvKey(`user:${sanitizedUserId}:subscriptions`);
+      multi.del(subscriptionKey);
+
+      const lastAccessKey = getKvKey(`user_last_access:${sanitizedUserId}`);
+      multi.del(lastAccessKey);
+
+      const publicKeyKey = getKvKey(`public_key:${sanitizedUserId}`);
+      multi.del(publicKeyKey);
+
+      await multi.exec();
+
+      return response.status(200).json({
+        message:
+          "No reminders to delete, subscription and access records cleaned up.",
+      });
     }
 
     const multi = kv.multi();
@@ -79,6 +93,14 @@ export default async function handler(request, response) {
     // ユーザーのサブスクリプション情報も削除
     const subscriptionKey = getKvKey(`user:${sanitizedUserId}:subscriptions`);
     multi.del(subscriptionKey);
+
+    // ユーザーの最終アクセス記録を削除
+    const lastAccessKey = getKvKey(`user_last_access:${sanitizedUserId}`);
+    multi.del(lastAccessKey);
+
+    // ユーザーの公開鍵を削除
+    const publicKeyKey = getKvKey(`public_key:${sanitizedUserId}`);
+    multi.del(publicKeyKey);
 
     await multi.exec();
 
