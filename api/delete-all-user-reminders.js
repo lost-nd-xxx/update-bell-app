@@ -68,7 +68,7 @@ export default async function handler(request, response) {
       const lastAccessKey = getKvKey(`user_last_access:${sanitizedUserId}`);
       multi.del(lastAccessKey);
 
-      const publicKeyKey = getKvKey(`public_key:${sanitizedUserId}`);
+      const publicKeyKey = getKvKey(`user:${sanitizedUserId}:public_key`);
       multi.del(publicKeyKey);
 
       await multi.exec();
@@ -99,7 +99,7 @@ export default async function handler(request, response) {
     multi.del(lastAccessKey);
 
     // ユーザーの公開鍵を削除
-    const publicKeyKey = getKvKey(`public_key:${sanitizedUserId}`);
+    const publicKeyKey = getKvKey(`user:${sanitizedUserId}:public_key`);
     multi.del(publicKeyKey);
 
     await multi.exec();
