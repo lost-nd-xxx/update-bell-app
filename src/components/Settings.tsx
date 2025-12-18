@@ -44,6 +44,7 @@ interface SettingsProps {
   onImportTheme?: (theme: "light" | "dark" | "system") => void;
   addToast: (message: string, type?: ToastType, duration?: number) => void;
   syncRemindersToServer: () => Promise<void>;
+  onSubscriptionSuccess?: () => void;
 }
 
 interface ExtendedNavigator extends Navigator {
@@ -61,6 +62,7 @@ const Settings: React.FC<SettingsProps> = ({
   onImportTheme,
   addToast,
   syncRemindersToServer,
+  onSubscriptionSuccess,
 }) => {
   const [isImporting, setIsImporting] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -133,7 +135,7 @@ const Settings: React.FC<SettingsProps> = ({
     if (!subscription) {
       event.preventDefault();
       addToast(
-        "データのインポートにはプッシュ通知の購読が必要です。「通知をテスト」をクリックしてプッシュ通知を有効にしてください。",
+        "データのインポートにはプッシュ通知の購読が必要です。「プッシュ通知を有効にする」をタップしてプッシュ通知を有効にしてください。",
         "error",
       );
       return;
@@ -219,20 +221,25 @@ const Settings: React.FC<SettingsProps> = ({
         // 通知許可が得られたらプッシュ通知を購読する
         setIsSyncing(true);
         try {
-          await subscribeToPushNotifications();
+          const sub = await subscribeToPushNotifications();
 
-          try {
-            await syncRemindersToServer(); // 同期も行う
-            addToast(
-              "プッシュ通知を有効にし、データを同期しました。",
-              "success",
-            );
-          } catch (syncError) {
-            console.error("Sync failed:", syncError);
-            addToast(
-              "プッシュ通知は有効になりましたが、データの同期に失敗しました。",
-              "warning",
-            );
+          if (sub) {
+            // 購読成功を親コンポーネントに通知
+            onSubscriptionSuccess?.();
+
+            try {
+              await syncRemindersToServer(); // 同期も行う
+              addToast(
+                "プッシュ通知を有効にし、データを同期しました。",
+                "success",
+              );
+            } catch (syncError) {
+              console.error("Sync failed:", syncError);
+              addToast(
+                "プッシュ通知は有効になりましたが、データの同期に失敗しました。",
+                "warning",
+              );
+            }
           }
         } catch (error) {
           addToast(
@@ -685,7 +692,7 @@ const Settings: React.FC<SettingsProps> = ({
                   <strong>データ自動削除について</strong>
                 </p>
                 <p className="mt-1 text-yellow-700 dark:text-yellow-300">
-                  最後に通知をクリックしてから半年間ご利用がない場合、リマインダーやプッシュ通知購読情報などのサーバーデータは自動的に削除されます。
+                  最後に通知をタップしてから半年間ご利用がない場合、リマインダーやプッシュ通知購読情報などのサーバーデータは自動的に削除されます。
                   詳細は
                   <a
                     href="https://github.com/lost-nd-xxx/update-bell-app/blob/main/docs/MANUAL.md"

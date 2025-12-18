@@ -142,6 +142,10 @@ async function handlePost(userId, body, response) {
   // Update schedule index
   updateScheduleIndex(multi, reminderKey, reminder.schedule);
 
+  // Update user access record
+  const lastAccessKey = getKvKey(`user_last_access:${userId}`);
+  multi.set(lastAccessKey, Date.now());
+
   await multi.exec();
 
   return response
@@ -195,6 +199,10 @@ async function handlePut(userId, body, response) {
   // Update schedule index (Remove old, Add new is handled loosely by zadd if key same? No, sorted set is by score/member)
   // Actually, we should just update the score for this member.
   updateScheduleIndex(multi, reminderKey, reminder.schedule);
+
+  // Update user access record
+  const lastAccessKey = getKvKey(`user_last_access:${userId}`);
+  multi.set(lastAccessKey, Date.now());
 
   await multi.exec();
 
@@ -302,6 +310,10 @@ async function handleBatchSync(userId, reminders, response) {
     multi.sadd(userRemindersKey, key);
     updateScheduleIndex(multi, key, r.schedule);
   }
+
+  // Update user access record
+  const lastAccessKey = getKvKey(`user_last_access:${userId}`);
+  multi.set(lastAccessKey, Date.now());
 
   await multi.exec();
 

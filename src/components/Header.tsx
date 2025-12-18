@@ -4,15 +4,15 @@ import { Settings, Bell, BellOff, Info, X, HelpCircle } from "lucide-react";
 interface HeaderProps {
   onSettingsClick: () => void;
   onTitleClick: () => void;
-  notificationsEnabled?: boolean;
   isSettingsView?: boolean;
+  isSubscribed?: boolean;
 }
 
 const Header: React.FC<HeaderProps> = ({
   onSettingsClick,
   onTitleClick,
-  notificationsEnabled = false,
   isSettingsView = false,
+  isSubscribed = false,
 }) => {
   const [showNotificationTooltip, setShowNotificationTooltip] = useState(false);
 
@@ -41,11 +41,20 @@ const Header: React.FC<HeaderProps> = ({
       };
     }
 
-    if (notificationsEnabled) {
+    if (Notification.permission === "granted" && isSubscribed) {
       return {
         icon: Bell,
         color: "text-green-600 dark:text-green-400",
-        message: "通知が有効です",
+        message: "許可済み (購読中)",
+      };
+    }
+
+    if (Notification.permission === "granted" && !isSubscribed) {
+      return {
+        icon: BellOff,
+        color: "text-yellow-500 dark:text-yellow-400",
+        message:
+          "許可済み (未購読) - 設定画面から「プッシュ通知を有効にする」をタップしてください",
       };
     }
 
@@ -70,7 +79,7 @@ const Header: React.FC<HeaderProps> = ({
             >
               おしらせベル
             </button>
-            {/* 通知ステータス表示（クリック可能） */}
+            {/* 通知ステータス表示（タップ可能） */}
             <div className="relative">
               <button
                 onClick={() =>

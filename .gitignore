@@ -100,4 +100,5 @@ Thumbs.db
 .gemini/
 
 # ===== Claude エージェント関連 =====
+.claude/
 CLAUDE.md

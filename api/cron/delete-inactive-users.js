@@ -121,13 +121,62 @@ export default async function handler(request, response) {
 
     if (lastAccessKeys.length === 0 && isScanFinished) {
       // スキャンが完全に終了し、新しいキーも見つからなかった場合
+      // リマインダーが存在するユーザー全員に初期アクセスレコードを作成する
       await kv.del(CRON_LAST_ACCESS_SCAN_CURSOR_KEY); // カーソルをリセット
       console.log(
-        "[CRON-DELETE] No user access records found and scan complete.",
+        "[CRON-DELETE] No user access records found and scan complete. Creating initial access records for users with reminders.",
       );
-      return response
-        .status(200)
-        .json({ message: "No user access records found and scan complete." });
+
+      // リマインダーキーをスキャンしてユーザーIDを収集
+      const allUserIds = new Set();
+      let reminderScanCursor = 0;
+
+      do {
+        const [nextReminderCursor, reminderKeys] = await kv.scan(
+          reminderScanCursor,
+          {
+            match: getKvKey("reminder:*"),
+            count: SCAN_COUNT,
+          },
+        );
+
+        for (const key of reminderKeys) {
+          const parsed = parseKvKey(key);
+          const parts = parsed.split(":");
+          if (parts.length >= 2) {
+            const userId = parts[1];
+            allUserIds.add(userId);
+          }
+        }
+
+        reminderScanCursor = nextReminderCursor;
+      } while (reminderScanCursor !== 0 && reminderScanCursor !== "0");
+
+      if (allUserIds.size > 0) {
+        console.log(
+          `[CRON-DELETE] Found ${allUserIds.size} users with reminders. Creating initial access records.`,
+        );
+        const creationTx = kv.multi();
+        const timestamp = Date.now();
+        for (const userId of allUserIds) {
+          const lastAccessKey = getKvKey(`user_last_access:${userId}`);
+          creationTx.set(lastAccessKey, timestamp);
+        }
+        await creationTx.exec();
+        console.log(
+          "[CRON-DELETE] Finished creating initial access records for all users.",
+        );
+        return response.status(200).json({
+          message:
+            "Initial access records created for all users with reminders.",
+          usersProcessed: allUserIds.size,
+        });
+      } else {
+        console.log("[CRON-DELETE] No users with reminders found.");
+        return response
+          .status(200)
+          .json({ message: "No users with reminders found." });
+      }
     } else if (lastAccessKeys.length === 0 && !isScanFinished) {
       // 今回のスキャンではキーが見つからなかったが、まだスキャンが残っている場合
       console.log(

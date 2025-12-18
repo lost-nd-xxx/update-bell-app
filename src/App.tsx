@@ -47,6 +47,8 @@ const App: React.FC = () => {
 
   // プッシュ通知購読状態を管理
   const { subscription } = usePushNotifications(addToast);
+  // 購読成功を即座に反映するための一時的なフラグ
+  const [justSubscribed, setJustSubscribed] = useState(false);
 
   const [appState, setAppState] = useState<AppState>({
     currentView: "dashboard",
@@ -90,9 +92,10 @@ const App: React.FC = () => {
     editingReminder?: Reminder,
   ) => {
     // リマインダー作成画面への遷移時にプッシュ通知購読をチェック
-    if (view === "create" && !subscription) {
+    // justSubscribed フラグがある場合は購読済みとみなす
+    if (view === "create" && !subscription && !justSubscribed) {
       addToast(
-        "リマインダーを作成するには、プッシュ通知の購読が必要です。設定画面から「通知をテスト」をクリックしてプッシュ通知を有効にしてください。",
+        "リマインダーを作成するには、プッシュ通知の購読が必要です。設定画面から「プッシュ通知を有効にする」をタップしてプッシュ通知を有効にしてください。",
         "error",
         8000,
       );
@@ -110,6 +113,11 @@ const App: React.FC = () => {
       currentView: view,
       editingReminder: editingReminder || null,
     }));
+  };
+
+  // 購読成功のコールバック
+  const handleSubscriptionSuccess = () => {
+    setJustSubscribed(true);
   };
 
   const handleTitleClick = () => {
@@ -232,8 +240,8 @@ const App: React.FC = () => {
             : handleViewChange("settings")
         }
         onTitleClick={handleTitleClick}
-        notificationsEnabled={settings.notifications.enabled} // notifications.enabledは常にtrueになる想定
         isSettingsView={appState.currentView === "settings"}
+        isSubscribed={!!subscription || justSubscribed}
       />
 
       {timezoneChanged && (
@@ -305,6 +313,7 @@ const App: React.FC = () => {
             onImportTheme={handleImportTheme}
             addToast={addToast}
             syncRemindersToServer={syncRemindersToServer}
+            onSubscriptionSuccess={handleSubscriptionSuccess}
           />
         )}
       </main>

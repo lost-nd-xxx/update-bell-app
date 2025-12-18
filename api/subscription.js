@@ -71,9 +71,12 @@ export default async function handler(request, response) {
       const exists = existing.some(
         (sub) => normalizeEndpoint(sub.endpoint) === normalizedEndpoint,
       );
+
+      const multi = kv.multi();
+
       if (!exists) {
         existing.push(subscription);
-        await kv.set(subscriptionKey, existing);
+        multi.set(subscriptionKey, existing);
         console.log(
           `[INFO] subscription: New subscription saved for user ${sanitizedUserId}. Total: ${existing.length}`,
         );
@@ -82,6 +85,12 @@ export default async function handler(request, response) {
           `[INFO] subscription: Subscription already exists for user ${sanitizedUserId}.`,
         );
       }
+
+      // Update user access record (regardless of whether subscription is new or existing)
+      const lastAccessKey = getKvKey(`user_last_access:${sanitizedUserId}`);
+      multi.set(lastAccessKey, Date.now());
+
+      await multi.exec();
 
       return response.status(201).json({ message: "Subscription saved" });
     } else if (request.method === "DELETE") {

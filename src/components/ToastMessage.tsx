@@ -46,7 +46,7 @@ const ToastMessage: React.FC<ToastMessageProps> = ({
   return (
     <div
       className={`${baseClasses} ${typeClasses} pointer-events-auto cursor-pointer`} // cursor-pointer を追加
-      onClick={() => onClose(id)} // クリックで閉じる機能を追加
+      onClick={() => onClose(id)} // タップで閉じる機能を追加
     >
       <IconComponent size={20} className="flex-shrink-0" />
       <p className="flex-grow">{message}</p>
