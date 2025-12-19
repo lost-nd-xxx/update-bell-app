@@ -51,14 +51,28 @@ const Dashboard: React.FC<DashboardProps> = ({
   isNotificationSupported, // 通知機能のサポート状態
 }) => {
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set()); // 追加
-  const [isTagFilterOpen, setIsTagFilterOpen] = useState(false); // タグフィルターの開閉状態
+  const [isFilterOpen, setIsFilterOpen] = useState(() => {
+    // LocalStorageから初期値を読み込み（なければtrue）
+    const saved = localStorage.getItem("filter-accordion-open");
+    return saved !== null ? saved === "true" : true;
+  });
   const lastGroupByRef = useRef<GroupByType | undefined>(undefined); // groupByの以前の値を追跡
+  const isInitialMount = useRef(true); // 初回マウントかどうかを追跡
 
   // バナーを閉じた情報を取得
   const [hasSeenPushInfo, setHasSeenPushInfo] = useState(false);
   const [hasSeenNotificationInfo, setHasSeenNotificationInfo] = useState(false);
   const [hasSeenNotificationDenied, setHasSeenNotificationDenied] =
     useState(false);
+
+  // フィルターアコーディオンの状態をLocalStorageに保存（初回マウント時はスキップ）
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    localStorage.setItem("filter-accordion-open", String(isFilterOpen));
+  }, [isFilterOpen]);
 
   useEffect(() => {
     const hasSeenInfo = localStorage.getItem(
@@ -216,9 +230,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const handleClearAllTags = () => {
     onFilterChange({ selectedTags: [] });
-    if (!isTagFilterOpen) {
-      setIsTagFilterOpen(true);
-    }
   };
 
   const groupedReminders = useMemo(() => {
@@ -447,92 +458,103 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      <div className="card my-4">
-        <div className="relative mb-1 pb-1">
-          <Search
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-            size={20}
-          />
-          <input
-            type="text"
-            placeholder="タイトルやURLで検索..."
-            value={filter.searchTerm}
-            onChange={(e) => onFilterChange({ searchTerm: e.target.value })}
-            className="input pl-10"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-4 my-1">
-          <div className="flex items-center gap-2">
-            <label className="whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300">
-              並び順:
-            </label>
-            <select
-              value={sort.field}
-              onChange={(e) =>
-                handleSortFieldChange(
-                  e.target.value as AppState["sort"]["field"],
-                )
-              }
-              className="input text-sm"
-            >
-              <option value="lastNotified">最終通知日時</option>
-              <option value="nextNotification">次回通知日時</option>
-              <option value="createdAt">作成日時</option>
-              <option value="title">タイトル</option>
-            </select>
-            <button
-              onClick={toggleSortOrder}
-              className="p-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors rounded-md border border-gray-500/20"
-              title={sort.order === "asc" ? "昇順" : "降順"}
-            >
-              {sort.order === "asc" ? (
-                <SortAsc size={16} />
-              ) : (
-                <SortDesc size={16} />
-              )}
-            </button>
+      <div className="card mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => setIsFilterOpen(!isFilterOpen)}
+          className="flex justify-between items-center w-full p-4 text-left font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          aria-expanded={isFilterOpen}
+          aria-label="検索・並べ替え・フィルターの表示切り替え"
+        >
+          <span>検索・並べ替え・フィルター</span>
+          {isFilterOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+        </button>
+
+        {isFilterOpen && (
+          <div className="px-4 pt-4 space-y-4">
+            <div className="relative">
+              <Search
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                size={20}
+              />
+              <input
+                type="text"
+                placeholder="タイトルやURLで検索..."
+                value={filter.searchTerm}
+                onChange={(e) => onFilterChange({ searchTerm: e.target.value })}
+                className="input pl-10"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label className="whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300">
+                  並び順:
+                </label>
+                <select
+                  value={sort.field}
+                  onChange={(e) =>
+                    handleSortFieldChange(
+                      e.target.value as AppState["sort"]["field"],
+                    )
+                  }
+                  className="input text-sm"
+                >
+                  <option value="lastNotified">最終通知日時</option>
+                  <option value="nextNotification">次回通知日時</option>
+                  <option value="createdAt">作成日時</option>
+                  <option value="title">タイトル</option>
+                </select>
+                <button
+                  onClick={toggleSortOrder}
+                  className="p-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors rounded-md border border-gray-500/20"
+                  title={sort.order === "asc" ? "昇順" : "降順"}
+                >
+                  {sort.order === "asc" ? (
+                    <SortAsc size={16} />
+                  ) : (
+                    <SortDesc size={16} />
+                  )}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300">
+                  グループ:
+                </label>
+                <select
+                  value={groupBy}
+                  onChange={(e) =>
+                    onGroupByChange(e.target.value as GroupByType)
+                  }
+                  className="input text-sm"
+                >
+                  <option value="none">なし</option>
+                  <option value="nextNotification">次回通知日</option>
+                  <option value="tags">タグ</option>
+                  <option value="status">ステータス</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 pt-1 flex-shrink-0">
+                タグ:
+              </label>
+              <div className="flex-1 min-w-0">
+                <TagFilter
+                  allTags={allTags}
+                  selectedTags={filter.selectedTags}
+                  onTagToggle={(tag) => {
+                    const newSelectedTags = filter.selectedTags.includes(tag)
+                      ? filter.selectedTags.filter((t) => t !== tag)
+                      : [...filter.selectedTags, tag];
+                    onFilterChange({ selectedTags: newSelectedTags });
+                  }}
+                  onClearAll={handleClearAllTags}
+                />
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300">
-              グループ:
-            </label>
-            <select
-              value={groupBy}
-              onChange={(e) => onGroupByChange(e.target.value as GroupByType)}
-              className="input text-sm"
-            >
-              <option value="none">なし</option>
-              <option value="nextNotification">次回通知日</option>
-              <option value="tags">タグ</option>
-              <option value="status">ステータス</option>
-            </select>
-          </div>
-        </div>
-        <div className="flex items-center justify-between mb-2">
-          <button
-            onClick={() => setIsTagFilterOpen(!isTagFilterOpen)}
-            className="flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-          >
-            タグで絞り込み
-            {isTagFilterOpen ? (
-              <ChevronUp size={16} />
-            ) : (
-              <ChevronDown size={16} />
-            )}
-          </button>
-        </div>
-        {isTagFilterOpen && (
-          <TagFilter
-            allTags={allTags}
-            selectedTags={filter.selectedTags}
-            onTagToggle={(tag) => {
-              const newSelectedTags = filter.selectedTags.includes(tag)
-                ? filter.selectedTags.filter((t) => t !== tag)
-                : [...filter.selectedTags, tag];
-              onFilterChange({ selectedTags: newSelectedTags });
-            }}
-            onClearAll={handleClearAllTags}
-          />
         )}
       </div>
 
@@ -598,7 +620,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 )}
               </button>
               {openGroups.has(groupKey) && (
-                <div className="space-y-4 p-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="space-y-4 p-4">
                   {groupReminders.map((reminder: Reminder) => (
                     <ReminderCard
                       key={reminder.id}

@@ -53,20 +53,44 @@ const App: React.FC = () => {
   // プッシュ通知購読状態を管理（Context経由）
   const { subscription, isSupported } = usePushNotifications();
 
-  const [appState, setAppState] = useState<AppState>({
-    currentView: "dashboard",
-    editingReminder: null,
-    filter: {
-      searchTerm: "",
-      selectedTags: [],
-      showPaused: false,
-    },
-    sort: {
+  const [appState, setAppState] = useState<AppState>(() => {
+    // LocalStorageから並び順とグループ化の設定を読み込み
+    const savedSort = localStorage.getItem("dashboard-sort");
+    const savedGroupBy = localStorage.getItem("dashboard-groupby");
+
+    let sort: AppState["sort"] = {
       field: "lastNotified",
       order: "desc",
-    },
-    groupBy: "none",
-    isLoading: false,
+    };
+    let groupBy: GroupByType = "none";
+
+    if (savedSort) {
+      try {
+        const parsed = JSON.parse(savedSort);
+        if (parsed.field && parsed.order) {
+          sort = parsed;
+        }
+      } catch (e) {
+        console.error("Failed to parse saved sort:", e);
+      }
+    }
+
+    if (savedGroupBy) {
+      groupBy = savedGroupBy as GroupByType;
+    }
+
+    return {
+      currentView: "dashboard",
+      editingReminder: null,
+      filter: {
+        searchTerm: "",
+        selectedTags: [],
+        showPaused: false,
+      },
+      sort,
+      groupBy,
+      isLoading: false,
+    };
   });
 
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -87,6 +111,15 @@ const App: React.FC = () => {
     message: "",
     onConfirm: () => {},
   });
+
+  // 並び順とグループ化の設定をLocalStorageに保存
+  useEffect(() => {
+    localStorage.setItem("dashboard-sort", JSON.stringify(appState.sort));
+  }, [appState.sort]);
+
+  useEffect(() => {
+    localStorage.setItem("dashboard-groupby", appState.groupBy);
+  }, [appState.groupBy]);
 
   useEffect(() => {
     // このuseEffectは、Service Workerからの `NOTIFICATION_EXECUTED` メッセージをリッスンするために残します
