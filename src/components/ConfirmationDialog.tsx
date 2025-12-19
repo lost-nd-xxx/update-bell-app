@@ -12,6 +12,11 @@ interface ConfirmationDialogProps {
   cancelText?: string;
   isConfirming?: boolean;
   confirmButtonVariant?: "primary" | "danger";
+  tertiaryAction?: {
+    text: string;
+    onClick: () => void;
+    variant?: "warning" | "default";
+  };
 }
 
 const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
@@ -24,11 +29,19 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   cancelText = "キャンセル",
   isConfirming = false,
   confirmButtonVariant = "primary",
+  tertiaryAction,
 }) => {
   const confirmButtonClasses = {
     primary:
       "bg-purple-600 text-white hover:bg-purple-700 focus-visible:ring-purple-500",
     danger: "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500",
+  };
+
+  const tertiaryButtonClasses = {
+    warning:
+      "bg-yellow-500 text-gray-900 hover:bg-yellow-600 focus-visible:ring-yellow-500",
+    default:
+      "bg-gray-200 text-gray-700 hover:bg-gray-300 focus-visible:ring-gray-500",
   };
 
   return (
@@ -93,14 +106,6 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
                 <div className="mt-6 flex justify-end space-x-3">
                   <button
                     type="button"
-                    className="inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 disabled:opacity-50"
-                    onClick={onClose}
-                    disabled={isConfirming}
-                  >
-                    {cancelText}
-                  </button>
-                  <button
-                    type="button"
                     className={`inline-flex justify-center items-center rounded-md border border-transparent px-4 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-wait ${
                       confirmButtonClasses[confirmButtonVariant]
                     }`}
@@ -111,6 +116,28 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
                       <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
                     )}
                     {confirmText}
+                  </button>
+                  {tertiaryAction && (
+                    <button
+                      type="button"
+                      className={`inline-flex justify-center items-center rounded-md border border-transparent px-4 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 disabled:opacity-50 ${
+                        tertiaryButtonClasses[
+                          tertiaryAction.variant || "default"
+                        ]
+                      }`}
+                      onClick={tertiaryAction.onClick}
+                      disabled={isConfirming}
+                    >
+                      {tertiaryAction.text}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 disabled:opacity-50"
+                    onClick={onClose}
+                    disabled={isConfirming}
+                  >
+                    {cancelText}
                   </button>
                 </div>
               </Dialog.Panel>

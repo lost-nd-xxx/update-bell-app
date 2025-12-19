@@ -1,5 +1,5 @@
 import ConfirmationDialog from "./ConfirmationDialog";
-import { usePushNotifications } from "../hooks/usePushNotifications";
+import { usePushNotifications } from "../contexts/PushNotificationContext";
 import { ToastType } from "../components/ToastMessage";
 import { useUserId } from "../contexts/UserIdContext";
 import { AppSettings, Reminder, ExportData } from "../types";
@@ -44,7 +44,6 @@ interface SettingsProps {
   onImportTheme?: (theme: "light" | "dark" | "system") => void;
   addToast: (message: string, type?: ToastType, duration?: number) => void;
   syncRemindersToServer: () => Promise<void>;
-  onSubscriptionSuccess?: () => void;
 }
 
 interface ExtendedNavigator extends Navigator {
@@ -62,7 +61,6 @@ const Settings: React.FC<SettingsProps> = ({
   onImportTheme,
   addToast,
   syncRemindersToServer,
-  onSubscriptionSuccess,
 }) => {
   const [isImporting, setIsImporting] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -74,7 +72,7 @@ const Settings: React.FC<SettingsProps> = ({
     subscribeToPushNotifications,
     unsubscribeFromPushNotifications,
     subscription,
-  } = usePushNotifications(addToast);
+  } = usePushNotifications();
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -224,9 +222,6 @@ const Settings: React.FC<SettingsProps> = ({
           const sub = await subscribeToPushNotifications();
 
           if (sub) {
-            // 購読成功を親コンポーネントに通知
-            onSubscriptionSuccess?.();
-
             try {
               await syncRemindersToServer(); // 同期も行う
               addToast(

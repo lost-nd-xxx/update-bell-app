@@ -1,8 +1,14 @@
-// src/hooks/usePushNotifications.ts
-import { useState, useEffect } from "react";
-import { useUserId } from "../contexts/UserIdContext";
-import { ToastType } from "../components/ToastMessage"; // 追加
-import { getErrorMessage } from "../utils/helpers"; // 追加
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useContext,
+  ReactNode,
+  useCallback,
+} from "react";
+import { useUserId } from "./UserIdContext";
+import { ToastType } from "../components/ToastMessage";
+import { getErrorMessage } from "../utils/helpers";
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
@@ -17,19 +23,39 @@ const urlBase64ToUint8Array = (base64String: string) => {
   return outputArray;
 };
 
-export const usePushNotifications = (
-  addToast: (message: string, type?: ToastType, duration?: number) => void, // 追加
-) => {
-  const { userId, getAuthHeaders } = useUserId(); // ここで変更
+interface PushNotificationContextType {
+  subscription: PushSubscription | null;
+  isSubscribing: boolean;
+  isSupported: boolean;
+  subscribeToPushNotifications: () => Promise<PushSubscription | null>;
+  unsubscribeFromPushNotifications: () => Promise<void>;
+}
+
+const PushNotificationContext = createContext<
+  PushNotificationContextType | undefined
+>(undefined);
+
+export const PushNotificationProvider: React.FC<{
+  children: ReactNode;
+  addToast: (message: string, type?: ToastType, duration?: number) => void;
+}> = ({ children, addToast }) => {
+  const { userId, getAuthHeaders } = useUserId();
   const [isSubscribing, setIsSubscribing] = useState(false);
-  // const [error, setError] = useState<string | null>(null); // 削除
   const [subscription, setSubscription] = useState<PushSubscription | null>(
     null,
   );
+  const [isSupported, setIsSupported] = useState(false);
 
+  // 通知機能のサポート判定
+  useEffect(() => {
+    const supported = "serviceWorker" in navigator && "PushManager" in window;
+    setIsSupported(supported);
+  }, []);
+
+  // 既存の購読情報を取得
   useEffect(() => {
     const getExistingSubscription = async () => {
-      if ("serviceWorker" in navigator && "PushManager" in window) {
+      if (isSupported) {
         try {
           const registration = await navigator.serviceWorker.ready;
           const sub = await registration.pushManager.getSubscription();
@@ -38,26 +64,26 @@ export const usePushNotifications = (
           addToast(
             `購読情報の取得に失敗しました: ${getErrorMessage(error)}`,
             "error",
-          ); // 変更
+          );
         }
       }
     };
     getExistingSubscription();
-  }, [addToast]);
+  }, [isSupported, addToast]);
 
   const subscribeToPushNotifications =
-    async (): Promise<PushSubscription | null> => {
+    useCallback(async (): Promise<PushSubscription | null> => {
       if (!VAPID_PUBLIC_KEY) {
         addToast(
           "アプリケーションの設定に問題があります。VAPID公開鍵が設定されていません。",
           "error",
         );
-        return null; // 失敗
+        return null;
       }
 
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      if (!isSupported) {
         addToast("このブラウザはプッシュ通知に対応していません。", "error");
-        return null; // 失敗
+        return null;
       }
 
       setIsSubscribing(true);
@@ -82,7 +108,7 @@ export const usePushNotifications = (
         });
         setSubscription(sub);
         addToast("プッシュ通知を有効にしました。", "success");
-        return sub; // 購読オブジェクトを返す
+        return sub;
       } catch (err) {
         if (err instanceof Error && err.name === "NotAllowedError") {
           addToast(
@@ -96,13 +122,13 @@ export const usePushNotifications = (
           );
         }
         setSubscription(null);
-        return null; // 失敗
+        return null;
       } finally {
         setIsSubscribing(false);
       }
-    };
+    }, [userId, getAuthHeaders, isSupported, addToast]);
 
-  const unsubscribeFromPushNotifications = async () => {
+  const unsubscribeFromPushNotifications = useCallback(async () => {
     if (!subscription) return;
 
     try {
@@ -110,15 +136,9 @@ export const usePushNotifications = (
         addToast("ユーザーIDが取得できませんでした。", "error");
         return;
       }
-      if (!subscription) {
-        addToast("購読情報が見つかりませんでした。", "error");
-        return;
-      }
 
       await subscription.unsubscribe();
 
-      // サーバーに購読解除を通知するAPIを呼ぶ
-      // DELETEメソッドだが、署名検証のためにBodyを含める
       const body = {
         userId,
         subscription: { endpoint: subscription.endpoint },
@@ -144,15 +164,31 @@ export const usePushNotifications = (
       addToast(
         `プッシュ通知の解除に失敗しました: ${getErrorMessage(error)}`,
         "error",
-      ); // 変更
+      );
     }
-  };
+  }, [subscription, userId, getAuthHeaders, addToast]);
 
-  return {
-    subscribeToPushNotifications,
-    unsubscribeFromPushNotifications,
-    isSubscribing,
-    subscription,
-    // error, // 削除
-  };
+  return (
+    <PushNotificationContext.Provider
+      value={{
+        subscription,
+        isSubscribing,
+        isSupported,
+        subscribeToPushNotifications,
+        unsubscribeFromPushNotifications,
+      }}
+    >
+      {children}
+    </PushNotificationContext.Provider>
+  );
+};
+
+export const usePushNotifications = (): PushNotificationContextType => {
+  const context = useContext(PushNotificationContext);
+  if (context === undefined) {
+    throw new Error(
+      "usePushNotifications must be used within a PushNotificationProvider",
+    );
+  }
+  return context;
 };

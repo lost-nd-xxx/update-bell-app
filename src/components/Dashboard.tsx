@@ -29,6 +29,7 @@ interface DashboardProps {
   onClearAllTags: () => void;
   processingIds: Record<string, "deleting" | "saving">;
   isPushSubscribed: boolean; // プッシュ通知購読状態
+  isNotificationSupported: boolean; // 通知機能のサポート状態
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -47,22 +48,23 @@ const Dashboard: React.FC<DashboardProps> = ({
   onNavigateToSettings,
   processingIds,
   isPushSubscribed, // プッシュ通知購読状態
+  isNotificationSupported, // 通知機能のサポート状態
 }) => {
-  const [showNotificationInfo, setShowNotificationInfo] = useState(false);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set()); // 追加
   const [isTagFilterOpen, setIsTagFilterOpen] = useState(false); // タグフィルターの開閉状態
   const lastGroupByRef = useRef<GroupByType | undefined>(undefined); // groupByの以前の値を追跡
 
-  const [showPushSubscriptionInfo, setShowPushSubscriptionInfo] =
+  // バナーを閉じた情報を取得
+  const [hasSeenPushInfo, setHasSeenPushInfo] = useState(false);
+  const [hasSeenNotificationInfo, setHasSeenNotificationInfo] = useState(false);
+  const [hasSeenNotificationDenied, setHasSeenNotificationDenied] =
     useState(false);
 
   useEffect(() => {
     const hasSeenInfo = localStorage.getItem(
       "update-bell-notification-info-seen",
     );
-    if (!hasSeenInfo) {
-      setShowNotificationInfo(true);
-    }
+    setHasSeenNotificationInfo(!!hasSeenInfo);
   }, []);
 
   useEffect(() => {
@@ -70,19 +72,63 @@ const Dashboard: React.FC<DashboardProps> = ({
     const hasSeenPushInfo = localStorage.getItem(
       "update-bell-push-subscription-info-seen",
     );
-    if (!isPushSubscribed && !hasSeenPushInfo) {
-      setShowPushSubscriptionInfo(true);
-    }
+    setHasSeenPushInfo(!!hasSeenPushInfo);
   }, [isPushSubscribed]);
+
+  useEffect(() => {
+    const hasSeenDenied = localStorage.getItem(
+      "update-bell-notification-denied-seen",
+    );
+    setHasSeenNotificationDenied(!!hasSeenDenied);
+  }, []);
 
   const handleDismissNotificationInfo = () => {
     localStorage.setItem("update-bell-notification-info-seen", "true");
-    setShowNotificationInfo(false);
+    setHasSeenNotificationInfo(true);
   };
 
   const handleDismissPushSubscriptionInfo = () => {
     localStorage.setItem("update-bell-push-subscription-info-seen", "true");
-    setShowPushSubscriptionInfo(false);
+    setHasSeenPushInfo(true);
+  };
+
+  const handleDismissNotificationDenied = () => {
+    localStorage.setItem("update-bell-notification-denied-seen", "true");
+    setHasSeenNotificationDenied(true);
+  };
+
+  // バナーの優先順位制御: 最も優先度の高いバナーのみを表示
+  const getVisibleBanner = (): string | null => {
+    // 通知機能が非サポートの場合は、通知関連のバナーを表示しない
+    if (!isNotificationSupported) {
+      // 通知情報バナーのみ表示（通知機能とは無関係）
+      if (!hasSeenNotificationInfo && reminders.length > 0) {
+        return "notification-info";
+      }
+      return null;
+    }
+
+    // 優先度1: 通知権限が拒否されている（最も深刻・アプリ内で解決不可能）
+    if (notificationPermission === "denied" && !hasSeenNotificationDenied) {
+      return "notification-denied";
+    }
+    // 優先度2: プッシュ通知未購読（リマインダー作成に影響、denied時は意味がないので除外）
+    if (
+      !isPushSubscribed &&
+      !hasSeenPushInfo &&
+      notificationPermission !== "denied"
+    ) {
+      return "push-subscription";
+    }
+    // 優先度3: 通知権限が未設定（アプリ内で許可を促せる）
+    if (notificationPermission === "default" && reminders.length > 0) {
+      return "notification-permission";
+    }
+    // 優先度4: 通知について
+    if (!hasSeenNotificationInfo && reminders.length > 0) {
+      return "notification-info";
+    }
+    return null;
   };
 
   const filteredAndSortedReminders = useMemo(() => {
@@ -176,7 +222,11 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const groupedReminders = useMemo(() => {
-    if (groupBy === "none" || filteredAndSortedReminders.length === 0) {
+    if (filteredAndSortedReminders.length === 0) {
+      return {};
+    }
+
+    if (groupBy === "none") {
       return { すべて: filteredAndSortedReminders };
     }
 
@@ -285,11 +335,13 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
 
     lastGroupByRef.current = groupBy;
-  }, [groupedReminders, groupBy, openGroups]);
+  }, [groupedReminders, groupBy]);
+
+  const visibleBanner = getVisibleBanner();
 
   return (
     <div className="max-w-2xl mx-auto">
-      {showPushSubscriptionInfo && !isPushSubscribed && (
+      {visibleBanner === "push-subscription" && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4 relative">
           <button
             onClick={handleDismissPushSubscriptionInfo}
@@ -321,8 +373,8 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      {showNotificationInfo && reminders.length > 0 && (
-        <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 relative">
+      {visibleBanner === "notification-info" && (
+        <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 mb-4 relative">
           <button
             onClick={handleDismissNotificationInfo}
             className="absolute top-2 right-2 p-1 text-purple-600 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800 rounded-full border border-purple-200 dark:border-purple-800"
@@ -333,26 +385,26 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="flex items-start gap-3">
             <Bell
               className="text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5"
-              size={16}
+              size={20}
             />
             <div className="text-sm">
               <p className="font-medium text-purple-800 dark:text-purple-300 mb-1">
                 通知について
               </p>
               <p className="text-purple-700 dark:text-purple-200">
-                「最終通知」は実際に通知が送信された時刻に更新されます。通知機能を利用するには、許可が必要です。
+                「最終通知」は実際にプッシュ通知が送信された時刻に更新されます。
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {notificationPermission !== "granted" && reminders.length > 0 && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mt-4">
+      {visibleBanner === "notification-permission" && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
           <div className="flex items-start gap-3">
             <Bell
               className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5"
-              size={16}
+              size={20}
             />
             <div className="flex-1">
               <p className="text-sm text-yellow-800 dark:text-yellow-200">
@@ -363,8 +415,34 @@ const Dashboard: React.FC<DashboardProps> = ({
               onClick={onNavigateToSettings}
               className="text-sm font-medium text-yellow-700 dark:text-yellow-300 hover:text-yellow-900 dark:hover:text-yellow-100 transition-colors underline"
             >
-              設定で有効にする
+              通知を許可
             </button>
+          </div>
+        </div>
+      )}
+
+      {visibleBanner === "notification-denied" && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4 relative">
+          <button
+            onClick={handleDismissNotificationDenied}
+            className="absolute top-2 right-2 p-1 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800 rounded-full border border-red-200 dark:border-red-800"
+            aria-label="閉じる"
+          >
+            <X size={16} />
+          </button>
+          <div className="flex items-start gap-3">
+            <Bell
+              className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5"
+              size={20}
+            />
+            <div className="text-sm flex-1">
+              <p className="font-medium text-red-800 dark:text-red-300 mb-1">
+                通知がブロックされています
+              </p>
+              <p className="text-red-700 dark:text-red-200">
+                ブラウザまたはOSの設定から通知を許可してください
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -442,14 +520,6 @@ const Dashboard: React.FC<DashboardProps> = ({
               <ChevronDown size={16} />
             )}
           </button>
-          {filter.selectedTags.length > 0 && (
-            <button
-              onClick={handleClearAllTags}
-              className="text-xs text-red-600 dark:text-red-400 hover:underline"
-            >
-              すべてクリア
-            </button>
-          )}
         </div>
         {isTagFilterOpen && (
           <TagFilter

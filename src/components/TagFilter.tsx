@@ -16,22 +16,19 @@ const TagFilter: React.FC<TagFilterProps> = ({
   return (
     <div className="flex flex-col justify-between">
       <div>
-        <div className="flex items-center justify-start pb-1">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 py-1">
-            タグフィルター:
-          </label>
-          {selectedTags.length > 0 && (
+        {allTags.length > 0 ? (
+          <div className="flex flex-wrap gap-2 items-center">
             <button
               onClick={onClearAll}
-              className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors border border-gray-500/20 p-1 ml-2 rounded-md"
+              disabled={selectedTags.length === 0}
+              className={`text-xs transition-colors border border-gray-500/20 px-2 py-1 rounded-md ${
+                selectedTags.length > 0
+                  ? "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  : "text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-50"
+              }`}
             >
               すべてクリア
             </button>
-          )}
-        </div>
-
-        {allTags.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
             {allTags.map((tag) => {
               const isSelected = selectedTags.includes(tag);
               return (
@@ -54,18 +51,6 @@ const TagFilter: React.FC<TagFilterProps> = ({
             利用可能なタグはありません。
           </div>
         )}
-      </div>
-
-      <div className="h-4">
-        {selectedTags.length > 0 ? (
-          <div className="text-xs pt-1 text-gray-500 dark:text-gray-400">
-            {selectedTags.length}個のタグでフィルタリング中
-          </div>
-        ) : allTags.length > 0 ? (
-          <div className="text-xs pt-1 text-gray-500 dark:text-gray-400">
-            タグで絞り込めます。
-          </div>
-        ) : null}
       </div>
     </div>
   );

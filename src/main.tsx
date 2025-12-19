@@ -102,7 +102,18 @@ window.addEventListener("appinstalled", () => {
 });
 
 import { UserIdProvider } from "./contexts/UserIdContext";
-import { ToastProvider } from "./contexts/ToastProvider"; // 追加
+import { ToastProvider, useToastContext } from "./contexts/ToastProvider";
+import { PushNotificationProvider } from "./contexts/PushNotificationContext";
+
+// PushNotificationProviderはaddToastを必要とするため、ToastProviderの内側に配置
+const AppWithProviders: React.FC = () => {
+  const { addToast } = useToastContext();
+  return (
+    <PushNotificationProvider addToast={addToast}>
+      <App />
+    </PushNotificationProvider>
+  );
+};
 
 // React アプリケーションのマウント
 const rootElement = document.getElementById("root");
@@ -111,11 +122,8 @@ if (rootElement) {
     <React.StrictMode>
       <UserIdProvider>
         <ToastProvider>
-          {" "}
-          {/* 追加 */}
-          <App />
-        </ToastProvider>{" "}
-        {/* 追加 */}
+          <AppWithProviders />
+        </ToastProvider>
       </UserIdProvider>
     </React.StrictMode>,
   );

@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { Reminder, AppState, GroupByType } from "./types";
-import { getErrorMessage, generateId } from "./utils/helpers";
+import {
+  getErrorMessage,
+  generateId,
+  calculateNextNotificationTime,
+} from "./utils/helpers";
 import { useReminders } from "./hooks/useReminders";
 import { useSettings } from "./hooks/useSettings";
 import { useTheme } from "./hooks/useTheme";
 import { useTimezone } from "./hooks/useTimezone";
-import { usePushNotifications } from "./hooks/usePushNotifications";
+import { usePushNotifications } from "./contexts/PushNotificationContext";
 // import { useUserId } from "./contexts/UserIdContext"; // userIdはuseReminders内部で取得されるため、ここでは不要に
 import { useToastContext } from "./contexts/ToastProvider";
 
@@ -15,6 +19,7 @@ import CreateReminder from "./components/CreateReminder";
 import Settings from "./components/Settings";
 import TimezoneChangeDialog from "./components/TimezoneChangeDialog";
 import Header from "./components/Header";
+import ConfirmationDialog from "./components/ConfirmationDialog";
 
 declare global {
   interface Window {
@@ -45,10 +50,8 @@ const App: React.FC = () => {
   const { timezoneChanged, handleTimezoneChange, dismissTimezoneChange } =
     useTimezone(reminders, updateReminder, addToast);
 
-  // プッシュ通知購読状態を管理
-  const { subscription } = usePushNotifications(addToast);
-  // 購読成功を即座に反映するための一時的なフラグ
-  const [justSubscribed, setJustSubscribed] = useState(false);
+  // プッシュ通知購読状態を管理（Context経由）
+  const { subscription, isSupported } = usePushNotifications();
 
   const [appState, setAppState] = useState<AppState>({
     currentView: "dashboard",
@@ -64,6 +67,25 @@ const App: React.FC = () => {
     },
     groupBy: "none",
     isLoading: false,
+  });
+
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: React.ReactNode;
+    onConfirm: () => void;
+    confirmText?: string;
+    confirmButtonVariant?: "primary" | "danger";
+    tertiaryAction?: {
+      text: string;
+      onClick: () => void;
+      variant?: "warning" | "default";
+    };
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
   });
 
   useEffect(() => {
@@ -92,8 +114,7 @@ const App: React.FC = () => {
     editingReminder?: Reminder,
   ) => {
     // リマインダー作成画面への遷移時にプッシュ通知購読をチェック
-    // justSubscribed フラグがある場合は購読済みとみなす
-    if (view === "create" && !subscription && !justSubscribed) {
+    if (view === "create" && !subscription) {
       addToast(
         "リマインダーを作成するには、プッシュ通知の購読が必要です。設定画面から「プッシュ通知を有効にする」をタップしてプッシュ通知を有効にしてください。",
         "error",
@@ -115,11 +136,6 @@ const App: React.FC = () => {
     }));
   };
 
-  // 購読成功のコールバック
-  const handleSubscriptionSuccess = () => {
-    setJustSubscribed(true);
-  };
-
   const handleTitleClick = () => {
     if (appState.currentView !== "dashboard") {
       handleViewChange("dashboard");
@@ -131,13 +147,41 @@ const App: React.FC = () => {
   ) => {
     console.log("handleReminderSave called", reminderData);
     try {
-      if (appState.editingReminder) {
+      const isEditing = appState.editingReminder !== null;
+      const actionText = isEditing ? "更新" : "作成";
+
+      if (isEditing && appState.editingReminder) {
         await updateReminder(appState.editingReminder.id, reminderData);
-        addToast("リマインダーを更新しました。", "success");
       } else {
         await addReminder(reminderData);
-        addToast("リマインダーを追加しました。", "success");
       }
+
+      // 次回通知日時のフォーマット
+      let nextNotificationText = "";
+      if (!reminderData.isPaused && reminderData.schedule) {
+        const nextTime = calculateNextNotificationTime(
+          reminderData.schedule,
+          new Date(),
+        );
+        if (nextTime) {
+          nextNotificationText = ` 次回は${nextTime.toLocaleDateString(
+            "ja-JP",
+            {
+              month: "long",
+              day: "numeric",
+              weekday: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            },
+          )}に通知します。`;
+        }
+      }
+
+      addToast(
+        `リマインダーを${actionText}しました。${nextNotificationText}`,
+        "success",
+      );
+
       handleViewChange("dashboard");
       console.log("handleReminderSave success");
     } catch (error) {
@@ -231,6 +275,75 @@ const App: React.FC = () => {
     }));
   };
 
+  const handleDelete = (id: string) => {
+    const reminderToDelete = reminders.find((r) => r.id === id);
+    if (!reminderToDelete) return;
+
+    // 一時停止中かどうかで削除確認モーダルを出し分ける
+    if (reminderToDelete.isPaused) {
+      // 一時停止中: 2ボタン（削除/キャンセル）
+      setConfirmDialog({
+        isOpen: true,
+        title: `「${reminderToDelete.title}」を削除しますか？`,
+        message: "この操作は取り消せません。",
+        onConfirm: async () => {
+          try {
+            await deleteReminder(id);
+            setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+            addToast("リマインダーを削除しました。", "success");
+          } catch (error) {
+            addToast(
+              `リマインダーの削除に失敗しました: ${getErrorMessage(error)}`,
+              "error",
+            );
+          }
+        },
+        confirmText: "削除",
+        confirmButtonVariant: "danger",
+        // tertiaryActionなし（2ボタン）
+      });
+    } else {
+      // 稼働中: 3ボタン（削除/一時停止/キャンセル）
+      setConfirmDialog({
+        isOpen: true,
+        title: `「${reminderToDelete.title}」を削除しますか？`,
+        message: (
+          <>
+            この操作は取り消せません。
+            <br />
+            通知を一時的に止めたい場合は「一時停止」をご利用ください。
+          </>
+        ),
+        onConfirm: async () => {
+          try {
+            await deleteReminder(id);
+            setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+            addToast("リマインダーを削除しました。", "success");
+          } catch (error) {
+            addToast(
+              `リマインダーの削除に失敗しました: ${getErrorMessage(error)}`,
+              "error",
+            );
+          }
+        },
+        confirmText: "削除",
+        confirmButtonVariant: "danger",
+        tertiaryAction: {
+          text: "一時停止",
+          onClick: () => {
+            setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+            updateReminder(id, {
+              isPaused: true,
+              pausedAt: new Date().toISOString(),
+            });
+            addToast("リマインダーを一時停止しました。", "success");
+          },
+          variant: "warning",
+        },
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors scroll-stable">
       <Header
@@ -241,7 +354,7 @@ const App: React.FC = () => {
         }
         onTitleClick={handleTitleClick}
         isSettingsView={appState.currentView === "settings"}
-        isSubscribed={!!subscription || justSubscribed}
+        isSubscribed={!!subscription}
       />
 
       {timezoneChanged && (
@@ -266,16 +379,7 @@ const App: React.FC = () => {
             onSortChange={handleSortChange}
             onGroupByChange={handleGroupByChange}
             onEdit={(reminder) => handleViewChange("create", reminder)}
-            onDelete={async (id) => {
-              try {
-                await deleteReminder(id);
-              } catch (error) {
-                addToast(
-                  `リマインダーの削除に失敗しました: ${getErrorMessage(error)}`,
-                  "error",
-                );
-              }
-            }}
+            onDelete={handleDelete}
             onTogglePause={(id, isPaused) =>
               updateReminder(id, {
                 isPaused,
@@ -287,6 +391,7 @@ const App: React.FC = () => {
             onNavigateToSettings={() => handleViewChange("settings")}
             onClearAllTags={handleClearAllTags}
             isPushSubscribed={!!subscription}
+            isNotificationSupported={isSupported}
           />
         )}
 
@@ -313,7 +418,6 @@ const App: React.FC = () => {
             onImportTheme={handleImportTheme}
             addToast={addToast}
             syncRemindersToServer={syncRemindersToServer}
-            onSubscriptionSuccess={handleSubscriptionSuccess}
           />
         )}
       </main>
@@ -327,6 +431,17 @@ const App: React.FC = () => {
           <Plus size={24} />
         </button>
       )}
+
+      <ConfirmationDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText={confirmDialog.confirmText}
+        confirmButtonVariant={confirmDialog.confirmButtonVariant}
+        tertiaryAction={confirmDialog.tertiaryAction}
+      />
     </div>
   );
 };

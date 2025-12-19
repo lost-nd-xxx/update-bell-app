@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Plus, AlertTriangle, Clock, Calendar, Loader2 } from "lucide-react";
+import {
+  X,
+  Plus,
+  AlertTriangle,
+  Clock,
+  Calendar,
+  Loader2,
+  Sunrise,
+  Sun,
+  Sunset,
+  Moon,
+} from "lucide-react";
 import { Reminder, Schedule, DateFilterType, ScheduleType } from "../types";
 import {
   isValidUrl,
@@ -504,7 +515,7 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
               <option value="daily">毎日</option>
               <option value="interval">数日ごと</option>
               <option value="specific_days">毎週〇曜日</option>
-              <option value="weekly">N週間ごと</option>
+              <option value="weekly">〇週間ごと</option>
               <option value="monthly">毎月第〇週</option>
             </select>
           </div>
@@ -702,9 +713,39 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              通知時刻
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              通知時刻 *
             </label>
+
+            <div className="flex flex-wrap gap-2 mb-3 items-center">
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                設定例:
+              </span>
+              {[
+                { label: "朝", h: 8, m: 0, Icon: Sunrise },
+                { label: "昼", h: 12, m: 0, Icon: Sun },
+                { label: "夕", h: 18, m: 0, Icon: Sunset },
+                { label: "夜", h: 22, m: 0, Icon: Moon },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => {
+                    const hStr = preset.h.toString().padStart(2, "0");
+                    const mStr = preset.m.toString().padStart(2, "0");
+                    setHourInput(hStr);
+                    setMinuteInput(mStr);
+                    updateSchedule({ hour: preset.h, minute: preset.m });
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full transition-colors border border-gray-200 dark:border-gray-700 flex items-center gap-1"
+                >
+                  <preset.Icon size={14} />
+                  {preset.label} {preset.h}:
+                  {preset.m.toString().padStart(2, "0")}
+                </button>
+              ))}
+            </div>
+
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <input
@@ -807,13 +848,24 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
         </div>
 
         <div>
-          <label
-            htmlFor="tag-input"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-          >
-            タグ
-          </label>
-          <div className="flex items-start gap-2 mb-1">
+          <div className="flex justify-between items-center mb-2">
+            <label
+              htmlFor="tag-input"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              タグ
+            </label>
+            <span
+              className={`text-xs ${
+                tagInput.length > TAG_MAX_LENGTH
+                  ? "text-red-500"
+                  : "text-gray-500"
+              }`}
+            >
+              {tagInput.length}/{TAG_MAX_LENGTH}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
             <div className="flex-1">
               <input
                 id="tag-input"
@@ -844,31 +896,18 @@ const CreateReminder: React.FC<CreateReminderProps> = ({
               <Plus size={16} />
             </button>
           </div>
-          <div className="flex justify-between items-center px-1">
-            <div
-              className={`text-sm ${
-                errors.tag ? "text-red-600 dark:text-red-400" : "h-5"
-              }`}
-            >
-              {errors.tag && <p>{errors.tag}</p>}
-            </div>
-            <span
-              className={`text-xs ${
-                tagInput.length > TAG_MAX_LENGTH
-                  ? "text-red-500"
-                  : "text-gray-500"
-              }`}
-            >
-              {tagInput.length}/{TAG_MAX_LENGTH}
-            </span>
-          </div>
+          {errors.tag && (
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+              {errors.tag}
+            </p>
+          )}
 
           {formData.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
               {formData.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-3 py-1 rounded-full text-sm"
+                  className="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-3 py-1.5 rounded-full text-sm"
                 >
                   #{tag}
                   <button
