@@ -5,7 +5,7 @@ URLを添えてリマインド通知するPWA（Progressive Web App）です。
 
 ## ライブデモ
 
-**[https://update-bell-app.vercel.app/]**
+**ライブデモは現在停止中です**
 
 PWAとしてホーム画面にインストールして使用することをお勧めします。
 
